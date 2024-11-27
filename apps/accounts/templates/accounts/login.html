@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="login-container">
+    <div class="logo">
+        <img src="{% static 'images/logo.png' %}" alt="Logo">
+    </div>
+    
+    <div class="login-box">
+        <h1>Sign in</h1>
+        <p class="subtitle">It's great to see you again</p>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="POST" action="{% url 'accounts:login' %}">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+                <span class="required">Required</span>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-input">
+                    <input type="password" id="password" name="password" required>
+                    <button type="button" class="show-password">Show</button>
+                </div>
+                <span class="required">Required</span>
+                <a href="{% url 'accounts:password_reset' %}" class="forgot-password">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="sign-in-button">Sign in</button>
+        </form>
+
+        <div class="create-account">
+            <span>New here? </span>
+            <a href="{% url 'accounts:register' %}">Create a free account</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>© {% now "Y" %} YourApp | <a href="#">BAA</a> | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+    </div>
+</div>
+{% endblock %}
