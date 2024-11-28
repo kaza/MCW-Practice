@@ -32,18 +32,22 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
+   'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'apps.accounts.middleware.LoginRequiredMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
+AUTH_USER_MODEL = 'accounts.Login'
+# Add authentication backends
+AUTHENTICATION_BACKENDS = [
+    'apps.accounts.auth.EmailAuthBackend',
+]
 
 # Templates
 TEMPLATES = [
@@ -88,6 +92,5 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Auth settings
-LOGIN_URL = 'accounts:login'
-LOGIN_REDIRECT_URL = 'accounts:profile'
-LOGOUT_REDIRECT_URL = 'home' 
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'admin_dashboard:home' 
