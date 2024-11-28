@@ -5,10 +5,61 @@
 
 SimplePractice/
 │
-├── manage.py
-├── requirements.txt
-├── .env
-├── .gitignore
+├── apps/                      # Application modules
+│   ├── accounts/             # User authentication and profiles
+│   │   ├── migrations/
+│   │   │   └── __init__.py
+│   │   ├── templates/
+│   │   │   └── accounts/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   │
+│   ├── admin_dashboard/      # Admin dashboard specific
+│   │   ├── migrations/
+│   │   │   └── __init__.py
+│   │   ├── templates/
+│   │   │   └── admin_dashboard/
+│   │   ├── static/
+│   │   │   └── admin_dashboard/
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   │
+│   ├── clinician_dashboard/  # Clinician dashboard specific
+│   │   ├── migrations/
+│   │   │   └── __init__.py
+│   │   ├── templates/
+│   │   │   └── clinician_dashboard/
+│   │   ├── static/
+│   │   │   └── clinician_dashboard/
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   │
+│   └── client_dashboard/     # Client dashboard specific
+│       ├── migrations/
+│       │   └── __init__.py
+│       ├── templates/
+│       │   └── client_dashboard/
+│       ├── static/
+│       │   └── client_dashboard/
+│       ├── __init__.py
+│       ├── apps.py
+│       ├── forms.py
+│       ├── models.py
+│       ├── urls.py
+│       └── views.py
 │
 ├── config/                     # Project configuration
 │   ├── __init__.py
@@ -30,63 +81,10 @@ SimplePractice/
 │   ├── components/            # Reusable components
 │   └── layouts/               # Base layouts
 │
-├── apps/                      # Application modules
-│   ├── accounts/             # User authentication and profiles
-│   │   ├── migrations/
-│   │   ├── templates/
-│   │   │   └── accounts/
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── apps.py
-│   │   ├── forms.py
-│   │   ├── models.py
-│   │   ├── urls.py
-│   │   └── views.py
-│   │
-│   ├── admin_dashboard/      # Admin dashboard specific
-│   │   ├── migrations/
-│   │   ├── templates/
-│   │   │   └── admin_dashboard/
-│   │   ├── static/
-│   │   │   └── admin_dashboard/
-│   │   ├── __init__.py
-│   │   ├── apps.py
-│   │   ├── forms.py
-│   │   ├── models.py
-│   │   ├── urls.py
-│   │   └── views.py
-│   │
-│   ├── clinician_dashboard/  # Clinician dashboard specific
-│   │   ├── migrations/
-│   │   ├── templates/
-│   │   │   └── clinician_dashboard/
-│   │   ├── static/
-│   │   │   └── clinician_dashboard/
-│   │   ├── __init__.py
-│   │   ├── apps.py
-│   │   ├── forms.py
-│   │   ├── models.py
-│   │   ├── urls.py
-│   │   └── views.py
-│   │
-│   └── client_dashboard/     # Client dashboard specific
-│       ├── migrations/
-│       ├── templates/
-│       │   └── client_dashboard/
-│       ├── static/
-│       │   └── client_dashboard/
-│       ├── __init__.py
-│       ├── apps.py
-│       ├── forms.py
-│       ├── models.py
-│       ├── urls.py
-│       └── views.py
-│
-└── utils/                    # Shared utilities
-    ├── __init__.py
-    ├── decorators.py
-    ├── mixins.py
-    └── helpers.py
+├── manage.py
+├── requirements.txt
+├── .env
+├── .gitignore
 
 
 ## Installation
