@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+    {{ block.super }}
+    {% block dashboard_extra_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="flex h-screen bg-gray-100">
+    <!-- Include Sidebar Menu -->
+    {% include 'components/sidebar_menu.html' %}
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        {% block dashboard_header %}{% endblock %}
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 overflow-auto p-4">
+            {% block dashboard_content %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    {% block dashboard_extra_js %}{% endblock %}
+{% endblock %}

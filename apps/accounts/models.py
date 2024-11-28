@@ -13,8 +13,6 @@ class Login(models.Model):
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES)
     is_active = models.BooleanField(default=True)
     last_login = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'login'

@@ -1,53 +1,120 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="login-container">
-    <div class="logo">
-        <img src="{% static 'images/logo.png' %}" alt="Logo">
+<div class="min-h-screen bg-gray-50 flex flex-col justify-start pt-8 sm:pt-16">
+    <!-- Session Timeout Alert -->
+    {% if messages %}
+    <div class="max-w-md mx-auto mb-4">
+        {% for message in messages %}
+        <div class="bg-orange-50 border border-orange-200 rounded-md p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-orange-500"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-orange-700">{{ message }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    
-    <div class="login-box">
-        <h1>Sign in</h1>
-        <p class="subtitle">It's great to see you again</p>
+    {% endif %}
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
+    <!-- Logo -->
+    <div class="mb-8 text-center">
+        <h1 class="text-2xl font-semibold text-gray-800">SimplePractice</h1>
+    </div>
 
-        <form method="POST" action="{% url 'accounts:login' %}">
+    <!-- Login Form -->
+    <div class="max-w-md w-full mx-auto bg-white p-8 rounded-lg shadow-sm">
+        <div class="text-center mb-6">
+            <h2 class="text-xl font-semibold text-gray-800">Sign in</h2>
+            <p class="text-gray-600 text-sm mt-1">It's great to see you again</p>
+        </div>
+
+        <form method="post" class="space-y-4">
             {% csrf_token %}
-            
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" required>
-                <span class="required">Required</span>
+            <div>
+                <label for="email" class="block text-sm text-gray-700 mb-1">Email</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email"
+                    class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                >
+                {% if form.email.errors %}
+                <p class="text-red-500 text-xs mt-1">Required</p>
+                {% endif %}
             </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <div class="password-input">
-                    <input type="password" id="password" name="password" required>
-                    <button type="button" class="show-password">Show</button>
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label for="password" class="block text-sm text-gray-700">Password</label>
+                    <a href="#" class="text-sm text-blue-500 hover:underline">Forgot password?</a>
                 </div>
-                <span class="required">Required</span>
-                <a href="{% url 'accounts:password_reset' %}" class="forgot-password">Forgot password?</a>
+                <div class="relative">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password"
+                        class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                    >
+                    <button 
+                        type="button"
+                        onclick="togglePassword()"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                    >
+                        <i class="fas fa-eye" id="togglePassword"></i>
+                    </button>
+                </div>
+                {% if form.password.errors %}
+                <p class="text-red-500 text-xs mt-1">Required</p>
+                {% endif %}
             </div>
 
-            <button type="submit" class="sign-in-button">Sign in</button>
+            <button 
+                type="submit"
+                class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+                Sign in
+            </button>
         </form>
 
-        <div class="create-account">
-            <span>New here? </span>
-            <a href="{% url 'accounts:register' %}">Create a free account</a>
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600">
+                New here? 
+                <a href="#" class="text-blue-500 hover:underline">Create a free account</a>
+            </p>
         </div>
     </div>
 
-    <div class="footer">
-        <p>© {% now "Y" %} YourApp | <a href="#">BAA</a> | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
-    </div>
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-sm text-gray-500">
+        <p>
+            © 2024 SimplePractice | 
+            <a href="#" class="text-blue-500 hover:underline">BAA</a> | 
+            <a href="#" class="text-blue-500 hover:underline">Terms</a> | 
+            <a href="#" class="text-blue-500 hover:underline">Privacy</a>
+        </p>
+    </footer>
 </div>
+
+<script>
+function togglePassword() {
+    const password = document.getElementById('password');
+    const toggleIcon = document.getElementById('togglePassword');
+    
+    if (password.type === 'password') {
+        password.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        password.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+</script>
 {% endblock %}

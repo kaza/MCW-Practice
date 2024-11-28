@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     
     # Local apps
     'apps.accounts',
-    # 'apps.admin_dashboard',
+    'apps.admin_dashboard',
     # 'apps.clinician_dashboard',
     # 'apps.client_dashboard',
 ]
@@ -39,6 +39,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.accounts.middleware.LoginRequiredMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -56,6 +57,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.core.context_processors.menu_items',
             ],
         },
     },
