@@ -1,5 +1,6 @@
 {% extends 'layouts/dashboard.html' %}
 
 {% block dashboard_content %}
+    {% include 'admin_dashboard/components/header.html' %}
     {% include 'components/calendar.html' with calendar_id='admin-calendar' %}
 {% endblock %}

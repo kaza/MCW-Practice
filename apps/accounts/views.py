@@ -2,8 +2,9 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.views import View
-from django.contrib.auth import login, get_user_model
+from django.contrib.auth import login, get_user_model, logout
 from django.utils import timezone
+from django.urls import reverse
 
 Login = get_user_model()
 
@@ -44,3 +45,8 @@ class LoginView(View):
         elif user.user_type == 'CLINICIAN':
             return redirect('clinician_dashboard:home')
         return redirect('client_dashboard:home')
+
+class LogoutView(View):
+    def get(self, request):
+        logout(request)
+        return redirect(reverse('accounts:login'))

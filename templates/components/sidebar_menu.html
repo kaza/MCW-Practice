@@ -1,5 +1,5 @@
 {% comment %} templates/components/sidebar_menu.html {% endcomment %}
-<div class="w-64 bg-white shadow-sm h-screen">
+<div class="w-64 shadow-sm h-screen sidebar">
     <!-- Logo -->
     <div class="p-4 border-b">
         <h1 class="text-xl font-semibold">SimplePractice</h1>
@@ -10,13 +10,16 @@
         <div class="space-y-1">
             {% for menu_item in menu_items %}
             <a href="{{ menu_item.url }}" 
-               class="flex items-center px-3 py-2 text-sm rounded-md {% if menu_item.is_active %}bg-blue-50 text-blue-600{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+               class="flex items-center px-3 py-2 text-sm rounded-md menu-item {% if menu_item.is_active %}active{% endif %}">
                 <i class="fas {{ menu_item.icon }} mr-3"></i>
                 {{ menu_item.name }}
                 {% if menu_item.badge %}
-                <span class="ml-auto bg-red-100 text-red-600 text-xs px-2 rounded-full">{{ menu_item.badge }}</span>
+                <span class="ml-auto badge">{{ menu_item.badge }}</span>
                 {% endif %}
             </a>
+            {% if menu_item.name == 'Logout' %}
+            <div class="border-t my-2"></div>  
+            {% endif %}
             {% endfor %}
         </div>
     </nav>

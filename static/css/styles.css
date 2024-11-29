@@ -1,0 +1,28 @@
+
+/* Sidebar background color */
+.sidebar {
+    background-color: #f1f1f1;
+}
+
+/* Active menu item */
+.sidebar .menu-item.active {
+    background-color: #e0f7fa; /* Light blue background for active item */
+    color: #4488c9; 
+}
+
+/* Default menu item */
+.sidebar .menu-item {
+    color: #52646c; 
+    font-weight: bold;
+}
+
+.sidebar .menu-item:hover {
+    background-color: #e0f7fa; /* Light blue background for active item */
+    color: #4488c9; 
+}
+
+/* Badge styles */
+.badge {
+    background-color: #ff5252; /* Red background for badges */
+    color: #ffffff; /* White text color for badges */
+}
