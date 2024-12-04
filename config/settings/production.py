@@ -5,9 +5,14 @@ env = environ.Env()
 environ.Env.read_env()
 
 # Set DEBUG to False in production
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['simple-practice.azurewebsites.net']
+ALLOWED_HOSTS = [
+    'simple-practice.azurewebsites.net',
+    '.azurewebsites.net',
+    'localhost',
+    '127.0.0.1'
+]
 
 
 # Static files
