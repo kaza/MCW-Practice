@@ -5,13 +5,10 @@ env = environ.Env()
 environ.Env.read_env()
 
 # Set DEBUG to False in production
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
-    'simple-practice.azurewebsites.net',
-    '.azurewebsites.net',
-    'localhost',
-    '127.0.0.1'
+    'simple-practice.azurewebsites.net'
 ]
 
 
@@ -29,10 +26,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Replace CORS_ALLOW_ALL_ORIGINS with specific origins
-# CORS_ALLOW_ALL_ORIGINS = False
-# CORS_ALLOWED_ORIGINS = [
-#     "https://simple-practice.azurewebsites.net/",
-# ]
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "https://simple-practice.azurewebsites.net/",
+]
 
 
 DATABASES['default'].update({
