@@ -24,10 +24,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Replace CORS_ALLOW_ALL_ORIGINS with specific origins
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "https://simple-practice.azurewebsites.net/",
-]
+# CORS_ALLOW_ALL_ORIGINS = False
+# CORS_ALLOWED_ORIGINS = [
+#     "https://simple-practice.azurewebsites.net/",
+# ]
 
 
 DATABASES['default'].update({
