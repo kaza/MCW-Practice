@@ -3,9 +3,7 @@ django-allauth
 django-cors-headers
 django-environ
 django-filter
-django-mssql-backend
 djangorestframework
 pillow
-pymssql
-pyodbc
-mssql-django
+mssql-django==1.5
+pyodbc==5.1.0
