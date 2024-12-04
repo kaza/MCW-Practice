@@ -20,12 +20,17 @@ jobs:
 
       - name: Install ODBC Driver
         run: |
-          sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y unixodbc-dev unixodbc odbcinst odbcinst1debian2 libodbc1
+          sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y unixodbc-dev unixodbc odbcinst odbcinst1debian2 libodbc1 libodbc2 libodbcinst2 unixodbc-common
+          sudo rm -f /etc/odbc.ini
+          sudo rm -f /usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
+          sudo rm -f /usr/lib/x86_64-linux-gnu/libodbcinst.so.2.0.0
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
           sudo apt-get update
-          sudo ACCEPT_EULA=Y DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends msodbcsql17
+          sudo ACCEPT_EULA=Y DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --allow-downgrades msodbcsql17
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends unixodbc-dev
+          sudo apt-get clean
+          sudo apt-get update
 
       - name: Create and start virtual environment
         run: |
