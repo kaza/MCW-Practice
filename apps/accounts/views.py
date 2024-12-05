@@ -43,7 +43,7 @@ class LoginView(View):
         if user.user_type == 'ADMIN':
             return redirect('admin_dashboard:home')
         elif user.user_type == 'CLINICIAN':
-            return redirect('clinician_dashboard:home')
+            return redirect('clinician_dashboard:dashboard')
         return redirect('client_dashboard:home')
 
 class LogoutView(View):

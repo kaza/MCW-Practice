@@ -1,0 +1,103 @@
+{% load static %}
+
+<div class="scheduler-container">
+    <!-- Scheduler Toolbar -->
+    <div class="scheduler-toolbar">
+        <div id="scheduler-toolbar"></div>
+    </div>
+    
+    <!-- Scheduler Content -->
+    <div class="scheduler-content">
+        <div id="scheduler" class="h-full w-full"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const resourceData = JSON.parse('{{ scheduler_resources|safe }}');
+
+    const scheduler = new ej.schedule.Schedule({
+        width: '100%',
+        height: '100%',
+        selectedDate: new Date(),
+        cssClass: 'tailwind-scheduler',
+        views: [
+            { option: 'Day' },
+            { option: 'Week' },
+            { option: 'Month' },
+            { option: 'TimelineDay' },
+            { option: 'TimelineWeek' }
+        ],
+        group: {
+            resources: ['Resources']
+        },
+        resources: [{
+            field: 'ResourceId',
+            title: 'Clinicians',
+            name: 'Resources',
+            dataSource: resourceData,
+            textField: 'text',
+            idField: 'id',
+            colorField: 'color'
+        }],
+        eventSettings: {
+            dataSource: [],
+            fields: {
+                id: 'Id',
+                subject: { name: 'Subject' },
+                startTime: { name: 'StartTime' },
+                endTime: { name: 'EndTime' },
+                description: { name: 'Description' },
+                isAllDay: { name: 'IsAllDay' },
+                resourceId: { name: 'ResourceId' }
+            }
+        },
+        actionBegin: function(args) {
+            if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
+                const action = args.requestType.replace('event', '').toLowerCase();
+                const eventData = args.data[0] || args.data;
+                
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        ...eventData
+                    })
+                });
+            }
+        },
+        timeScale: { 
+            enable: true,
+            interval: 60,
+            slotCount: window.innerWidth < 768 ? 1 : 2
+        },
+        rowAutoHeight: false,
+        allowResizing: window.innerWidth >= 768,
+        allowDragAndDrop: window.innerWidth >= 768
+    });
+    
+    scheduler.appendTo('#scheduler');
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
+        scheduler.allowResizing = window.innerWidth >= 768;
+        scheduler.allowDragAndDrop = window.innerWidth >= 768;
+        scheduler.dataBind();
+    });
+    
+    // Load initial events
+    fetch(window.location.href, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        scheduler.eventSettings.dataSource = data;
+    });
+});
+</script>

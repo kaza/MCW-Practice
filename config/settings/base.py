@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     # Local apps
     'apps.accounts',
     'apps.admin_dashboard',
-    # 'apps.clinician_dashboard',
+    'apps.clinician_dashboard',
     # 'apps.client_dashboard',
 ]
 

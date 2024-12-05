@@ -1,0 +1,62 @@
+/* Scheduler container styles */
+.scheduler-container {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 7rem);
+}
+
+.scheduler-toolbar {
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.scheduler-content {
+    flex: 1;
+    overflow: auto;
+}
+
+/* Syncfusion scheduler overrides */
+.e-schedule {
+    height: 100% !important;
+    background: transparent !important;
+}
+
+.e-schedule .e-schedule-toolbar {
+    padding: 0.5rem !important;
+}
+
+.e-schedule .e-content-wrap {
+    overflow-y: auto !important;
+}
+
+.e-schedule .e-schedule-content {
+    height: auto !important;
+    min-height: 100% !important;
+}
+
+.e-schedule .e-vertical-view .e-content-wrap {
+    overflow-y: auto !important;
+}
+
+/* Custom scrollbar styles */
+.e-schedule ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.e-schedule ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.e-schedule ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+/* View specific styles */
+.e-schedule .e-vertical-view .e-day-wrapper {
+    min-height: 600px !important;
+}

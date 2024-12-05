@@ -6,13 +6,6 @@ class MenuConfig:
     @staticmethod
     def get_admin_menu(request):
         return [
-
-            {
-                'name': 'Calendar',
-                'url': reverse('admin_dashboard:home'),
-                'icon': 'fa-calendar-alt',
-                'is_active': request.path == reverse('admin_dashboard:home'),
-            },
             {
                 'name': 'Logout',
                 'url': reverse('accounts:logout'),
@@ -25,7 +18,18 @@ class MenuConfig:
     @staticmethod
     def get_clinician_menu(request):
         return [
-            
+             {
+                'name': 'Calendar',
+                'url': reverse('clinician_dashboard:dashboard'),
+                'icon': 'fa-calendar-alt',
+                'is_active': request.path == reverse('clinician_dashboard:dashboard'),
+            },
+             {
+                'name': 'Logout',
+                'url': reverse('accounts:logout'),
+                'icon': 'fa-sign-out-alt',
+                'is_active': False,
+            },
         ]
 
     @staticmethod

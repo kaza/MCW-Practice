@@ -1,0 +1,12 @@
+{% extends 'layouts/dashboard.html' %}
+
+{% load static %}
+
+{% block dashboard_extra_css %}
+    <link href="{% static 'clinician_dashboard/css/styles.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block dashboard_content %}
+    {% include 'clinician_dashboard/components/header.html' %}
+    {% include 'clinician_dashboard/components/scheduler.html' %}
+{% endblock %}
