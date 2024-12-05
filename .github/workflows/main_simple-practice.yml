@@ -1,3 +1,7 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
+
 name: Build and deploy Python app to Azure Web App - simple-practice
 
 on:
@@ -18,45 +22,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install ODBC Driver
-        run: |
-          sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y unixodbc-dev unixodbc odbcinst odbcinst1debian2 libodbc1 libodbc2 libodbcinst2 unixodbc-common
-          sudo rm -f /etc/odbc.ini
-          sudo rm -f /usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-          sudo rm -f /usr/lib/x86_64-linux-gnu/libodbcinst.so.2.0.0
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-          sudo apt-get update
-          sudo ACCEPT_EULA=Y DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --allow-downgrades msodbcsql17
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends unixodbc-dev
-          sudo apt-get clean
-          sudo apt-get update
-
       - name: Create and start virtual environment
         run: |
           python -m venv venv
           source venv/bin/activate
-
-      - name: Set environment variables
-        run: |
-          echo "DJANGO_SETTINGS_MODULE=config.settings.production" >> $GITHUB_ENV
       
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Collect static files
-        run: |
-          python manage.py collectstatic --noinput --settings=config.settings.production
-
-      - name: Create startup script
-        run: |
-          echo '#!/bin/bash' > startup.sh
-          echo 'python manage.py migrate --noinput' >> startup.sh
-          echo 'python manage.py collectstatic --noinput' >> startup.sh
-          echo 'gunicorn --bind 0.0.0.0 --timeout 600 --workers 4 --env DJANGO_SETTINGS_MODULE=config.settings.production config.wsgi:application' >> startup.sh
-      
-      - name: Make startup script executable
-        run: chmod +x startup.sh
+        
+      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Zip artifact for deployment
         run: zip release.zip ./* -r
@@ -76,7 +50,7 @@ jobs:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write
+      id-token: write #This is required for requesting the JWT
 
     steps:
       - name: Download artifact from build job
@@ -86,13 +60,14 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: unzip release.zip
+
       
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CC586764B622453AB8F640560629B85B }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_8AE539B8EDE84DE5ABFC2B00F08575C6 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_542FE9AC829E4AEE94D186C04A975FB6 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D5BE660AA36848DA8B1AAC8EAEF968E1 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_86D9ACBB68C6436C94062E2474985781 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_F4572D3F1E694D109792A802BCCB0BE9 }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
@@ -100,3 +75,4 @@ jobs:
         with:
           app-name: 'simple-practice'
           slot-name: 'Production'
+          
