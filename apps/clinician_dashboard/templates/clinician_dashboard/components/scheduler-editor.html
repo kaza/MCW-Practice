@@ -1,0 +1,81 @@
+{% load static %}
+
+<div class="scheduler-container">
+    <div class="scheduler-toolbar">
+        <div id="scheduler-toolbar"></div>
+    </div>
+    <div class="scheduler-content">
+        <div id="scheduler" class="h-full w-full"></div>
+    </div>
+</div>
+
+<!-- Editor Templates -->
+<script id="EventEditorTemplate" type="text/x-template">
+    <div class="editor-tabs">
+        <div class="editor-tab active" data-tab="appointment">Appointment</div>
+        <div class="editor-tab" data-tab="event">Event</div>
+        <div class="editor-tab" data-tab="outofoffice">Out of Office</div>
+    </div>
+
+    <!-- Appointment Tab -->
+    <div class="tab-content active" id="appointment-tab">
+        <!-- Client Search Section -->
+        <div class="client-section">
+            <div class="client-search-container">
+                <input id="Subject" class="e-field e-input client-search" type="text" name="Subject" placeholder="Search Client" />
+                <a href="#" class="create-client-link">+ Create client</a>
+            </div>
+        </div>
+
+        <!-- Appointment Details Section -->
+        <div class="appointment-section">
+            <h3 class="appointment-heading">Appointment details</h3>
+            <table class="custom-event-editor" width="100%" cellpadding="5">
+                <tbody>
+                    <tr>
+                        <td class="e-textlabel">Location</td>
+                        <td colspan="4">
+                            <div class="location-search-container">
+                                <input type="text" id="ResourceId" name="ResourceId" class="e-field location-search" placeholder="Search Location" />
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="e-textlabel">From</td>
+                        <td colspan="4">
+                            <input id="StartTime" class="e-field" type="text" name="StartTime" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="e-textlabel">To</td>
+                        <td colspan="4">
+                            <input id="EndTime" class="e-field" type="text" name="EndTime" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="e-textlabel">All Day</td>
+                        <td colspan="4">
+                            <input id="IsAllDay" class="e-field" type="checkbox" name="IsAllDay" />
+                        </td>
+                    </tr>
+                    <tr> 
+                        <td class="e-textlabel">Recurrence</td>
+                        <td colspan="4"> 
+                            <div id='RecurrenceEditor'></div> 
+                        </td> 
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Event Tab -->
+    <div class="tab-content" id="event-tab">
+        <!-- Event tab content -->
+    </div>
+
+    <!-- Out of Office Tab -->
+    <div class="tab-content" id="outofoffice-tab">
+        <!-- Out of office tab content -->
+    </div>
+</script>

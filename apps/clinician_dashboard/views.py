@@ -78,11 +78,58 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             }
         ]
     
+    @staticmethod
+    def get_mock_clients():
+        """Returns mock client data"""
+        return [
+            {
+                'id': 1,
+                'name': 'Alice Parker',
+                'email': 'alice.parker@email.com',
+                'phone': '(555) 123-4567'
+            },
+            {
+                'id': 2,
+                'name': 'Bob Wilson',
+                'email': 'bob.wilson@email.com',
+                'phone': '(555) 234-5678'
+            },
+            {
+                'id': 3,
+                'name': 'Carol Martinez',
+                'email': 'carol.m@email.com',
+                'phone': '(555) 345-6789'
+            }
+        ]   
+
+    @staticmethod
+    def get_mock_locations():
+        """Returns mock location data"""
+        return [
+            {
+                'id': 1,        
+                'name': 'Saint Petersburg McNulty Counseling and Wellness',
+                'address': '123 Main St, Saint Petersburg, FL'
+            },
+            {
+                'id': 2,
+                'name': 'Tampa Branch Office',
+                'address': '456 Bay Street, Tampa, FL'
+            },
+            {
+                'id': 3,
+                'name': 'Clearwater Medical Center',
+                'address': '789 Beach Blvd, Clearwater, FL'
+            }
+        ]
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['scheduler_resources'] = json.dumps(self.get_mock_resources())
+        context['mock_clients'] = json.dumps(self.get_mock_clients())
+        context['mock_locations'] = json.dumps(self.get_mock_locations())
         return context
-    
+        
     def get(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse(self.get_mock_events(), safe=False)

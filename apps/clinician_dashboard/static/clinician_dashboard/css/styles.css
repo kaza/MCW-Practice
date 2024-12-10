@@ -60,3 +60,197 @@
 .e-schedule .e-vertical-view .e-day-wrapper {
     min-height: 600px !important;
 }
+
+/* Scheduler Container Styles */
+.scheduler-container {
+    height: 100%;
+    width: 100%;
+}
+
+/* Editor Styles */
+.custom-event-editor .e-textlabel {
+    padding-right: 15px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.custom-event-editor td {
+    padding: 7px;
+    padding-right: 16px;
+}
+
+/* Tabs Styles */
+.editor-tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 15px;
+}
+
+.editor-tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    margin-bottom: -1px;
+}
+
+.editor-tab.active {
+    border-color: #ddd;
+    border-bottom-color: white;
+    background: white;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Client Search Styles */
+.client-search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.client-search {
+    padding-right: 100px;
+}
+
+.create-client-link {
+    position: absolute;
+    right: 10px;
+    color: #007bff;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.create-client-link:hover {
+    text-decoration: underline;
+}
+
+/* Appointment Heading */
+.appointment-heading {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+/* Location Dropdown */
+.location-dropdown {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.create-client-form .form-group {
+    margin-bottom: 15px;
+}
+
+.create-client-form label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.create-client-form .e-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+/* Client Section Styles */
+.client-section {
+    margin-bottom: 24px;
+    padding: 16px;
+    border-radius: 4px;
+}
+
+.client-search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.client-search {
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.create-client-link {
+    position: absolute;
+    right: 12px;
+    color: #007bff;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+/* Appointment Section Styles */
+.appointment-section {
+    padding: 16px;
+}
+
+.appointment-heading {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    color: #333;
+}
+
+/* Location Search Styles */
+.location-search-container {
+    position: relative;
+}
+
+.location-search {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+/* Editor Styles */
+.custom-event-editor .e-textlabel {
+    padding-right: 15px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.custom-event-editor td {
+    padding: 7px;
+    padding-right: 16px;
+}
+
+/* Tab Styles */
+.editor-tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 15px;
+}
+
+.editor-tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    margin-bottom: -1px;
+}
+
+.editor-tab.active {
+    border-color: #ddd;
+    border-bottom-color: white;
+    background: white;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}

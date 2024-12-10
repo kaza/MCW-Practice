@@ -1,103 +1,396 @@
 {% load static %}
 
-<div class="scheduler-container">
-    <!-- Scheduler Toolbar -->
-    <div class="scheduler-toolbar">
-        <div id="scheduler-toolbar"></div>
-    </div>
-    
-    <!-- Scheduler Content -->
-    <div class="scheduler-content">
-        <div id="scheduler" class="h-full w-full"></div>
-    </div>
-</div>
+{% block content %}
+{% include 'clinician_dashboard/components/scheduler-editor.html' %}
+{% endblock %}
+
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const resourceData = JSON.parse('{{ scheduler_resources|safe }}');
+    document.addEventListener('DOMContentLoaded', function () {
+        const resourceData = JSON.parse('{{ scheduler_resources|safe }}');
+        // Initialize Scheduler
+        const scheduler = new ej.schedule.Schedule({
+            width: '100%',
+            height: '100%',
+            selectedDate: new Date(),
+            cssClass: 'tailwind-scheduler',
+            views: [
+                { option: 'Day' },
+                { option: 'Week' },
+                { option: 'Month' },
+                { option: 'TimelineDay' },
+                { option: 'TimelineWeek' }
+            ],
+            group: {
+                resources: ['Resources']
+            },
+            resources: [{
+                field: 'ResourceId',
+                title: 'Location',
+                name: 'Resources',
+                dataSource: resourceData,
+                textField: 'text',
+                idField: 'id',
+                colorField: 'color'
+            }],
+            eventSettings: {
+                dataSource: [],
+                fields: {
+                    id: 'Id',
+                    subject: { name: 'Subject' },
+                    startTime: { name: 'StartTime' },
+                    endTime: { name: 'EndTime' },
+                    description: { name: 'Description' },
+                    isAllDay: { name: 'IsAllDay' },
+                    resourceId: { name: 'ResourceId' }
+                }
+            },
+            editorTemplate: '#EventEditorTemplate',
+            popupOpen: function (args) {
+                if (args.type === 'Editor') {
+                    initializeEditorComponents(args);
+                    // Recurrence Editor initialization
+                    let recurElement = args.element.querySelector('#RecurrenceEditor');
+                    if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
+                        let recurrObject = new ej.schedule.RecurrenceEditor({
+                            // You can add specific configuration here if needed
+                        });
+                        recurrObject.appendTo(recurElement);
+                        scheduler.eventWindow.recurrenceEditor = recurrObject;
+                    }
 
-    const scheduler = new ej.schedule.Schedule({
-        width: '100%',
-        height: '100%',
-        selectedDate: new Date(),
-        cssClass: 'tailwind-scheduler',
-        views: [
-            { option: 'Day' },
-            { option: 'Week' },
-            { option: 'Month' },
-            { option: 'TimelineDay' },
-            { option: 'TimelineWeek' }
-        ],
-        group: {
-            resources: ['Resources']
-        },
-        resources: [{
-            field: 'ResourceId',
-            title: 'Clinicians',
-            name: 'Resources',
-            dataSource: resourceData,
-            textField: 'text',
-            idField: 'id',
-            colorField: 'color'
-        }],
-        eventSettings: {
-            dataSource: [],
-            fields: {
-                id: 'Id',
-                subject: { name: 'Subject' },
-                startTime: { name: 'StartTime' },
-                endTime: { name: 'EndTime' },
-                description: { name: 'Description' },
-                isAllDay: { name: 'IsAllDay' },
-                resourceId: { name: 'ResourceId' }
-            }
-        },
-        actionBegin: function(args) {
-            if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
-                const action = args.requestType.replace('event', '').toLowerCase();
-                const eventData = args.data[0] || args.data;
-                
-                fetch(window.location.href, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: action,
-                        ...eventData
-                    })
-                });
-            }
-        },
-        timeScale: { 
-            enable: true,
-            interval: 60,
-            slotCount: window.innerWidth < 768 ? 1 : 2
-        },
-        rowAutoHeight: false,
-        allowResizing: window.innerWidth >= 768,
-        allowDragAndDrop: window.innerWidth >= 768
-    });
-    
-    scheduler.appendTo('#scheduler');
+                    // Hide recurrence editor for occurrence editing
+                    if (recurElement) {
+                        recurElement.style.display = (scheduler.currentAction === "EditOccurrence") ? 'none' : 'block';
+                    }
+                }
+            },
+            actionBegin: function (args) {
+                if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
+                    const action = args.requestType.replace('event', '').toLowerCase();
+                    const eventData = args.data[0] || args.data;
 
-    // Handle window resize
-    window.addEventListener('resize', function() {
-        scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
-        scheduler.allowResizing = window.innerWidth >= 768;
-        scheduler.allowDragAndDrop = window.innerWidth >= 768;
-        scheduler.dataBind();
-    });
-    
-    // Load initial events
-    fetch(window.location.href, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+                    fetch(window.location.href, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: JSON.stringify({
+                            action: action,
+                            ...eventData
+                        })
+                    });
+                }
+            },
+            timeScale: {
+                enable: true,
+                interval: 60,
+                slotCount: window.innerWidth < 768 ? 1 : 2
+            },
+            rowAutoHeight: false,
+            allowResizing: window.innerWidth >= 768,
+            allowDragAndDrop: window.innerWidth >= 768
+        });
+
+        scheduler.appendTo('#scheduler');
+
+        // Handle window resize
+        window.addEventListener('resize', function () {
+            scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
+            scheduler.allowResizing = window.innerWidth >= 768;
+            scheduler.allowDragAndDrop = window.innerWidth >= 768;
+            scheduler.dataBind();
+        });
+
+        // Load initial events
+        fetch(window.location.href, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                scheduler.eventSettings.dataSource = data;
+            })
+            .catch(error => {
+                console.error('Error loading events:', error);
+            });
+
+        // Initialize editor components
+        function initializeEditorComponents(args) {
+            const container = args.element;
+
+            // Initialize all components
+            initializeTabs(container);
+            initializeClientSearch(container);
+            initializeDateTimePickers(container);
+            initializeLocationDropdown(container);
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        scheduler.eventSettings.dataSource = data;
     });
-});
+    // Tab initialization function
+    function initializeTabs(container) {
+        const tabs = container.querySelectorAll('.editor-tab');
+        const contents = container.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+
+                // Add active class to clicked tab and its content
+                tab.classList.add('active');
+                const contentId = `${tab.getAttribute('data-tab')}-tab`;
+                container.querySelector(`#${contentId}`).classList.add('active');
+            });
+        });
+
+    }
+
+    // Client search initialization function
+    function initializeClientSearch(container) {
+        const clientSearch = container.querySelector('#Subject');
+
+        // Initialize ComboBox for client search
+        new ej.dropdowns.ComboBox({
+            dataSource: [],
+            fields: { text: 'name', value: 'id' },
+            placeholder: 'Search Client',
+            allowFiltering: true,
+            popupHeight: '200px',
+            filtering: async (e) => {
+                if (e.text.length >= 2) { // Only search when 2 or more characters are typed
+                    try {
+                        const response = await fetch(`/api/clients/search?q=${e.text}`, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json'
+                            }
+                        });
+                        if (response.ok) {
+                            const clients = await response.json();
+                            e.updateData(clients);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching clients:', error);
+                    }
+                }
+            },
+            noRecordsTemplate: '<div class="no-records">No clients found</div>'
+        });
+
+        // Handle Create Client link
+        const createClientLink = container.querySelector('.create-client-link');
+        if (createClientLink) {
+            createClientLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                openCreateClientModal();
+            });
+        }
+    }
+
+    // Create client modal function
+    function openCreateClientModal() {
+        // Create modal dialog using ej.popups.Dialog
+        const modal = new ej.popups.Dialog({
+            header: 'Create New Client',
+            content: `
+        <div class="create-client-form">
+            <div class="form-group">
+                <label>Client Name</label>
+                <input type="text" id="newClientName" class="e-input" />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="newClientEmail" class="e-input" />
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="tel" id="newClientPhone" class="e-input" />
+            </div>
+        </div>
+    `,
+            buttons: [
+                {
+                    click: async () => {
+                        const clientData = {
+                            name: document.getElementById('newClientName').value,
+                            email: document.getElementById('newClientEmail').value,
+                            phone: document.getElementById('newClientPhone').value
+                        };
+
+                        try {
+                            const response = await fetch('/api/clients/create', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': getCsrfToken()
+                                },
+                                body: JSON.stringify(clientData)
+                            });
+
+                            if (response.ok) {
+                                const newClient = await response.json();
+                                // Update the client dropdown with the new client
+                                const clientSearch = document.querySelector('#Subject');
+                                if (clientSearch && clientSearch.ej2_instances) {
+                                    const comboBox = clientSearch.ej2_instances[0];
+                                    comboBox.addItem(newClient);
+                                    comboBox.value = newClient.id;
+                                }
+                                modal.hide();
+                            }
+                        } catch (error) {
+                            console.error('Error creating client:', error);
+                        }
+                    },
+                    buttonModel: { content: 'Create', isPrimary: true }
+                },
+                {
+                    click: () => modal.hide(),
+                    buttonModel: { content: 'Cancel' }
+                }
+            ],
+            width: '400px',
+            isModal: true,
+            visible: false,
+            showCloseIcon: true
+        });
+
+        modal.appendTo('#createClientModal');
+        modal.show();
+    }
+
+    // Date/time pickers initialization function
+    function initializeDateTimePickers(container) {
+        const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
+        const endTimeInputs = container.querySelectorAll('input[name="EndTime"]');
+        const isAllDayInputs = container.querySelectorAll('input[name="IsAllDay"]');
+
+        // Initialize IsAllDay checkbox
+        isAllDayInputs.forEach(input => {
+            if (!input.classList.contains('e-checkbox')) {
+                new ej.buttons.CheckBox({
+                    checked: false,
+                    change: (e) => {
+                        updateDateTimePickers(container, e.checked);
+                    }
+                }, input);
+            }
+        });
+
+        // Initialize date/time pickers
+        function initializePickers(isAllDay = false) {
+            startTimeInputs.forEach(input => {
+                if (input.ej2_instances) {
+                    input.ej2_instances[0].destroy();
+                }
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            });
+
+            endTimeInputs.forEach(input => {
+                if (input.ej2_instances) {
+                    input.ej2_instances[0].destroy();
+                }
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            });
+        }
+
+        // Initial setup
+        const isAllDay = container.querySelector('input[name="IsAllDay"]').ej2_instances[0].checked;
+        initializePickers(isAllDay);
+    }
+
+    // Location dropdown initialization function
+    function initializeLocationDropdown(container) {
+        const locationDropdowns = container.querySelectorAll('input[name="ResourceId"]');
+
+        locationDropdowns.forEach(dropdown => {
+            if (!dropdown.classList.contains('e-dropdownlist')) {
+                new ej.dropdowns.DropDownList({
+                    dataSource: JSON.parse('{{ scheduler_resources|safe }}'),
+                    fields: { text: 'text', value: 'id' },
+                    placeholder: 'Select Location',
+                    popupHeight: '200px',
+                    cssClass: 'location-dropdown',
+                    value: dropdown.value || undefined
+                }, dropdown);
+            }
+        });
+    }
+
+    // Utility function to get CSRF token
+    function getCsrfToken() {
+        const csrfCookie = document.cookie
+            .split(';')
+            .find(cookie => cookie.trim().startsWith('csrftoken='));
+        return csrfCookie ? csrfCookie.split('=')[1] : '';
+    }
+
+    // Function to update date/time pickers when AllDay is toggled
+    function updateDateTimePickers(container, isAllDay) {
+        const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
+        const endTimeInputs = container.querySelectorAll('input[name="EndTime"]');
+
+        startTimeInputs.forEach(input => {
+            if (input.ej2_instances) {
+                const currentDate = input.ej2_instances[0].value;
+                input.ej2_instances[0].destroy();
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            }
+        });
+
+        endTimeInputs.forEach(input => {
+            if (input.ej2_instances) {
+                const currentDate = input.ej2_instances[0].value;
+                input.ej2_instances[0].destroy();
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            }
+        });
+    }
 </script>
