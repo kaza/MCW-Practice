@@ -19,24 +19,23 @@
 
     <!-- Appointment Tab -->
     <div class="tab-content active" id="appointment-tab">
-        <!-- Client Search Section -->
-        <div class="client-section">
-            <div class="client-search-container">
-                <input id="Subject" class="e-field e-input client-search" type="text" name="Subject" placeholder="Search Client" />
-                <a href="#" class="create-client-link">+ Create client</a>
-            </div>
-        </div>
-
         <!-- Appointment Details Section -->
         <div class="appointment-section">
-            <h3 class="appointment-heading">Appointment details</h3>
             <table class="custom-event-editor" width="100%" cellpadding="5">
                 <tbody>
+                    <tr>
+                        <td class="e-textlabel">Client</td>
+                        <td colspan="4">
+                            <div class="location-search-container">
+                                <input type="text" id="Client" name="Client"  class="e-field location-search"  placeholder="Search Client" />
+                            </div>
+                        </td>
+                    </tr>
                     <tr>
                         <td class="e-textlabel">Location</td>
                         <td colspan="4">
                             <div class="location-search-container">
-                                <input type="text" id="ResourceId" name="ResourceId" class="e-field location-search" placeholder="Search Location" />
+                                <input type="text" id="location" name="location" class="e-field location-search" placeholder="Search Location" />
                             </div>
                         </td>
                     </tr>
@@ -70,12 +69,12 @@
     </div>
 
     <!-- Event Tab -->
-    <div class="tab-content" id="event-tab">
-        <!-- Event tab content -->
-    </div>
+    <!-- <div class="tab-content" id="event-tab">
+       
+    </div> -->
 
     <!-- Out of Office Tab -->
-    <div class="tab-content" id="outofoffice-tab">
-        <!-- Out of office tab content -->
-    </div>
+    <!-- <div class="tab-content" id="outofoffice-tab">
+       
+    </div> -->
 </script>

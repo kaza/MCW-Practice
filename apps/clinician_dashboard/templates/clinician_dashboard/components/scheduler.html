@@ -7,7 +7,9 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const resourceData = JSON.parse('{{ scheduler_resources|safe }}');
+        const resourceData = JSON.parse('{{ mock_clinicians|safe }}');
+        const clientData = JSON.parse('{{ mock_clients|safe }}');
+        const locationData = JSON.parse('{{ mock_locations|safe }}');
         // Initialize Scheduler
         const scheduler = new ej.schedule.Schedule({
             width: '100%',
@@ -37,10 +39,8 @@
                 dataSource: [],
                 fields: {
                     id: 'Id',
-                    subject: { name: 'Subject' },
                     startTime: { name: 'StartTime' },
                     endTime: { name: 'EndTime' },
-                    description: { name: 'Description' },
                     isAllDay: { name: 'IsAllDay' },
                     resourceId: { name: 'ResourceId' }
                 }
@@ -123,9 +123,9 @@
 
             // Initialize all components
             initializeTabs(container);
-            initializeClientSearch(container);
+            initializeClientSearch(container, clientData);
             initializeDateTimePickers(container);
-            initializeLocationDropdown(container);
+            initializeLocationDropdown(container, locationData);
         }
     });
     // Tab initialization function
@@ -148,48 +148,25 @@
 
     }
 
-    // Client search initialization function
-    function initializeClientSearch(container) {
-        const clientSearch = container.querySelector('#Subject');
+    // Updated client search initialization
+    function initializeClientSearch(container, clients) {
+    const clientSearch = container.querySelector('#Client'); 
 
-        // Initialize ComboBox for client search
-        new ej.dropdowns.ComboBox({
-            dataSource: [],
-            fields: { text: 'name', value: 'id' },
-            placeholder: 'Search Client',
-            allowFiltering: true,
-            popupHeight: '200px',
-            filtering: async (e) => {
-                if (e.text.length >= 2) { // Only search when 2 or more characters are typed
-                    try {
-                        const response = await fetch(`/api/clients/search?q=${e.text}`, {
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'Accept': 'application/json'
-                            }
-                        });
-                        if (response.ok) {
-                            const clients = await response.json();
-                            e.updateData(clients);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching clients:', error);
-                    }
-                }
-            },
-            noRecordsTemplate: '<div class="no-records">No clients found</div>'
-        });
-
-        // Handle Create Client link
-        const createClientLink = container.querySelector('.create-client-link');
-        if (createClientLink) {
-            createClientLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                openCreateClientModal();
-            });
+    const dropDownList = new ej.dropdowns.DropDownList({
+        dataSource: clients,
+        fields: { text: 'name', value: 'id' },
+        placeholder: 'Search Client',
+        allowFiltering: true,
+        popupHeight: '200px',
+        filtering: (e) => {
+            const query = new ej.data.Query().where('name', 'contains', e.text, true);
+            e.updateData(clients, query);
         }
-    }
+    });
 
+    dropDownList.appendTo(clientSearch);
+}
+  
     // Create client modal function
     function openCreateClientModal() {
         // Create modal dialog using ej.popups.Dialog
@@ -233,7 +210,7 @@
                             if (response.ok) {
                                 const newClient = await response.json();
                                 // Update the client dropdown with the new client
-                                const clientSearch = document.querySelector('#Subject');
+                                const clientSearch = document.querySelector('#Client');
                                 if (clientSearch && clientSearch.ej2_instances) {
                                     const comboBox = clientSearch.ej2_instances[0];
                                     comboBox.addItem(newClient);
@@ -325,23 +302,22 @@
     }
 
     // Location dropdown initialization function
-    function initializeLocationDropdown(container) {
-        const locationDropdowns = container.querySelectorAll('input[name="ResourceId"]');
+    function initializeLocationDropdown(container, locations) {
+        const locationDropdown = container.querySelector('input[name="location"]');
 
-        locationDropdowns.forEach(dropdown => {
-            if (!dropdown.classList.contains('e-dropdownlist')) {
-                new ej.dropdowns.DropDownList({
-                    dataSource: JSON.parse('{{ scheduler_resources|safe }}'),
-                    fields: { text: 'text', value: 'id' },
-                    placeholder: 'Select Location',
-                    popupHeight: '200px',
-                    cssClass: 'location-dropdown',
-                    value: dropdown.value || undefined
-                }, dropdown);
+        const dropDownList = new ej.dropdowns.DropDownList({
+            dataSource: locations,
+            fields: { text: 'name', value: 'id' },
+            placeholder: 'Select Location',
+            allowFiltering: true,
+            filtering: (e) => {
+                const query = new ej.data.Query().where('name', 'contains', e.text, true);
+                e.updateData(locations, query);
             }
         });
-    }
 
+        dropDownList.appendTo(locationDropdown);
+    }
     // Utility function to get CSRF token
     function getCsrfToken() {
         const csrfCookie = document.cookie
