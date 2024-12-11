@@ -10,12 +10,15 @@
         const resourceData = JSON.parse('{{ mock_clinicians|safe }}');
         const clientData = JSON.parse('{{ mock_clients|safe }}');
         const locationData = JSON.parse('{{ mock_locations|safe }}');
+
+        let currentResourceId = null; 
         // Initialize Scheduler
         const scheduler = new ej.schedule.Schedule({
             width: '100%',
             height: '100%',
             selectedDate: new Date(),
             cssClass: 'tailwind-scheduler',
+            currentView: 'Day',
             views: [
                 { option: 'Day' },
                 { option: 'Week' },
@@ -28,13 +31,14 @@
             },
             resources: [{
                 field: 'ResourceId',
-                title: 'Location',
+                title: 'Clinicians',
                 name: 'Resources',
                 dataSource: resourceData,
                 textField: 'text',
                 idField: 'id',
                 colorField: 'color'
-            }],
+            }],       
+            timezone: 'America/New_York',
             eventSettings: {
                 dataSource: [],
                 fields: {
@@ -49,6 +53,10 @@
             popupOpen: function (args) {
                 if (args.type === 'Editor') {
                     initializeEditorComponents(args);
+                    
+                    // Store the resourceId from args
+                    currentResourceId = args.data.ResourceId;
+
                     // Recurrence Editor initialization
                     let recurElement = args.element.querySelector('#RecurrenceEditor');
                     if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
@@ -64,11 +72,33 @@
                         recurElement.style.display = (scheduler.currentAction === "EditOccurrence") ? 'none' : 'block';
                     }
                 }
+                if (args.type === 'QuickInfo') {
+                    args.cancel = true;
+                }
             },
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
                     const action = args.requestType.replace('event', '').toLowerCase();
                     const eventData = args.data[0] || args.data;
+                    const resourceId = currentResourceId;
+
+                    // Determine the active tab and set the eventType accordingly
+                    const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
+                    let eventType;
+
+                    switch (activeTab) {
+                        case 'appointment':
+                            eventType = 'APPOINTMENT';
+                            break;
+                        case 'event':
+                            eventType = 'EVENT';
+                            break;
+                        case 'outofoffice':
+                            eventType = 'OUT_OF_OFFICE';
+                            break;
+                        default:
+                            eventType = 'APPOINTMENT'; 
+                    }
 
                     fetch(window.location.href, {
                         method: 'POST',
@@ -78,8 +108,29 @@
                         },
                         body: JSON.stringify({
                             action: action,
-                            ...eventData
+                            eventType: eventType, 
+                            ...eventData,
+                            resourceId: resourceId
                         })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Refresh the calendar data after successful creation
+                            fetch(window.location.href, {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => response.json())
+                            .then(updatedData => {
+                                scheduler.eventSettings.dataSource = updatedData; 
+                                scheduler.dataBind(); 
+                            })
+                            .catch(error => {
+                                console.error('Error loading updated events:', error);
+                            });
+                        }
                     });
                 }
             },
@@ -126,6 +177,21 @@
             initializeClientSearch(container, clientData);
             initializeDateTimePickers(container);
             initializeLocationDropdown(container, locationData);
+
+            // Set selected client and location if available
+            if (args.data.Client) {
+                const clientDropdown = container.querySelector('#Client');
+                const clientDropDownList = clientDropdown.ej2_instances[0];
+                clientDropDownList.value = args.data.Client;
+                clientDropDownList.dataBind(); 
+            }
+
+            if (args.data.Location) {
+                const locationDropdown = container.querySelector('#location');
+                const locationDropDownList = locationDropdown.ej2_instances[0];
+                locationDropDownList.value = args.data.Location; 
+                locationDropDownList.dataBind(); 
+            }
         }
     });
     // Tab initialization function
@@ -166,79 +232,6 @@
 
     dropDownList.appendTo(clientSearch);
 }
-  
-    // Create client modal function
-    function openCreateClientModal() {
-        // Create modal dialog using ej.popups.Dialog
-        const modal = new ej.popups.Dialog({
-            header: 'Create New Client',
-            content: `
-        <div class="create-client-form">
-            <div class="form-group">
-                <label>Client Name</label>
-                <input type="text" id="newClientName" class="e-input" />
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="newClientEmail" class="e-input" />
-            </div>
-            <div class="form-group">
-                <label>Phone</label>
-                <input type="tel" id="newClientPhone" class="e-input" />
-            </div>
-        </div>
-    `,
-            buttons: [
-                {
-                    click: async () => {
-                        const clientData = {
-                            name: document.getElementById('newClientName').value,
-                            email: document.getElementById('newClientEmail').value,
-                            phone: document.getElementById('newClientPhone').value
-                        };
-
-                        try {
-                            const response = await fetch('/api/clients/create', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRFToken': getCsrfToken()
-                                },
-                                body: JSON.stringify(clientData)
-                            });
-
-                            if (response.ok) {
-                                const newClient = await response.json();
-                                // Update the client dropdown with the new client
-                                const clientSearch = document.querySelector('#Client');
-                                if (clientSearch && clientSearch.ej2_instances) {
-                                    const comboBox = clientSearch.ej2_instances[0];
-                                    comboBox.addItem(newClient);
-                                    comboBox.value = newClient.id;
-                                }
-                                modal.hide();
-                            }
-                        } catch (error) {
-                            console.error('Error creating client:', error);
-                        }
-                    },
-                    buttonModel: { content: 'Create', isPrimary: true }
-                },
-                {
-                    click: () => modal.hide(),
-                    buttonModel: { content: 'Cancel' }
-                }
-            ],
-            width: '400px',
-            isModal: true,
-            visible: false,
-            showCloseIcon: true
-        });
-
-        modal.appendTo('#createClientModal');
-        modal.show();
-    }
-
     // Date/time pickers initialization function
     function initializeDateTimePickers(container) {
         const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');

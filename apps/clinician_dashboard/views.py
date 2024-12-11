@@ -23,9 +23,9 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
-            'mock_clinicians': json.dumps(SchedulerDataService.get_resources()),
-            'mock_clients': json.dumps(SchedulerDataService.get_clients()),
-            'mock_locations': json.dumps(SchedulerDataService.get_locations())
+            'mock_clinicians': json.dumps(list(SchedulerDataService.get_resources())),
+            'mock_clients': json.dumps(list(SchedulerDataService.get_clients())),
+            'mock_locations': json.dumps(list(SchedulerDataService.get_locations()))
         })
         return context
         
@@ -41,12 +41,21 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         data = json.loads(request.body)
         action = data.get('action')
-        
-        return JsonResponse({
-            'status': 'success',
-            'message': f'Action {action} processed successfully',
-            'data': data
-        })
+        response_data = {}
+
+        if action == 'create':
+            event_data = SchedulerDataService.create_event(data)
+            response_data = {'status': 'success', 'event': event_data}
+        elif action == 'change':
+            event_id = data.get('Id')
+            event_data = SchedulerDataService.update_event(event_id, data)
+            response_data = {'status': 'success', 'event': event_data}
+        elif action == 'remove':
+            event_id = data.get('Id')
+            SchedulerDataService.delete_event(event_id)
+            response_data = {'status': 'success', 'message': 'Event deleted'}
+
+        return JsonResponse(response_data)
 
 class ClientSearchView(View):
     def get(self, request):
