@@ -68,6 +68,28 @@
             },
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
+
+                    if (args.requestType === 'eventCreate' || args.requestType === 'eventChange') {
+                        // Get the editor element
+                        const editorElement = document.querySelector('.e-schedule-dialog');
+
+                        // Get the client and location dropdowns
+                        const clientDropdown = editorElement.querySelector('#Client').ej2_instances[0];
+                        const locationDropdown = editorElement.querySelector('#location').ej2_instances[0];
+
+                        // Validate fields
+                        if (!clientDropdown.value || !locationDropdown.value) {
+                            args.cancel = true; // Prevent the event from being created/modified
+
+                            // Show error message
+                            const errorMessage = [];
+                            if (!clientDropdown.value) errorMessage.push('Client');
+                            if (!locationDropdown.value) errorMessage.push('Location');
+
+                            alert(`Please select ${errorMessage.join(' and ')} before saving.`);
+                            return;
+                        }
+                    }
                     const action = args.requestType.replace('event', '').toLowerCase();
                     const eventData = args.data[0] || args.data;
                     const resourceId = currentResourceId;

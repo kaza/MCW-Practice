@@ -323,7 +323,7 @@ class SchedulerDataService:
                     
                     # Create occurrences
                     for occurrence_start in rule:
-                        if occurrence_start != event.start_datetime:
+                        if occurrence_start != dtstart:
                             occurrence_end = occurrence_start + event_duration
                             Event.objects.create(
                                 type_id=event.type_id,
