@@ -143,7 +143,9 @@ class Event(models.Model):
     
     # Recurrence fields
     is_recurring = models.BooleanField(default=False)
-    recurrence_rule = models.TextField(null=True, blank=True)
+    recurrence_rule = models.CharField(max_length=255, null=True, blank=True)
+    parent_event = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE)
+    occurrence_date = models.DateField(null=True, blank=True)
     
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)

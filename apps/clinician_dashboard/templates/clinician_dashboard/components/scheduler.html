@@ -11,7 +11,7 @@
         const clientData = JSON.parse('{{ mock_clients|safe }}');
         const locationData = JSON.parse('{{ mock_locations|safe }}');
 
-        let currentResourceId = null; 
+        let currentResourceId = null;
         // Initialize Scheduler
         const scheduler = new ej.schedule.Schedule({
             width: '100%',
@@ -37,7 +37,7 @@
                 textField: 'text',
                 idField: 'id',
                 colorField: 'color'
-            }],       
+            }],
             timezone: 'America/New_York',
             eventSettings: {
                 dataSource: [],
@@ -46,31 +46,21 @@
                     startTime: { name: 'StartTime' },
                     endTime: { name: 'EndTime' },
                     isAllDay: { name: 'IsAllDay' },
-                    resourceId: { name: 'ResourceId' }
-                }
+                    resourceId: { name: 'ResourceId' },
+                    recurrenceRule: { name: 'RecurrenceRule' },
+                    recurrenceException: { name: 'RecurrenceException' }
+                },
+                enableRecurrenceValidation: true
             },
             editorTemplate: '#EventEditorTemplate',
             popupOpen: function (args) {
                 if (args.type === 'Editor') {
                     initializeEditorComponents(args);
-                    
+
                     // Store the resourceId from args
                     currentResourceId = args.data.ResourceId;
 
-                    // Recurrence Editor initialization
-                    let recurElement = args.element.querySelector('#RecurrenceEditor');
-                    if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
-                        let recurrObject = new ej.schedule.RecurrenceEditor({
-                            // You can add specific configuration here if needed
-                        });
-                        recurrObject.appendTo(recurElement);
-                        scheduler.eventWindow.recurrenceEditor = recurrObject;
-                    }
 
-                    // Hide recurrence editor for occurrence editing
-                    if (recurElement) {
-                        recurElement.style.display = (scheduler.currentAction === "EditOccurrence") ? 'none' : 'block';
-                    }
                 }
                 if (args.type === 'QuickInfo') {
                     args.cancel = true;
@@ -81,6 +71,24 @@
                     const action = args.requestType.replace('event', '').toLowerCase();
                     const eventData = args.data[0] || args.data;
                     const resourceId = currentResourceId;
+
+                    const recurrenceData = {
+                        ...eventData,
+                        RecurrenceRule: eventData.RecurrenceRule || null,
+                        RecurrenceException: eventData.RecurrenceException || null
+                    };
+                    // For recurring event modifications
+                    if (args.requestType === 'eventChange' && args.modifiedData) {
+                        // Check if this is a series or occurrence edit
+                        if (args.data.RecurrenceRule) {
+                            // Series edit
+                            recurrenceData.editType = 'series';
+                        } else {
+                            // Single occurrence edit
+                            recurrenceData.editType = 'occurrence';
+                            recurrenceData.originalEventId = args.data.RecurrenceID;
+                        }
+                    }
 
                     // Determine the active tab and set the eventType accordingly
                     const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
@@ -97,7 +105,7 @@
                             eventType = 'OUT_OF_OFFICE';
                             break;
                         default:
-                            eventType = 'APPOINTMENT'; 
+                            eventType = 'APPOINTMENT';
                     }
 
                     fetch(window.location.href, {
@@ -108,30 +116,30 @@
                         },
                         body: JSON.stringify({
                             action: action,
-                            eventType: eventType, 
-                            ...eventData,
+                            eventType: eventType,
+                            ...recurrenceData,
                             resourceId: resourceId
                         })
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            // Refresh the calendar data after successful creation
-                            fetch(window.location.href, {
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest'
-                                }
-                            })
-                            .then(response => response.json())
-                            .then(updatedData => {
-                                scheduler.eventSettings.dataSource = updatedData; 
-                                scheduler.dataBind(); 
-                            })
-                            .catch(error => {
-                                console.error('Error loading updated events:', error);
-                            });
-                        }
-                    });
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                // Refresh the calendar data after successful creation
+                                fetch(window.location.href, {
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                })
+                                    .then(response => response.json())
+                                    .then(updatedData => {
+                                        scheduler.eventSettings.dataSource = updatedData;
+                                        scheduler.dataBind();
+                                    })
+                                    .catch(error => {
+                                        console.error('Error loading updated events:', error);
+                                    });
+                            }
+                        });
                 }
             },
             timeScale: {
@@ -178,19 +186,60 @@
             initializeDateTimePickers(container);
             initializeLocationDropdown(container, locationData);
 
+            // Bind existing data
+            bindExistingData(args, container);
+        }
+
+        function bindExistingData(args, container) {
+            // Recurrence Editor initialization
+            let recurElement = container.querySelector('#RecurrenceEditor');
+            if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
+                let recurrObject = new ej.schedule.RecurrenceEditor({
+                    // You can add specific configuration here if needed
+                });
+                recurrObject.appendTo(recurElement);
+                scheduler.eventWindow.recurrenceEditor = recurrObject;
+            }
+
             // Set selected client and location if available
             if (args.data.Client) {
                 const clientDropdown = container.querySelector('#Client');
                 const clientDropDownList = clientDropdown.ej2_instances[0];
                 clientDropDownList.value = args.data.Client;
-                clientDropDownList.dataBind(); 
+                clientDropDownList.dataBind();
             }
 
             if (args.data.Location) {
                 const locationDropdown = container.querySelector('#location');
                 const locationDropDownList = locationDropdown.ej2_instances[0];
-                locationDropDownList.value = args.data.Location; 
-                locationDropDownList.dataBind(); 
+                locationDropDownList.value = args.data.Location;
+                locationDropDownList.dataBind();
+            }
+
+            // Check if the event is recurring and apply the recurrence rule
+            if (args.data.IsRecurring) {
+                const recurrenceEditor = container.querySelector('#RecurrenceEditor');
+                if (recurrenceEditor) {
+                    const recurrenceEditorObj = recurrenceEditor.ej2_instances[0];
+                    if (recurrenceEditorObj) {
+                        recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
+                        recurrenceEditorObj.dataBind();
+                    }
+                }
+            }
+
+            // Bind IsAllDay checkbox
+            const isAllDayCheckbox = container.querySelector('#IsAllDay');
+            if (isAllDayCheckbox) {
+                const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
+                isAllDayInstance.checked = args.data.IsAllDay;
+                isAllDayInstance.dataBind();
+
+                if (args.data.IsAllDay) {
+                    updateDateTimePickers(container, true);
+                } else {
+                    updateDateTimePickers(container, false);
+                }
             }
         }
     });
@@ -216,22 +265,22 @@
 
     // Updated client search initialization
     function initializeClientSearch(container, clients) {
-    const clientSearch = container.querySelector('#Client'); 
+        const clientSearch = container.querySelector('#Client');
 
-    const dropDownList = new ej.dropdowns.DropDownList({
-        dataSource: clients,
-        fields: { text: 'name', value: 'id' },
-        placeholder: 'Search Client',
-        allowFiltering: true,
-        popupHeight: '200px',
-        filtering: (e) => {
-            const query = new ej.data.Query().where('name', 'contains', e.text, true);
-            e.updateData(clients, query);
-        }
-    });
+        const dropDownList = new ej.dropdowns.DropDownList({
+            dataSource: clients,
+            fields: { text: 'name', value: 'id' },
+            placeholder: 'Search Client',
+            allowFiltering: true,
+            popupHeight: '200px',
+            filtering: (e) => {
+                const query = new ej.data.Query().where('name', 'contains', e.text, true);
+                e.updateData(clients, query);
+            }
+        });
 
-    dropDownList.appendTo(clientSearch);
-}
+        dropDownList.appendTo(clientSearch);
+    }
     // Date/time pickers initialization function
     function initializeDateTimePickers(container) {
         const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
