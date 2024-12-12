@@ -1,5 +1,9 @@
 {% load static %}
 
+<div id="spinner-container" class="spinner-container">
+    <div class="spinner"></div>
+</div>
+
 {% block content %}
 {% include 'clinician_dashboard/components/scheduler-editor.html' %}
 {% endblock %}
@@ -129,7 +133,7 @@
                         default:
                             eventType = 'APPOINTMENT';
                     }
-
+                    document.getElementById('spinner-container').style.display = 'flex';
                     fetch(window.location.href, {
                         method: 'POST',
                         headers: {
@@ -161,6 +165,7 @@
                                         console.error('Error loading updated events:', error);
                                     });
                             }
+                            document.getElementById('spinner-container').style.display = 'none';
                         });
                 }
             },
