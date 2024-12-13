@@ -7,9 +7,9 @@ class MenuConfig:
     def get_admin_menu(request):
         return [
             {
-                'name': 'Dashboard',
+                'name': 'Calendar',
                 'url': reverse('admin_dashboard:dashboard'),
-                'icon': 'fa-tachometer-alt',
+                'icon': 'fa-calendar-alt',
                 'is_active': request.path == reverse('admin_dashboard:dashboard'),
             },
             {
