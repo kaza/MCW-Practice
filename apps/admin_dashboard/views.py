@@ -32,7 +32,7 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         
     def get(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse(SchedulerDataService.get_events('ADMIN'), safe=False)
+            return JsonResponse(SchedulerDataService.get_events(request.user.user_type), safe=False)
         return super().get(request, *args, **kwargs)
 
     @method_decorator(csrf_exempt)
