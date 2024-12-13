@@ -8,6 +8,7 @@ from django.utils.timezone import make_aware
 from zoneinfo import ZoneInfo
 import pytz
 from dateutil import rrule
+from django.contrib.auth.models import User 
 
 from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location
 
@@ -17,28 +18,56 @@ class SchedulerDataService:
     TIMEZONE = ZoneInfo("America/New_York")  # EST timezone
 
     @classmethod
-    def get_resources(cls) -> List[Dict[str, Any]]:
-        """Get all resources (clinicians)"""
-        return Clinician.objects.annotate(
-            text=Concat(
-                F('first_name'),
-                Value(' '),
-                F('last_name'),
-                output_field=CharField()
-            ),
-            designation=F('field')  # Using the field attribute as designation
-        ).values('id', 'text', 'color', 'designation')
+    def get_resources(cls, user_role: str, user: User) -> List[Dict[str, Any]]:
+        """Get resources (clinicians) based on user role"""
+        if user_role == 'ADMIN':
+            return Clinician.objects.annotate(
+                text=Concat(
+                    F('first_name'),
+                    Value(' '),
+                    F('last_name'),
+                    output_field=CharField()
+                ),
+                designation=F('field')
+            ).values('id', 'text', 'color', 'designation')
+        elif user_role == 'CLINICIAN':
+            clinician_id = user.id 
+            return Clinician.objects.filter(login_id=clinician_id).annotate(
+                text=Concat(
+                    F('first_name'),
+                    Value(' '),
+                    F('last_name'),
+                    output_field=CharField()
+                ),
+                designation=F('field')
+            ).values('id', 'text', 'color', 'designation')
+        return []
 
     @classmethod
-    def get_events(cls) -> List[Dict[str, Any]]:
-        """Get all scheduled events"""
-        events = Event.objects.select_related(
-            'type', 
-            'clinician', 
-            'patient', 
-            'location',
-            'status'
-        ).all()
+    def get_events(cls, user_role: str, clinician_id: int = None) -> List[Dict[str, Any]]:
+        """Get scheduled events based on user role"""
+        if user_role == 'ADMIN':
+            events = Event.objects.select_related(
+                'type', 
+                'clinician', 
+                'patient', 
+                'location',
+                'status'
+            ).all()
+        elif user_role == 'CLINICIAN' and clinician_id is not None:
+            # Get the clinician associated with the logged-in user
+            clinician = Clinician.objects.filter(login_id=clinician_id).first()
+            if clinician:
+                events = Event.objects.filter(clinician_id=clinician.id).select_related(
+                    'type', 
+                    'patient', 
+                    'location',
+                    'status'
+                ).all()
+            else:
+                return []  # No clinician found for the user
+        else:
+            return []
 
         return [cls._convert_event_to_dict(event) for event in events]
 
@@ -137,8 +166,6 @@ class SchedulerDataService:
             start_datetime=event_data['StartTime'],
             end_datetime=event_data['EndTime'],
             is_all_day=event_data.get('IsAllDay', False),
-            title=event_data.get('Subject'),
-            notes=event_data.get('Description'),
             location_id=event_data.get('location'),
             patient_id=event_data.get('Client'),
             status_id=1,
@@ -259,8 +286,6 @@ class SchedulerDataService:
             event.start_datetime = event_data['StartTime']
             event.end_datetime = event_data['EndTime']
             event.is_all_day = event_data.get('IsAllDay', False)
-            event.title = event_data.get('Subject', event.title)
-            event.notes = event_data.get('Description', event.notes)
             event.location_id = event_data.get('location')
             event.patient_id = event_data.get('Client')
             event.cancel_appointments = event_data.get('CancelAppointments', False)

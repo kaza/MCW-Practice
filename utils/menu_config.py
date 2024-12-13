@@ -7,6 +7,12 @@ class MenuConfig:
     def get_admin_menu(request):
         return [
             {
+                'name': 'Dashboard',
+                'url': reverse('admin_dashboard:dashboard'),
+                'icon': 'fa-tachometer-alt',
+                'is_active': request.path == reverse('admin_dashboard:dashboard'),
+            },
+            {
                 'name': 'Logout',
                 'url': reverse('accounts:logout'),
                 'icon': 'fa-sign-out-alt',

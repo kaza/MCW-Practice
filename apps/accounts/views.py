@@ -41,7 +41,7 @@ class LoginView(View):
         print(f"Redirecting user {user.email} with type {user.user_type}")
         
         if user.user_type == 'ADMIN':
-            return redirect('admin_dashboard:home')
+            return redirect('admin_dashboard:dashboard')
         elif user.user_type == 'CLINICIAN':
             return redirect('clinician_dashboard:dashboard')
         return redirect('client_dashboard:home')
