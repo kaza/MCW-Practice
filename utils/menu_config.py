@@ -14,7 +14,7 @@ class MenuConfig:
             },
             {
                 'name': 'Logout',
-                'url': reverse('accounts:logout'),
+                'url': '#',
                 'icon': 'fa-sign-out-alt',
                 'is_active': False,
             },
@@ -32,7 +32,7 @@ class MenuConfig:
             },
              {
                 'name': 'Logout',
-                'url': reverse('accounts:logout'),
+                'url': '#',
                 'icon': 'fa-sign-out-alt',
                 'is_active': False,
             },

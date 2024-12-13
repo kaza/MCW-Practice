@@ -1,5 +1,10 @@
-{% comment %} templates/components/sidebar_menu.html {% endcomment %}
+<!-- templates/components/sidebar_menu.html -->
 <div class="w-64 shadow-sm h-screen sidebar">
+    <!-- Hidden Logout Form -->
+    <form id="logout-form" method="post" action="{% url 'accounts:logout' %}" style="display: none;">
+        {% csrf_token %}
+    </form>
+    
     <!-- Logo -->
     <div class="p-4 border-b">
         <h1 class="text-xl font-semibold">SimplePractice</h1>
@@ -9,18 +14,58 @@
     <nav class="p-2">
         <div class="space-y-1">
             {% for menu_item in menu_items %}
-            <a href="{{ menu_item.url }}" 
-               class="flex items-center px-3 py-2 text-sm rounded-md menu-item {% if menu_item.is_active %}active{% endif %}">
-                <i class="fas {{ menu_item.icon }} mr-3"></i>
-                {{ menu_item.name }}
-                {% if menu_item.badge %}
-                <span class="ml-auto badge">{{ menu_item.badge }}</span>
+                {% if menu_item.name == 'Logout' %}
+                    <a href="#" 
+                       onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+                       class="flex items-center px-3 py-2 text-sm rounded-md menu-item {% if menu_item.is_active %}active{% endif %}">
+                        <i class="fas {{ menu_item.icon }} mr-3"></i>
+                        {{ menu_item.name }}
+                        {% if menu_item.badge %}
+                            <span class="ml-auto badge">{{ menu_item.badge }}</span>
+                        {% endif %}
+                    </a>
+                    <div class="border-t my-2"></div>
+                {% else %}
+                    <a href="{{ menu_item.url }}" 
+                       class="flex items-center px-3 py-2 text-sm rounded-md menu-item {% if menu_item.is_active %}active{% endif %}">
+                        <i class="fas {{ menu_item.icon }} mr-3"></i>
+                        {{ menu_item.name }}
+                        {% if menu_item.badge %}
+                            <span class="ml-auto badge">{{ menu_item.badge }}</span>
+                        {% endif %}
+                    </a>
                 {% endif %}
-            </a>
-            {% if menu_item.name == 'Logout' %}
-            <div class="border-t my-2"></div>  
-            {% endif %}
             {% endfor %}
         </div>
     </nav>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add loading state during logout
+    const logoutForm = document.getElementById('logout-form');
+    if (logoutForm) {
+        logoutForm.addEventListener('submit', function() {
+            const logoutLink = document.querySelector('a[onclick*="logout-form"]');
+            if (logoutLink) {
+                logoutLink.classList.add('opacity-50', 'pointer-events-none');
+                const icon = logoutLink.querySelector('i');
+                if (icon) {
+                    icon.classList.add('fa-spin');
+                }
+            }
+        });
+    }
+});
+</script>
+
+<style>
+/* Optional: Add any custom styles for the logout button */
+.menu-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.menu-item.active {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+</style>
