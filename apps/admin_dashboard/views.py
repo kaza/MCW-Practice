@@ -1,4 +1,3 @@
-# apps/admin_dashboard/views.py
 from django.views import View
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -6,8 +5,9 @@ from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from apps.shared.services.scheduler_service import SchedulerDataService
 import json
+from django.contrib.auth.decorators import login_required
+from apps.shared.services.scheduler_service import SchedulerDataService
 
 class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = 'admin_dashboard/dashboard.html'
