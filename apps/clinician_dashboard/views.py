@@ -5,8 +5,9 @@ from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .services.scheduler_service import SchedulerDataService
 import json
+from django.contrib.auth.decorators import login_required
+from apps.shared.services.scheduler_service import SchedulerDataService
 
 class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = 'clinician_dashboard/dashboard.html'
@@ -23,7 +24,7 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
-            'mock_clinicians': json.dumps(list(SchedulerDataService.get_resources())),
+            'mock_clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
             'mock_clients': json.dumps(list(SchedulerDataService.get_clients())),
             'mock_locations': json.dumps(list(SchedulerDataService.get_locations()))
         })
@@ -31,7 +32,8 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         
     def get(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse(SchedulerDataService.get_events(), safe=False)
+            clinician_id = request.user.id if request.user.user_type == 'CLINICIAN' else None
+            return JsonResponse(SchedulerDataService.get_events(request.user.user_type, clinician_id), safe=False)
         return super().get(request, *args, **kwargs)
 
     @method_decorator(csrf_exempt)
