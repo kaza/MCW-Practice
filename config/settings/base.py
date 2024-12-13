@@ -95,4 +95,4 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Auth settings
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'admin_dashboard:home' 
+LOGIN_REDIRECT_URL = 'admin_dashboard:dashboard' 
