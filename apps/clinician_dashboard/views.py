@@ -1,10 +1,11 @@
+from django.views import View
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from datetime import datetime, timedelta
+from .services.scheduler_service import SchedulerDataService
 import json
 
 class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -18,74 +19,19 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         if not self.request.user.is_authenticated:
             return redirect(self.login_url)
         return redirect('login')
-    
-    @staticmethod
-    def get_mock_resources():
-        """Returns mock resource data for the scheduler"""
-        return [
-            {
-                'id': 1,
-                'text': 'Dr. John Smith',
-                'color': '#7499e1',
-                'designation': 'Cardiologist'
-            },
-            {
-                'id': 2,
-                'text': 'Dr. Sarah Johnson',
-                'color': '#e974c3',
-                'designation': 'Neurologist'
-            },
-            {
-                'id': 3,
-                'text': 'Dr. Michael Brown',
-                'color': '#5ed363',
-                'designation': 'Pediatrician'
-            }
-        ]
 
-    @staticmethod
-    def get_mock_events():
-        """Returns mock event data for the scheduler"""
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        return [
-            {
-                'Id': 1,
-                'Subject': 'Patient Consultation',
-                'StartTime': (today + timedelta(hours=9)).isoformat(),
-                'EndTime': (today + timedelta(hours=10)).isoformat(),
-                'Description': 'Regular checkup',
-                'IsAllDay': False,
-                'ResourceId': 1
-            },
-            {
-                'Id': 2,
-                'Subject': 'Medical Assessment',
-                'StartTime': (today + timedelta(hours=11)).isoformat(),
-                'EndTime': (today + timedelta(hours=12)).isoformat(),
-                'Description': 'Initial assessment',
-                'IsAllDay': False,
-                'ResourceId': 2
-            },
-            {
-                'Id': 3,
-                'Subject': 'Follow-up Visit',
-                'StartTime': (today + timedelta(hours=14)).isoformat(),
-                'EndTime': (today + timedelta(hours=15)).isoformat(),
-                'Description': 'Follow-up consultation',
-                'IsAllDay': False,
-                'ResourceId': 3
-            }
-        ]
-    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['scheduler_resources'] = json.dumps(self.get_mock_resources())
+        context.update({
+            'mock_clinicians': json.dumps(list(SchedulerDataService.get_resources())),
+            'mock_clients': json.dumps(list(SchedulerDataService.get_clients())),
+            'mock_locations': json.dumps(list(SchedulerDataService.get_locations()))
+        })
         return context
-    
+        
     def get(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse(self.get_mock_events(), safe=False)
+            return JsonResponse(SchedulerDataService.get_events(), safe=False)
         return super().get(request, *args, **kwargs)
 
     @method_decorator(csrf_exempt)
@@ -95,9 +41,36 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         data = json.loads(request.body)
         action = data.get('action')
-        
-        return JsonResponse({
-            'status': 'success',
-            'message': f'Action {action} processed successfully',
-            'data': data
-        })
+        response_data = {}
+
+        if action == 'create':
+            event_data = SchedulerDataService.create_event(data)
+            response_data = {'status': 'success', 'event': event_data}
+        elif action == 'change':
+            event_id = data.get('Id')
+            event_data = SchedulerDataService.update_event(event_id, data)
+            response_data = {'status': 'success', 'event': event_data}
+        elif action == 'remove':
+            event_id = data.get('Id')
+            SchedulerDataService.delete_event(event_id)
+            response_data = {'status': 'success', 'message': 'Event deleted'}
+
+        return JsonResponse(response_data)
+
+class ClientSearchView(View):
+    def get(self, request):
+        query = request.GET.get('q', '')
+        if len(query) >= 2:
+            # Using the service layer for consistency
+            clients = SchedulerDataService.search_clients(query)
+            return JsonResponse(clients, safe=False)
+        return JsonResponse([], safe=False)
+
+class LocationSearchView(View):
+    def get(self, request):
+        query = request.GET.get('q', '')
+        if len(query) >= 2:
+            # Using the service layer for consistency
+            locations = SchedulerDataService.search_locations(query)
+            return JsonResponse(locations, safe=False)
+        return JsonResponse([], safe=False)

@@ -1,103 +1,441 @@
 {% load static %}
 
-<div class="scheduler-container">
-    <!-- Scheduler Toolbar -->
-    <div class="scheduler-toolbar">
-        <div id="scheduler-toolbar"></div>
-    </div>
-    
-    <!-- Scheduler Content -->
-    <div class="scheduler-content">
-        <div id="scheduler" class="h-full w-full"></div>
-    </div>
+<div id="spinner-container" class="spinner-container">
+    <div class="spinner"></div>
 </div>
 
+{% block content %}
+{% include 'clinician_dashboard/components/scheduler-editor.html' %}
+{% endblock %}
+
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const resourceData = JSON.parse('{{ scheduler_resources|safe }}');
+    document.addEventListener('DOMContentLoaded', function () {
+        const resourceData = JSON.parse('{{ mock_clinicians|safe }}');
+        const clientData = JSON.parse('{{ mock_clients|safe }}');
+        const locationData = JSON.parse('{{ mock_locations|safe }}');
 
-    const scheduler = new ej.schedule.Schedule({
-        width: '100%',
-        height: '100%',
-        selectedDate: new Date(),
-        cssClass: 'tailwind-scheduler',
-        views: [
-            { option: 'Day' },
-            { option: 'Week' },
-            { option: 'Month' },
-            { option: 'TimelineDay' },
-            { option: 'TimelineWeek' }
-        ],
-        group: {
-            resources: ['Resources']
-        },
-        resources: [{
-            field: 'ResourceId',
-            title: 'Clinicians',
-            name: 'Resources',
-            dataSource: resourceData,
-            textField: 'text',
-            idField: 'id',
-            colorField: 'color'
-        }],
-        eventSettings: {
-            dataSource: [],
-            fields: {
-                id: 'Id',
-                subject: { name: 'Subject' },
-                startTime: { name: 'StartTime' },
-                endTime: { name: 'EndTime' },
-                description: { name: 'Description' },
-                isAllDay: { name: 'IsAllDay' },
-                resourceId: { name: 'ResourceId' }
-            }
-        },
-        actionBegin: function(args) {
-            if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
-                const action = args.requestType.replace('event', '').toLowerCase();
-                const eventData = args.data[0] || args.data;
-                
-                fetch(window.location.href, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: action,
-                        ...eventData
+        let currentResourceId = null;
+        // Initialize Scheduler
+        const scheduler = new ej.schedule.Schedule({
+            width: '100%',
+            height: '100%',
+            selectedDate: new Date(),
+            cssClass: 'tailwind-scheduler',
+            currentView: 'Day',
+            views: [
+                { option: 'Day' },
+                { option: 'Week' },
+                { option: 'Month' },
+                { option: 'TimelineDay' },
+                { option: 'TimelineWeek' }
+            ],
+            group: {
+                resources: ['Resources']
+            },
+            resources: [{
+                field: 'ResourceId',
+                title: 'Clinicians',
+                name: 'Resources',
+                dataSource: resourceData,
+                textField: 'text',
+                idField: 'id',
+                colorField: 'color'
+            }],
+            timezone: 'America/New_York',
+            eventSettings: {
+                dataSource: [],
+                fields: {
+                    id: 'Id',
+                    startTime: { name: 'StartTime' },
+                    endTime: { name: 'EndTime' },
+                    isAllDay: { name: 'IsAllDay' },
+                    resourceId: { name: 'ResourceId' },
+                    recurrenceRule: { name: 'RecurrenceRule' },
+                    recurrenceException: { name: 'RecurrenceException' }
+                },
+                enableRecurrenceValidation: true
+            },
+            editorTemplate: '#EventEditorTemplate',
+            popupOpen: function (args) {
+                if (args.type === 'Editor') {
+                    initializeEditorComponents(args);
+
+                    // Store the resourceId from args
+                    currentResourceId = args.data.ResourceId;
+
+
+                }
+                if (args.type === 'QuickInfo') {
+                    args.cancel = true;
+                }
+            },
+            actionBegin: function (args) {
+                if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
+
+                    if (args.requestType === 'eventCreate' || args.requestType === 'eventChange') {
+                        // Get the editor element
+                        const editorElement = document.querySelector('.e-schedule-dialog');
+
+                        // Get the client and location dropdowns
+                        const clientDropdown = editorElement.querySelector('#Client').ej2_instances[0];
+                        const locationDropdown = editorElement.querySelector('#location').ej2_instances[0];
+
+                        // Validate fields
+                        if (!clientDropdown.value || !locationDropdown.value) {
+                            args.cancel = true; // Prevent the event from being created/modified
+
+                            // Show error message
+                            const errorMessage = [];
+                            if (!clientDropdown.value) errorMessage.push('Client');
+                            if (!locationDropdown.value) errorMessage.push('Location');
+
+                            alert(`Please select ${errorMessage.join(' and ')} before saving.`);
+                            return;
+                        }
+                    }
+                    const action = args.requestType.replace('event', '').toLowerCase();
+                    const eventData = args.data[0] || args.data;
+                    const resourceId = currentResourceId;
+
+                    const recurrenceData = {
+                        ...eventData,
+                        RecurrenceRule: eventData.RecurrenceRule || null,
+                        RecurrenceException: eventData.RecurrenceException || null
+                    };
+                    // For recurring event modifications
+                    if (args.requestType === 'eventChange' && args.modifiedData) {
+                        // Check if this is a series or occurrence edit
+                        if (args.data.RecurrenceRule) {
+                            // Series edit
+                            recurrenceData.editType = 'series';
+                        } else {
+                            // Single occurrence edit
+                            recurrenceData.editType = 'occurrence';
+                            recurrenceData.originalEventId = args.data.RecurrenceID;
+                        }
+                    }
+
+                    // Determine the active tab and set the eventType accordingly
+                    const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
+                    let eventType;
+
+                    switch (activeTab) {
+                        case 'appointment':
+                            eventType = 'APPOINTMENT';
+                            break;
+                        case 'event':
+                            eventType = 'EVENT';
+                            break;
+                        case 'outofoffice':
+                            eventType = 'OUT_OF_OFFICE';
+                            break;
+                        default:
+                            eventType = 'APPOINTMENT';
+                    }
+                    document.getElementById('spinner-container').style.display = 'flex';
+                    fetch(window.location.href, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: JSON.stringify({
+                            action: action,
+                            eventType: eventType,
+                            ...recurrenceData,
+                            resourceId: resourceId
+                        })
                     })
-                });
-            }
-        },
-        timeScale: { 
-            enable: true,
-            interval: 60,
-            slotCount: window.innerWidth < 768 ? 1 : 2
-        },
-        rowAutoHeight: false,
-        allowResizing: window.innerWidth >= 768,
-        allowDragAndDrop: window.innerWidth >= 768
-    });
-    
-    scheduler.appendTo('#scheduler');
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                // Refresh the calendar data after successful creation
+                                fetch(window.location.href, {
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                })
+                                    .then(response => response.json())
+                                    .then(updatedData => {
+                                        scheduler.eventSettings.dataSource = updatedData;
+                                        scheduler.dataBind();
+                                    })
+                                    .catch(error => {
+                                        console.error('Error loading updated events:', error);
+                                    });
+                            }
+                            document.getElementById('spinner-container').style.display = 'none';
+                        });
+                }
+            },
+            timeScale: {
+                enable: true,
+                interval: 60,
+                slotCount: window.innerWidth < 768 ? 1 : 2
+            },
+            rowAutoHeight: false,
+            allowResizing: window.innerWidth >= 768,
+            allowDragAndDrop: window.innerWidth >= 768
+        });
 
-    // Handle window resize
-    window.addEventListener('resize', function() {
-        scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
-        scheduler.allowResizing = window.innerWidth >= 768;
-        scheduler.allowDragAndDrop = window.innerWidth >= 768;
-        scheduler.dataBind();
-    });
-    
-    // Load initial events
-    fetch(window.location.href, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+        scheduler.appendTo('#scheduler');
+
+        // Handle window resize
+        window.addEventListener('resize', function () {
+            scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
+            scheduler.allowResizing = window.innerWidth >= 768;
+            scheduler.allowDragAndDrop = window.innerWidth >= 768;
+            scheduler.dataBind();
+        });
+
+        // Load initial events
+        fetch(window.location.href, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                scheduler.eventSettings.dataSource = data;
+            })
+            .catch(error => {
+                console.error('Error loading events:', error);
+            });
+
+        // Initialize editor components
+        function initializeEditorComponents(args) {
+            const container = args.element;
+
+            // Initialize all components
+            initializeTabs(container);
+            initializeClientSearch(container, clientData);
+            initializeDateTimePickers(container);
+            initializeLocationDropdown(container, locationData);
+
+            // Bind existing data
+            bindExistingData(args, container);
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        scheduler.eventSettings.dataSource = data;
+
+        function bindExistingData(args, container) {
+            // Recurrence Editor initialization
+            let recurElement = container.querySelector('#RecurrenceEditor');
+            if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
+                let recurrObject = new ej.schedule.RecurrenceEditor({
+                    // You can add specific configuration here if needed
+                });
+                recurrObject.appendTo(recurElement);
+                scheduler.eventWindow.recurrenceEditor = recurrObject;
+            }
+
+            // Set selected client and location if available
+            if (args.data.Client) {
+                const clientDropdown = container.querySelector('#Client');
+                const clientDropDownList = clientDropdown.ej2_instances[0];
+                clientDropDownList.value = args.data.Client;
+                clientDropDownList.dataBind();
+            }
+
+            if (args.data.Location) {
+                const locationDropdown = container.querySelector('#location');
+                const locationDropDownList = locationDropdown.ej2_instances[0];
+                locationDropDownList.value = args.data.Location;
+                locationDropDownList.dataBind();
+            }
+
+            // Check if the event is recurring and apply the recurrence rule
+            if (args.data.IsRecurring) {
+                const recurrenceEditor = container.querySelector('#RecurrenceEditor');
+                if (recurrenceEditor) {
+                    const recurrenceEditorObj = recurrenceEditor.ej2_instances[0];
+                    if (recurrenceEditorObj) {
+                        recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
+                        recurrenceEditorObj.dataBind();
+                    }
+                }
+            }
+
+            // Bind IsAllDay checkbox
+            const isAllDayCheckbox = container.querySelector('#IsAllDay');
+            if (isAllDayCheckbox) {
+                const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
+                isAllDayInstance.checked = args.data.IsAllDay;
+                isAllDayInstance.dataBind();
+
+                if (args.data.IsAllDay) {
+                    updateDateTimePickers(container, true);
+                } else {
+                    updateDateTimePickers(container, false);
+                }
+            }
+        }
     });
-});
+    // Tab initialization function
+    function initializeTabs(container) {
+        const tabs = container.querySelectorAll('.editor-tab');
+        const contents = container.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+
+                // Add active class to clicked tab and its content
+                tab.classList.add('active');
+                const contentId = `${tab.getAttribute('data-tab')}-tab`;
+                container.querySelector(`#${contentId}`).classList.add('active');
+            });
+        });
+
+    }
+
+    // Updated client search initialization
+    function initializeClientSearch(container, clients) {
+        const clientSearch = container.querySelector('#Client');
+
+        const dropDownList = new ej.dropdowns.DropDownList({
+            dataSource: clients,
+            fields: { text: 'name', value: 'id' },
+            placeholder: 'Search Client',
+            allowFiltering: true,
+            popupHeight: '200px',
+            filtering: (e) => {
+                const query = new ej.data.Query().where('name', 'contains', e.text, true);
+                e.updateData(clients, query);
+            }
+        });
+
+        dropDownList.appendTo(clientSearch);
+    }
+    // Date/time pickers initialization function
+    function initializeDateTimePickers(container) {
+        const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
+        const endTimeInputs = container.querySelectorAll('input[name="EndTime"]');
+        const isAllDayInputs = container.querySelectorAll('input[name="IsAllDay"]');
+
+        // Initialize IsAllDay checkbox
+        isAllDayInputs.forEach(input => {
+            if (!input.classList.contains('e-checkbox')) {
+                new ej.buttons.CheckBox({
+                    checked: false,
+                    change: (e) => {
+                        updateDateTimePickers(container, e.checked);
+                    }
+                }, input);
+            }
+        });
+
+        // Initialize date/time pickers
+        function initializePickers(isAllDay = false) {
+            startTimeInputs.forEach(input => {
+                if (input.ej2_instances) {
+                    input.ej2_instances[0].destroy();
+                }
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            });
+
+            endTimeInputs.forEach(input => {
+                if (input.ej2_instances) {
+                    input.ej2_instances[0].destroy();
+                }
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: new Date(input.value) || new Date(),
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            });
+        }
+
+        // Initial setup
+        const isAllDay = container.querySelector('input[name="IsAllDay"]').ej2_instances[0].checked;
+        initializePickers(isAllDay);
+    }
+
+    // Location dropdown initialization function
+    function initializeLocationDropdown(container, locations) {
+        const locationDropdown = container.querySelector('input[name="location"]');
+
+        const dropDownList = new ej.dropdowns.DropDownList({
+            dataSource: locations,
+            fields: { text: 'name', value: 'id' },
+            placeholder: 'Select Location',
+            allowFiltering: true,
+            filtering: (e) => {
+                const query = new ej.data.Query().where('name', 'contains', e.text, true);
+                e.updateData(locations, query);
+            }
+        });
+
+        dropDownList.appendTo(locationDropdown);
+    }
+    // Utility function to get CSRF token
+    function getCsrfToken() {
+        const csrfCookie = document.cookie
+            .split(';')
+            .find(cookie => cookie.trim().startsWith('csrftoken='));
+        return csrfCookie ? csrfCookie.split('=')[1] : '';
+    }
+
+    // Function to update date/time pickers when AllDay is toggled
+    function updateDateTimePickers(container, isAllDay) {
+        const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
+        const endTimeInputs = container.querySelectorAll('input[name="EndTime"]');
+
+        startTimeInputs.forEach(input => {
+            if (input.ej2_instances) {
+                const currentDate = input.ej2_instances[0].value;
+                input.ej2_instances[0].destroy();
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            }
+        });
+
+        endTimeInputs.forEach(input => {
+            if (input.ej2_instances) {
+                const currentDate = input.ej2_instances[0].value;
+                input.ej2_instances[0].destroy();
+
+                if (isAllDay) {
+                    new ej.calendars.DatePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd'
+                    }, input);
+                } else {
+                    new ej.calendars.DateTimePicker({
+                        value: currentDate,
+                        format: 'yyyy-MM-dd HH:mm'
+                    }, input);
+                }
+            }
+        });
+    }
 </script>
