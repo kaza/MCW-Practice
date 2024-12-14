@@ -10,8 +10,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
-
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  #
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Media files
