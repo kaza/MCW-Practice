@@ -58,6 +58,9 @@ class Clinician(models.Model):
 
     class Meta:
         db_table = 'Clinician'
+        indexes = [
+            models.Index(fields=['login_id']),
+        ]
 
 class ClinicianLocation(models.Model):
     clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE)
@@ -182,6 +185,13 @@ class Event(models.Model):
 
     class Meta:
         db_table = 'Event'
+        indexes = [
+            models.Index(fields=['start_datetime', 'end_datetime']),
+            models.Index(fields=['clinician']),
+            models.Index(fields=['type']),
+            models.Index(fields=['parent_event']),
+            models.Index(fields=['is_recurring']),
+        ]
 
 class Patient(models.Model):
     email = models.EmailField(null=True, blank=True)
@@ -199,3 +209,7 @@ class Patient(models.Model):
 
     class Meta:
         db_table = 'Patient'
+        indexes = [
+            models.Index(fields=['login_id']),
+            models.Index(fields=['clinician']),
+        ]

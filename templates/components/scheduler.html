@@ -26,9 +26,7 @@
             views: [
                 { option: 'Day' },
                 { option: 'Week' },
-                { option: 'Month' },
-                { option: 'TimelineDay' },
-                { option: 'TimelineWeek' }
+                { option: 'Month' }
             ],
             group: {
                 resources: ['Resources']
@@ -72,7 +70,7 @@
             },
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
-
+                    const eventData = args.data[0] || args.data;
                     if (args.requestType === 'eventCreate' || args.requestType === 'eventChange') {
                         // Get the editor element
                         const editorElement = document.querySelector('.e-schedule-dialog');
@@ -93,9 +91,31 @@
                             alert(`Please select ${errorMessage.join(' and ')} before saving.`);
                             return;
                         }
+
+                        // Ensure end date matches start date
+                        const startTime = new Date(eventData.StartTime);
+                        let endTime = new Date(eventData.EndTime);
+
+                        // Set the end date to match start date while preserving end time
+                        endTime = new Date(
+                            startTime.getFullYear(),
+                            startTime.getMonth(),
+                            startTime.getDate(),
+                            endTime.getHours(),
+                            endTime.getMinutes()
+                        );
+
+                        // Update the end time in eventData
+                        eventData.EndTime = endTime.toISOString();
+
+                        // Validate time
+                        if (startTime >= endTime) {
+                            args.cancel = true;
+                            alert('Start time must be less than end time.');
+                            return;
+                        }
                     }
                     const action = args.requestType.replace('event', '').toLowerCase();
-                    const eventData = args.data[0] || args.data;
                     const resourceId = currentResourceId;
 
                     const recurrenceData = {
@@ -181,16 +201,43 @@
 
         scheduler.appendTo('#scheduler');
 
-        // Handle window resize
-        window.addEventListener('resize', function () {
-            scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
-            scheduler.allowResizing = window.innerWidth >= 768;
-            scheduler.allowDragAndDrop = window.innerWidth >= 768;
-            scheduler.dataBind();
-        });
+        // Utility function to get start and end dates based on the view
+        function getStartAndEndDates(selectedDate, selectedView) {
+            let startDate, endDate;
+
+            switch (selectedView) {
+                case 'Day':
+                    startDate = new Date(selectedDate);
+                    endDate = new Date(selectedDate);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'Week':
+                    startDate = new Date(selectedDate);
+                    startDate.setDate(selectedDate.getDate() - selectedDate.getDay());
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'Month':
+                    startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+                    endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                default:
+                    return null; // Handle other views if necessary
+            }
+
+            return { startDate, endDate };
+        }
 
         // Load initial events
-        fetch(window.location.href, {
+        const currentDate = scheduler.selectedDate;
+        const selectedView = scheduler.currentView;
+
+        const { startDate, endDate } = getStartAndEndDates(currentDate, selectedView);
+
+        // Fetch events for the selected date range
+        fetch(`${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             }
@@ -198,10 +245,73 @@
             .then(response => response.json())
             .then(data => {
                 scheduler.eventSettings.dataSource = data;
+                scheduler.dataBind();
             })
             .catch(error => {
                 console.error('Error loading events:', error);
             });
+
+        // Update navigationClick method
+        scheduler.navigationClick = function (args) {
+            const selectedView = scheduler.currentView;
+            const selectedDate = scheduler.selectedDate;
+
+            const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
+
+            // Fetch events for the selected date range
+            fetch(`${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    scheduler.eventSettings.dataSource = data;
+                    scheduler.dataBind();
+                })
+                .catch(error => {
+                    console.error('Error loading events:', error);
+                });
+        };
+
+        // Update navigating method
+        scheduler.navigating = function (args) {
+            if (args.action === 'date' || args.action === 'view') {
+                const selectedDate = args.currentDate || scheduler.selectedDate;
+                let selectedView;
+
+                // Determine the view based on the action
+                if (args.action === 'view') {
+                    selectedView = args.currentView;
+                } else {
+                    selectedView = scheduler.currentView;
+                }
+
+                const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
+
+                fetch(`${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        scheduler.eventSettings.dataSource = data;
+                        scheduler.dataBind();
+                    })
+                    .catch(error => {
+                        console.error('Error loading events:', error);
+                    });
+            }
+        };
+
+        // Handle window resize
+        window.addEventListener('resize', function () {
+            scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
+            scheduler.allowResizing = window.innerWidth >= 768;
+            scheduler.allowDragAndDrop = window.innerWidth >= 768;
+            scheduler.dataBind();
+        });
 
         // Initialize editor components
         function initializeEditorComponents(args) {
@@ -333,17 +443,20 @@
                     input.ej2_instances[0].destroy();
                 }
 
-                if (isAllDay) {
-                    new ej.calendars.DatePicker({
-                        value: new Date(input.value) || new Date(),
-                        format: 'yyyy-MM-dd'
-                    }, input);
-                } else {
-                    new ej.calendars.DateTimePicker({
-                        value: new Date(input.value) || new Date(),
-                        format: 'yyyy-MM-dd HH:mm'
-                    }, input);
-                }
+                new ej.calendars.DateTimePicker({
+                    value: new Date(input.value) || new Date(),
+                    format: 'MM/dd/yyyy HH:mm',
+                    change: function (args) {
+                        // Update end time with same date when start time changes
+                        const endInput = container.querySelector('input[name="EndTime"]');
+                        if (endInput && endInput.ej2_instances && endInput.ej2_instances[0]) {
+                            const endTime = endInput.ej2_instances[0].value;
+                            const newEndDate = new Date(args.value);
+                            newEndDate.setHours(endTime.getHours(), endTime.getMinutes());
+                            endInput.ej2_instances[0].value = newEndDate;
+                        }
+                    }
+                }, input);
             });
 
             endTimeInputs.forEach(input => {
@@ -351,17 +464,25 @@
                     input.ej2_instances[0].destroy();
                 }
 
-                if (isAllDay) {
-                    new ej.calendars.DatePicker({
-                        value: new Date(input.value) || new Date(),
-                        format: 'yyyy-MM-dd'
-                    }, input);
-                } else {
-                    new ej.calendars.DateTimePicker({
-                        value: new Date(input.value) || new Date(),
-                        format: 'yyyy-MM-dd HH:mm'
-                    }, input);
-                }
+                new ej.calendars.DateTimePicker({
+                    value: new Date(input.value) || new Date(),
+                    format: 'HH:mm',
+                    enabled: !isAllDay,
+                    depth: 'Hour',
+                    start: 'Hour',
+                    stepHour: 1,
+                    stepMinute: 15,
+                    dateDisabled: true, // Disable date selection
+                    change: function (args) {
+                        const startInput = container.querySelector('input[name="StartTime"]');
+                        if (startInput && startInput.ej2_instances && startInput.ej2_instances[0]) {
+                            const startDate = startInput.ej2_instances[0].value;
+                            const newDate = new Date(args.value);
+                            newDate.setFullYear(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                            args.value = newDate;
+                        }
+                    }
+                }, input);
             });
         }
 
@@ -413,7 +534,17 @@
                 } else {
                     new ej.calendars.DateTimePicker({
                         value: currentDate,
-                        format: 'yyyy-MM-dd HH:mm'
+                        format: 'yyyy-MM-dd HH:mm',
+                        change: function (args) {
+                            // Update end time date when start time changes
+                            const endInput = container.querySelector('input[name="EndTime"]');
+                            if (endInput && endInput.ej2_instances && endInput.ej2_instances[0]) {
+                                const endTime = endInput.ej2_instances[0].value;
+                                const newEndDate = new Date(args.value);
+                                newEndDate.setHours(endTime.getHours(), endTime.getMinutes());
+                                endInput.ej2_instances[0].value = newEndDate;
+                            }
+                        }
                     }, input);
                 }
             }
@@ -427,12 +558,24 @@
                 if (isAllDay) {
                     new ej.calendars.DatePicker({
                         value: currentDate,
-                        format: 'yyyy-MM-dd'
+                        format: 'yyyy-MM-dd',
+                        enabled: false
                     }, input);
                 } else {
                     new ej.calendars.DateTimePicker({
                         value: currentDate,
-                        format: 'yyyy-MM-dd HH:mm'
+                        format: 'HH:mm',
+                        step: 15,
+                        change: function (args) {
+                            // Get date from start time and apply to end time
+                            const startInput = container.querySelector('input[name="StartTime"]');
+                            if (startInput && startInput.ej2_instances && startInput.ej2_instances[0]) {
+                                const startDate = startInput.ej2_instances[0].value;
+                                const newDate = new Date(args.value);
+                                newDate.setFullYear(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                                args.value = newDate;
+                            }
+                        }
                     }, input);
                 }
             }

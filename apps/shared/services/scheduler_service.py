@@ -44,33 +44,46 @@ class SchedulerDataService:
         return []
 
     @classmethod
-    def get_events(cls, user_role: str, clinician_id: int = None) -> List[Dict[str, Any]]:
-        """Get scheduled events based on user role"""
+    def get_events(cls, user_role: str, clinician_id: int = None, start_date=None, end_date=None) -> List[Dict[str, Any]]:
+        """Get scheduled events based on user role and date range"""
+        # Set default dates if not provided
+        today = timezone.now()
+        if not start_date or not end_date:
+            start_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = (start_date + timedelta(days=32)).replace(day=1)
+        else:
+            try:
+                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            except (TypeError, ValueError):
+                # Fallback to current month if dates are invalid
+                start_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = (start_date + timedelta(days=32)).replace(day=1)
+
+        base_query = Event.objects.select_related(
+            'type',
+            'clinician',
+            'patient',
+            'location',
+            'status'
+        ).filter(
+            start_datetime__gte=start_date,
+            start_datetime__lt=end_date
+        ).order_by('start_datetime')
+
         if user_role == 'ADMIN':
-            events = Event.objects.select_related(
-                'type', 
-                'clinician', 
-                'patient', 
-                'location',
-                'status'
-            ).all()
+            events = base_query
         elif user_role == 'CLINICIAN' and clinician_id is not None:
-            # Get the clinician associated with the logged-in user
             clinician = Clinician.objects.filter(login_id=clinician_id).first()
             if clinician:
-                events = Event.objects.filter(clinician_id=clinician.id).select_related(
-                    'type', 
-                    'patient', 
-                    'location',
-                    'status'
-                ).all()
+                events = base_query.filter(clinician_id=clinician.id)
             else:
-                return []  # No clinician found for the user
+                return []
         else:
             return []
 
         return [cls._convert_event_to_dict(event) for event in events]
-
+    
     @classmethod
     def _convert_event_to_dict(cls, event: Event) -> Dict[str, Any]:
         """Convert event model to dictionary format"""
@@ -82,7 +95,7 @@ class SchedulerDataService:
             'ResourceId': event.clinician_id,
             'RecurrenceRuleString': event.recurrence_rule if event.is_recurring else None,
             'IsRecurring': event.is_recurring,
-    }
+            }
     
         # Add RecurrenceID if this is a child event
         if event.parent_event:
