@@ -11,9 +11,9 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const resourceData = JSON.parse('{{ mock_clinicians|safe }}');
-        const clientData = JSON.parse('{{ mock_clients|safe }}');
-        const locationData = JSON.parse('{{ mock_locations|safe }}');
+        const resourceData = JSON.parse('{{ clinicians|safe }}');
+        const clientData = JSON.parse('{{ clients|safe }}');
+        const locationData = JSON.parse('{{ locations|safe }}');
 
         let currentResourceId = null;
         // Initialize Scheduler
@@ -49,6 +49,7 @@
                     endTime: { name: 'EndTime' },
                     isAllDay: { name: 'IsAllDay' },
                     resourceId: { name: 'ResourceId' },
+                    recurrenceID: { name: 'RecurrenceID' },
                     recurrenceRule: { name: 'RecurrenceRule' },
                     recurrenceException: { name: 'RecurrenceException' }
                 },
@@ -124,7 +125,7 @@
                         RecurrenceException: eventData.RecurrenceException || null
                     };
                     // For recurring event modifications
-                    if (args.requestType === 'eventChange' && args.modifiedData) {
+                    if (args.requestType === 'eventChange') {
                         // Check if this is a series or occurrence edit
                         if (args.data.RecurrenceRule) {
                             // Series edit
@@ -361,6 +362,7 @@
                     if (recurrenceEditorObj) {
                         recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
                         recurrenceEditorObj.dataBind();
+                        recurrenceEditorObj.recurrenceId = args.data.RecurrenceID;
                     }
                 }
             }

@@ -24,9 +24,9 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
-            'mock_clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
-            'mock_clients': json.dumps(list(SchedulerDataService.get_clients())),
-            'mock_locations': json.dumps(list(SchedulerDataService.get_locations()))
+            'clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
+            'clients': json.dumps(list(SchedulerDataService.get_clients())),
+            'locations': json.dumps(list(SchedulerDataService.get_locations()))
         })
         return context
         
@@ -42,7 +42,7 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
                     clinician_id,
                     start_date,
                     end_date
-                ), 
+            ), 
                 safe=False
             )
         return super().get(request, *args, **kwargs)
