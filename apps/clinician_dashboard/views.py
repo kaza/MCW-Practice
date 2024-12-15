@@ -24,16 +24,27 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
-            'mock_clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
-            'mock_clients': json.dumps(list(SchedulerDataService.get_clients())),
-            'mock_locations': json.dumps(list(SchedulerDataService.get_locations()))
+            'clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
+            'clients': json.dumps(list(SchedulerDataService.get_clients())),
+            'locations': json.dumps(list(SchedulerDataService.get_locations()))
         })
         return context
         
     def get(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
             clinician_id = request.user.id if request.user.user_type == 'CLINICIAN' else None
-            return JsonResponse(SchedulerDataService.get_events(request.user.user_type, clinician_id), safe=False)
+            
+            return JsonResponse(
+                SchedulerDataService.get_events(
+                    request.user.user_type, 
+                    clinician_id,
+                    start_date,
+                    end_date
+            ), 
+                safe=False
+            )
         return super().get(request, *args, **kwargs)
 
     @method_decorator(csrf_exempt)

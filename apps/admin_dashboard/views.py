@@ -23,36 +23,26 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        mock_data = {
-            'mock_clinicians': json.dumps([
-                {'id': 1, 'text': 'Dr. John Doe', 'color': '#FF0000', 'designation': 'Therapist'},
-            {'id': 2, 'text': 'Dr. Jane Smith', 'color': '#00FF00', 'designation': 'Psychologist'}
-        ]),
-        'mock_clients': json.dumps([
-            {'id': 1, 'name': 'Patient One', 'email': 'patient1@example.com', 'phone': '1234567890'},
-            {'id': 2, 'name': 'Patient Two', 'email': 'patient2@example.com', 'phone': '0987654321'}
-        ]),
-        'mock_locations': json.dumps([
-            {'id': 1, 'name': 'Room 101'},
-            {'id': 2, 'name': 'Room 102'}
-        ])
-        }
-        context.update(mock_data)
+        context.update({
+            'clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
+            'clients': json.dumps(list(SchedulerDataService.get_clients())),
+            'locations': json.dumps(list(SchedulerDataService.get_locations()))
+        })
         return context
-    
+        
     def get(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            mock_events = [
-                {
-                    'Id': 1,
-                    'Subject': 'Test Appointment',
-                    'StartTime': '2024-12-14T09:00:00',
-                    'EndTime': '2024-12-14T10:00:00',
-                    'ResourceId': 1,
-                    'IsAllDay': False
-                }
-            ]
-            return JsonResponse(mock_events, safe=False)
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
+            return JsonResponse(
+                SchedulerDataService.get_events(
+                    request.user.user_type,
+                    getattr(request.user, 'id', None),
+                    start_date,
+                    end_date
+                ), 
+                safe=False
+            )
         return super().get(request, *args, **kwargs)
 
     @method_decorator(csrf_exempt)

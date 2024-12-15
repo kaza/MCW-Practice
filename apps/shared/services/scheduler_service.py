@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import pytz
 from dateutil import rrule
 from django.contrib.auth.models import User 
+import threading
 
 from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location
 
@@ -44,33 +45,46 @@ class SchedulerDataService:
         return []
 
     @classmethod
-    def get_events(cls, user_role: str, clinician_id: int = None) -> List[Dict[str, Any]]:
-        """Get scheduled events based on user role"""
+    def get_events(cls, user_role: str, clinician_id: int = None, start_date=None, end_date=None) -> List[Dict[str, Any]]:
+        """Get scheduled events based on user role and date range"""
+        # Set default dates if not provided
+        today = timezone.now()
+        if not start_date or not end_date:
+            start_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = (start_date + timedelta(days=32)).replace(day=1)
+        else:
+            try:
+                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            except (TypeError, ValueError):
+                # Fallback to current month if dates are invalid
+                start_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = (start_date + timedelta(days=32)).replace(day=1)
+
+        base_query = Event.objects.select_related(
+            'type',
+            'clinician',
+            'patient',
+            'location',
+            'status'
+        ).filter(
+            start_datetime__gte=start_date,
+            start_datetime__lt=end_date
+        ).order_by('start_datetime')
+
         if user_role == 'ADMIN':
-            events = Event.objects.select_related(
-                'type', 
-                'clinician', 
-                'patient', 
-                'location',
-                'status'
-            ).all()
+            events = base_query
         elif user_role == 'CLINICIAN' and clinician_id is not None:
-            # Get the clinician associated with the logged-in user
             clinician = Clinician.objects.filter(login_id=clinician_id).first()
             if clinician:
-                events = Event.objects.filter(clinician_id=clinician.id).select_related(
-                    'type', 
-                    'patient', 
-                    'location',
-                    'status'
-                ).all()
+                events = base_query.filter(clinician_id=clinician.id)
             else:
-                return []  # No clinician found for the user
+                return []
         else:
             return []
 
         return [cls._convert_event_to_dict(event) for event in events]
-
+    
     @classmethod
     def _convert_event_to_dict(cls, event: Event) -> Dict[str, Any]:
         """Convert event model to dictionary format"""
@@ -82,7 +96,7 @@ class SchedulerDataService:
             'ResourceId': event.clinician_id,
             'RecurrenceRuleString': event.recurrence_rule if event.is_recurring else None,
             'IsRecurring': event.is_recurring,
-    }
+            }
     
         # Add RecurrenceID if this is a child event
         if event.parent_event:
@@ -177,96 +191,8 @@ class SchedulerDataService:
         )
 
         if recurrence_rule:
-            try:
-                # Parse the recurrence rule components more safely
-                rule_parts = recurrence_rule.split(';')
-                rule_dict = {}
-                
-                # Safely parse each part into the dictionary
-                for part in rule_parts:
-                    if '=' in part:
-                        key, value = part.split('=')
-                        rule_dict[key.strip()] = value.strip()
-                    else:
-                            print(f"Invalid rule part: {part}")
-                            continue
-                
-                # Convert start_datetime to datetime object
-                dtstart = datetime.fromisoformat(event.start_datetime.replace('Z', '+00:00'))
-                
-                # Map frequency string to rrule constant
-                freq_map = {
-                    'DAILY': rrule.DAILY,
-                    'WEEKLY': rrule.WEEKLY,
-                    'MONTHLY': rrule.MONTHLY,
-                    'YEARLY': rrule.YEARLY
-                }
-        
-                # Build rule parameters
-                rule_params = {
-                    'dtstart': dtstart,
-                    'freq': freq_map[rule_dict['FREQ']],
-                    'interval': int(rule_dict.get('INTERVAL', 1))
-                }
-        
-                # Add count if specified
-                if 'COUNT' in rule_dict:
-                    rule_params['count'] = int(rule_dict['COUNT'])
-                    
-                # Add until if specified
-                if 'UNTIL' in rule_dict:
-                    rule_params['until'] = datetime.fromisoformat(rule_dict['UNTIL'].replace('Z', '+00:00'))
-                    
-                # Add weekdays if specified for weekly recurrence
-                if 'BYDAY' in rule_dict:
-                    weekday_map = {
-                        'MO': rrule.MO,
-                        'TU': rrule.TU,
-                        'WE': rrule.WE,
-                        'TH': rrule.TH,
-                        'FR': rrule.FR,
-                        'SA': rrule.SA,
-                        'SU': rrule.SU
-                    }
-                    byweekday = [weekday_map[day] for day in rule_dict['BYDAY'].split(',')]
-                    rule_params['byweekday'] = byweekday
-        
-                # Create the rule
-                rule = rrule.rrule(**rule_params)
-                
-                # Calculate event duration
-                event_duration = (
-                    datetime.fromisoformat(event_data['EndTime'].replace('Z', '+00:00')) -
-                    datetime.fromisoformat(event_data['StartTime'].replace('Z', '+00:00'))
-                )
-        
-                # Create occurrences
-                for occurrence_start in rule:
-                    if occurrence_start != dtstart:
-                        occurrence_end = occurrence_start + event_duration
-                        
-                        Event.objects.create(
-                            type_id=event.type_id,
-                            clinician_id=event.clinician_id,
-                            start_datetime=occurrence_start,
-                            end_datetime=occurrence_end,
-                            is_all_day=event.is_all_day,
-                            title=event.title,
-                            notes=event.notes,
-                            location_id=event.location_id,
-                            patient_id=event.patient_id,
-                            status_id=event.status_id,
-                            cancel_appointments=event.cancel_appointments,
-                            notify_clients=event.notify_clients,
-                            is_recurring=True,
-                            recurrence_rule=None,
-                            parent_event=event,
-                            occurrence_date=occurrence_start.date()
-                        )
-                
-            except Exception as e:
-                print(f"Error details: {str(e)}")
-                raise ValueError(f"Invalid recurrence rule format: {str(e)}")       
+            # Start a background thread to handle recurrence
+            threading.Thread(target=cls._handle_recurring_events, args=(event, recurrence_rule, event_data)).start()
 
         return cls._convert_event_to_dict(event)
             
@@ -275,13 +201,12 @@ class SchedulerDataService:
         """Update an existing event and handle recurrence updates"""
         event = Event.objects.get(id=event_id)
         recurrence_rule = event_data.get('RecurrenceRule')
-    
-        # If this is a parent event
-        if event.parent_event is None:
-            # Delete existing child events if recurrence rule has changed
-            if event.recurrence_rule != recurrence_rule:
-                Event.objects.filter(parent_event=event).delete()
-                
+        edit_type = event_data.get('editType')  # Get the edit type from event_data
+
+        if edit_type == 'series':
+            # If this is a series update, delete existing child events
+            Event.objects.filter(parent_event=event).delete()
+
             # Update parent event
             event.start_datetime = event_data['StartTime']
             event.end_datetime = event_data['EndTime']
@@ -294,85 +219,11 @@ class SchedulerDataService:
             event.recurrence_rule = recurrence_rule
             event.save()
 
-            # Create new recurrence pattern if needed
+            # Start a background thread to handle recurrence
             if recurrence_rule:
-                try:
-                    # Parse the recurrence rule
-                    rule_parts = recurrence_rule.split(';')
-                    rule_dict = {}
-                    for part in rule_parts:
-                        if '=' in part:
-                            key, value = part.split('=')
-                            rule_dict[key.strip()] = value.strip()
+                threading.Thread(target=cls._handle_recurring_events, args=(event, recurrence_rule, event_data)).start()
 
-                     # Convert start_datetime to datetime object
-                    dtstart = datetime.fromisoformat(event.start_datetime.replace('Z', '+00:00'))
-
-                    
-                    # Map frequency to rrule constant
-                    freq_map = {
-                        'DAILY': rrule.DAILY,
-                        'WEEKLY': rrule.WEEKLY,
-                        'MONTHLY': rrule.MONTHLY,
-                        'YEARLY': rrule.YEARLY
-                    }
-                    
-                    # Build rule parameters
-                    rule_params = {
-                        'dtstart': dtstart,
-                        'freq': freq_map[rule_dict['FREQ']],
-                        'interval': int(rule_dict.get('INTERVAL', 1))
-                    }
-                    
-                    # Add optional parameters
-                    if 'COUNT' in rule_dict:
-                        rule_params['count'] = int(rule_dict['COUNT'])
-                    if 'UNTIL' in rule_dict:
-                        rule_params['until'] = datetime.fromisoformat(
-                            rule_dict['UNTIL'].replace('Z', '+00:00')
-                        )
-                    if 'BYDAY' in rule_dict:
-                        weekday_map = {
-                            'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
-                            'TH': rrule.TH, 'FR': rrule.FR, 'SA': rrule.SA, 'SU': rrule.SU
-                        }
-                        byweekday = [weekday_map[day] for day in rule_dict['BYDAY'].split(',')]
-                        rule_params['byweekday'] = byweekday
-                    
-                    # Create rule and calculate duration
-                    rule = rrule.rrule(**rule_params)
-                    event_duration = (
-                        datetime.fromisoformat(event_data['EndTime'].replace('Z', '+00:00')) -
-                        datetime.fromisoformat(event_data['StartTime'].replace('Z', '+00:00'))
-                    )
-                    
-                    # Create occurrences
-                    for occurrence_start in rule:
-                        if occurrence_start != dtstart:
-                            occurrence_end = occurrence_start + event_duration
-                            Event.objects.create(
-                                type_id=event.type_id,
-                                clinician_id=event.clinician_id,
-                                start_datetime=occurrence_start,
-                                end_datetime=occurrence_end,
-                                is_all_day=event.is_all_day,
-                                title=event.title,
-                                notes=event.notes,
-                                location_id=event.location_id,
-                                patient_id=event.patient_id,
-                                status_id=event.status_id,
-                                cancel_appointments=event.cancel_appointments,
-                                notify_clients=event.notify_clients,
-                                is_recurring=True,
-                                recurrence_rule=None,
-                                parent_event=event,
-                                occurrence_date=occurrence_start.date()
-                            )
-                            
-                except Exception as e:
-                    print(f"Error details: {str(e)}")
-                    raise ValueError(f"Invalid recurrence rule format: {str(e)}")
-        else:
+        elif edit_type == 'occurrence':
             # This is a child event - only update this occurrence
             event.start_datetime = event_data['StartTime']
             event.end_datetime = event_data['EndTime']
@@ -407,3 +258,82 @@ class SchedulerDataService:
         
         except Event.DoesNotExist:
             return False
+
+    @classmethod
+    def _handle_recurring_events(cls, event: Event, recurrence_rule: str, event_data: Dict[str, Any]):
+        """Handle the creation of recurring events in a background thread"""
+        try:
+            # Parse the recurrence rule components
+            rule_parts = recurrence_rule.split(';')
+            rule_dict = {}
+            for part in rule_parts:
+                if '=' in part:
+                    key, value = part.split('=')
+                    rule_dict[key.strip()] = value.strip()
+
+            # Convert start_datetime to datetime object
+            dtstart = datetime.fromisoformat(event.start_datetime.replace('Z', '+00:00'))
+
+            # Map frequency string to rrule constant
+            freq_map = {
+                'DAILY': rrule.DAILY,
+                'WEEKLY': rrule.WEEKLY,
+                'MONTHLY': rrule.MONTHLY,
+                'YEARLY': rrule.YEARLY
+            }
+
+            # Build rule parameters
+            rule_params = {
+                'dtstart': dtstart,
+                'freq': freq_map[rule_dict['FREQ']],
+                'interval': int(rule_dict.get('INTERVAL', 1))
+            }
+
+            # Add optional parameters
+            if 'COUNT' in rule_dict:
+                rule_params['count'] = int(rule_dict['COUNT'])
+            if 'UNTIL' in rule_dict:
+                rule_params['until'] = datetime.fromisoformat(rule_dict['UNTIL'].replace('Z', '+00:00'))
+            if 'BYDAY' in rule_dict:
+                weekday_map = {
+                    'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
+                    'TH': rrule.TH, 'FR': rrule.FR, 'SA': rrule.SA, 'SU': rrule.SU
+                }
+                byweekday = [weekday_map[day] for day in rule_dict['BYDAY'].split(',')]
+                rule_params['byweekday'] = byweekday
+
+            # Create the rule
+            rule = rrule.rrule(**rule_params)
+
+            # Calculate event duration
+            event_duration = (
+                datetime.fromisoformat(event_data['EndTime'].replace('Z', '+00:00')) -
+                datetime.fromisoformat(event_data['StartTime'].replace('Z', '+00:00'))
+            )
+
+            # Create occurrences
+            for occurrence_start in rule:
+                if occurrence_start != dtstart:
+                    occurrence_end = occurrence_start + event_duration
+                    Event.objects.create(
+                        type_id=event.type_id,
+                        clinician_id=event.clinician_id,
+                        start_datetime=occurrence_start,
+                        end_datetime=occurrence_end,
+                        is_all_day=event.is_all_day,
+                        title=event.title,
+                        notes=event.notes,
+                        location_id=event.location_id,
+                        patient_id=event.patient_id,
+                        status_id=event.status_id,
+                        cancel_appointments=event.cancel_appointments,
+                        notify_clients=event.notify_clients,
+                        is_recurring=True,
+                        recurrence_rule=None,
+                        parent_event=event,
+                        occurrence_date=occurrence_start.date()
+                    )
+                
+        except Exception as e:
+            print(f"Error details: {str(e)}")
+            raise ValueError(f"Invalid recurrence rule format: {str(e)}")
