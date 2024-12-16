@@ -12,66 +12,125 @@
 <!-- Editor Templates -->
 <script id="EventEditorTemplate" type="text/x-template">
     <div class="editor-tabs">
-        <div class="editor-tab active" data-tab="appointment">Appointment</div>
+        <div class="editor-tab" data-tab="appointment">Appointment</div>
         <div class="editor-tab" data-tab="event">Event</div>
-        <div class="editor-tab" data-tab="outofoffice">Out of Office</div>
+        <!-- <div class="editor-tab" data-tab="outofoffice">Out of Office</div> -->
     </div>
+    
+    <div class="new-fields">
 
-    <!-- Appointment Tab -->
-    <div class="tab-content active" id="appointment-tab">
-        <!-- Appointment Details Section -->
-        <div class="appointment-section">
+        <div class="client-field" style="display: none;">
             <table class="custom-event-editor" width="100%" cellpadding="5">
                 <tbody>
                     <tr>
                         <td class="e-textlabel">Client</td>
-                        <td colspan="4">
+                        <td>
                             <div class="location-search-container">
                                 <input type="text" id="Client" name="Client"  class="e-field location-search"  placeholder="Search Client" />
                             </div>
                         </td>
                     </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="event-name-field" style="display: none;">
+            <table class="custom-event-editor" width="100%" cellpadding="5">
+                <tbody>
                     <tr>
-                        <td class="e-textlabel">Location</td>
-                        <td colspan="4">
-                            <div class="location-search-container">
-                                <input type="text" id="location" name="location" class="e-field location-search" placeholder="Search Location" />
-                            </div>
+                        <td class="e-textlabel">Event Name</td>
+                        <td>
+                            <input type="text" id="Subject" name="Subject" class="e-field" placeholder="Event Name (Optional)" />
                         </td>
-                    </tr>
-                    <tr>
-                        <td class="e-textlabel">From</td>
-                        <td colspan="4">
-                            <input id="StartTime" class="e-field" type="text" name="StartTime" />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="e-textlabel">To</td>
-                        <td colspan="4">
-                            <input id="EndTime" class="e-field" type="text" name="EndTime" />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="e-textlabel">All Day</td>
-                        <td colspan="4">
-                            <input id="IsAllDay" class="e-field" type="checkbox" name="IsAllDay" />
-                        </td>
-                    </tr>
-                    <tr> 
-                        <td class="e-textlabel">Recurrence</td>
-                        <td colspan="4"> 
-                            <div id='RecurrenceEditor'></div> 
-                        </td> 
                     </tr>
                 </tbody>
             </table>
         </div>
+
+        <div class="team-member-field" style="display: none;">
+            <table class="custom-event-editor" width="100%" cellpadding="5">
+                <tbody>
+                    <tr>
+                        <td class="e-textlabel">Team Member</td>
+                        <td>
+                            <input type="text" id="TeamMember" name="TeamMember" class="e-field" placeholder="Team Member" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+
+
+    <div class="location-field" style="display: none;">
+        <table class="custom-event-editor" width="100%" cellpadding="5">
+            <tbody>
+                <tr>
+                    <td class="e-textlabel">Location</td>
+                    <td>
+                        <div class="location-search-container">
+                            <input type="text" id="Location" name="Location" class="e-field location-search" placeholder="Search Location" />
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+                </table>
+            </div>
+        </div>
+
+    <!-- Common Fields -->
+    <div class="common-fields">
+        <table class="custom-event-editor" width="100%" cellpadding="5">
+            <tbody>
+                <tr>
+                    <td class="e-textlabel">From</td>
+                    <td>
+                        <input id="StartTime" class="e-field" type="text" name="StartTime" />
+                    </td>
+                </tr>
+                <tr>
+                    <td class="e-textlabel">To</td>
+                    <td>
+                        <input id="EndTime" class="e-field" type="text" name="EndTime" />
+                    </td>
+                </tr>
+                <tr>
+                    <td class="e-textlabel">All Day</td>
+                    <td>
+                        <input id="IsAllDay" class="e-field" type="checkbox" name="IsAllDay" />
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Recurrence Field (Only for Appointment and Event Tabs) -->
+    <div class="recurrence-field" style="display: none;">
+        <table class="custom-event-editor" width="100%" cellpadding="5">
+            <tbody>
+                <tr>
+                    <td class="e-textlabel">Recurrence</td>
+                    <td colspan="4"> 
+                        <div id='RecurrenceEditor'></div> 
+                    </td> 
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Appointment Tab -->
+    <div class="tab-content active" id="appointment-tab">
+        <div class="appointment-section">
+            <!-- Additional Appointment-specific fields can go here -->
+        </div>
     </div>
 
     <!-- Event Tab -->
-    <!-- <div class="tab-content" id="event-tab">
-       
-    </div> -->
+    <div class="tab-content" id="event-tab">
+        <div class="event-section">
+            <!-- The Event Name field is already included in the new-fields section -->
+        </div>
+    </div>
 
     <!-- Out of Office Tab -->
     <!-- <div class="tab-content" id="outofoffice-tab">

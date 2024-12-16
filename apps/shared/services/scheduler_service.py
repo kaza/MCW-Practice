@@ -105,6 +105,7 @@ class SchedulerDataService:
         # Add type-specific fields
         if event.type.name == EventType.APPOINTMENT:
             event_dict.update({
+                'Type': event.type.name,
                 'Subject': f"Appointment - {event.patient.get_full_name() if event.patient else 'No Patient'}",
                 'Description': f"Patient Appointment at {event.location.name if event.location else 'No Location'}",
                 'Status': event.status.name if event.status else None,
@@ -113,9 +114,12 @@ class SchedulerDataService:
             })
         elif event.type.name == EventType.EVENT:
             event_dict.update({
+                'Type': event.type.name,
                 'Subject': event.title,
                 'Description': event.notes,
-                'Location': event.location.name if event.location else None,
+                'Status': event.status.name if event.status else None,
+                'TeamMember': event.team_member.id if event.team_member else None,
+                'Location': event.location.id if event.location else None,
             })
         else:  # OUT_OF_OFFICE
             event_dict.update({
@@ -159,6 +163,14 @@ class SchedulerDataService:
             Q(last_name__icontains=query) |
             Q(email__icontains=query)
         ).values('id', 'name', 'email', 'phone')
+    
+    @classmethod
+    def get_team_members(cls) -> List[Dict[str, Any]]:
+        """Get all team members (clinicians)"""
+        return Clinician.objects.annotate(
+            name=Concat('first_name', Value(' '), 'last_name')
+        ).values('id', 'name')
+
 
     @classmethod
     def search_locations(cls, query: str) -> List[Dict[str, Any]]:
@@ -174,21 +186,40 @@ class SchedulerDataService:
         recurrence_rule = event_data.get('RecurrenceRule')
         
         # Create the main event
-        event = Event.objects.create(
-            type_id=EventType.objects.get(name=event_type).id,
-            clinician_id=event_data['resourceId'],
-            start_datetime=event_data['StartTime'],
-            end_datetime=event_data['EndTime'],
-            is_all_day=event_data.get('IsAllDay', False),
-            location_id=event_data.get('location'),
-            patient_id=event_data.get('Client'),
-            status_id=1,
-            cancel_appointments=event_data.get('CancelAppointments', False),
-            notify_clients=event_data.get('NotifyClients', False),
-            is_recurring=bool(recurrence_rule),
-            recurrence_rule=recurrence_rule,
-            parent_event=None 
-        )
+        if event_type == 'APPOINTMENT':
+            # For appointments, include the client
+            event = Event.objects.create(
+                type_id=EventType.objects.get(name=event_type).id,
+                clinician_id=event_data['resourceId'],
+                start_datetime=event_data['StartTime'],
+                end_datetime=event_data['EndTime'],
+                is_all_day=event_data.get('IsAllDay', False),
+                location_id=event_data.get('Location'),
+                patient_id=event_data.get('Client'), 
+                status_id=1,
+                cancel_appointments=event_data.get('CancelAppointments', False),
+                notify_clients=event_data.get('NotifyClients', False),
+                is_recurring=bool(recurrence_rule),
+                recurrence_rule=recurrence_rule,
+                parent_event=None 
+            )
+        elif event_type == 'EVENT':
+            event = Event.objects.create(
+                type_id=EventType.objects.get(name=event_type).id,
+                title=event_data.get('Subject'),
+                clinician_id=event_data['resourceId'],
+                start_datetime=event_data['StartTime'],
+                end_datetime=event_data['EndTime'],
+                is_all_day=event_data.get('IsAllDay', False),
+                location_id=event_data.get('location'),
+                team_member_id=event_data.get('TeamMember'), 
+                status_id=1,
+                cancel_appointments=event_data.get('CancelAppointments', False),
+                notify_clients=event_data.get('NotifyClients', False),
+                is_recurring=bool(recurrence_rule),
+                recurrence_rule=recurrence_rule,
+                parent_event=None
+            )
 
         if recurrence_rule:
             # Start a background thread to handle recurrence
@@ -200,23 +231,41 @@ class SchedulerDataService:
     def update_event(cls, event_id: int, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing event and handle recurrence updates"""
         event = Event.objects.get(id=event_id)
+        event_type = event_data.get('eventType')
         recurrence_rule = event_data.get('RecurrenceRule')
         edit_type = event_data.get('editType')  # Get the edit type from event_data
 
-        if edit_type == 'series':
-            # If this is a series update, delete existing child events
+        # Check if the event is a parent event
+        is_parent_event = event.parent_event is None
+
+        if edit_type == 'series' or is_parent_event:
+            # If this is a series update or the event is a parent, delete existing child events first
             Event.objects.filter(parent_event=event).delete()
 
             # Update parent event
+            event.type_id=EventType.objects.get(name=event_type).id
             event.start_datetime = event_data['StartTime']
             event.end_datetime = event_data['EndTime']
             event.is_all_day = event_data.get('IsAllDay', False)
-            event.location_id = event_data.get('location')
-            event.patient_id = event_data.get('Client')
+            event.location_id = event_data.get('Location')
             event.cancel_appointments = event_data.get('CancelAppointments', False)
             event.notify_clients = event_data.get('NotifyClients', False)
             event.is_recurring = bool(recurrence_rule)
             event.recurrence_rule = recurrence_rule
+
+            # Update specific fields based on event type
+            event_type = event_data.get('eventType')
+            if event_type == 'APPOINTMENT':
+                event.patient_id = event_data.get('Client')  
+                event.team_member_id = None
+                event.title = None
+            elif event_type == 'EVENT':
+                event.title = event_data.get('Subject', event.title)  
+                event.team_member_id = event_data.get('TeamMember') 
+                event.patient_id = None
+
+            print(f"Updating event: {event.id}, Patient ID: {event.patient_id}, Team Member ID: {event.team_member_id}, Location ID: {event.location_id}")
+
             event.save()
 
             # Start a background thread to handle recurrence
@@ -225,13 +274,24 @@ class SchedulerDataService:
 
         elif edit_type == 'occurrence':
             # This is a child event - only update this occurrence
+            event.type_id=EventType.objects.get(name=event_type).id
             event.start_datetime = event_data['StartTime']
             event.end_datetime = event_data['EndTime']
             event.is_all_day = event_data.get('IsAllDay', False)
-            event.title = event_data.get('Subject', event.title)
-            event.notes = event_data.get('Description', event.notes)
             event.location_id = event_data.get('Location')
-            event.patient_id = event_data.get('Client')
+
+            # Update specific fields based on event type
+            event_type = event_data.get('eventType')
+            if event_type == 'APPOINTMENT':
+                event.patient_id = event_data.get('Client') 
+                event.team_member_id = None
+                event.title = None
+            elif event_type == 'EVENT':
+                event.title = event_data.get('Subject', event.title) 
+                event.team_member_id = event_data.get('TeamMember') 
+                event.patient_id = None
+
+
             event.cancel_appointments = event_data.get('CancelAppointments', False)
             event.notify_clients = event_data.get('NotifyClients', False)
             event.save()
@@ -325,6 +385,7 @@ class SchedulerDataService:
                         notes=event.notes,
                         location_id=event.location_id,
                         patient_id=event.patient_id,
+                        team_member_id=event.team_member_id,
                         status_id=event.status_id,
                         cancel_appointments=event.cancel_appointments,
                         notify_clients=event.notify_clients,
@@ -333,7 +394,7 @@ class SchedulerDataService:
                         parent_event=event,
                         occurrence_date=occurrence_start.date()
                     )
-                
+                    
         except Exception as e:
             print(f"Error details: {str(e)}")
             raise ValueError(f"Invalid recurrence rule format: {str(e)}")
