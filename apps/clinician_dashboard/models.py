@@ -127,7 +127,8 @@ class Event(models.Model):
     # Common fields
     type = models.ForeignKey(EventType, on_delete=models.PROTECT)
     title = models.CharField(max_length=255, null=True, blank=True) 
-    clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE)
+    clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE, related_name='primary_events')
+    team_member = models.ForeignKey(Clinician, on_delete=models.CASCADE, null=True, blank=True, related_name='team_member_events', db_index=True)
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
     location = models.ForeignKey(Location, on_delete=models.CASCADE, null=True, blank=True)

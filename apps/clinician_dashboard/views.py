@@ -26,7 +26,8 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context.update({
             'clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
             'clients': json.dumps(list(SchedulerDataService.get_clients())),
-            'locations': json.dumps(list(SchedulerDataService.get_locations()))
+            'locations': json.dumps(list(SchedulerDataService.get_locations())),
+            'team_members': json.dumps(list(SchedulerDataService.get_team_members()))
         })
         return context
         

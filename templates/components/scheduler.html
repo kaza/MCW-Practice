@@ -14,6 +14,7 @@
         const resourceData = JSON.parse('{{ clinicians|safe }}');
         const clientData = JSON.parse('{{ clients|safe }}');
         const locationData = JSON.parse('{{ locations|safe }}');
+        const teamMemberData = JSON.parse('{{ team_members|safe }}');
 
         let currentResourceId = null;
         // Initialize Scheduler
@@ -72,24 +73,23 @@
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
                     const eventData = args.data[0] || args.data;
+
                     if (args.requestType === 'eventCreate' || args.requestType === 'eventChange') {
                         // Get the editor element
                         const editorElement = document.querySelector('.e-schedule-dialog');
 
-                        // Get the client and location dropdowns
-                        const clientDropdown = editorElement.querySelector('#Client').ej2_instances[0];
-                        const locationDropdown = editorElement.querySelector('#location').ej2_instances[0];
+                        let isValid = true;
 
-                        // Validate fields
-                        if (!clientDropdown.value || !locationDropdown.value) {
+                        // Determine the active tab and validate accordingly
+                        const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
+                        if (activeTab === 'appointment') {
+                            isValid = validateAppointment(eventData);
+                        } else if (activeTab === 'event') {
+                            isValid = validateEvent(eventData);
+                        }
+
+                        if (!isValid) {
                             args.cancel = true; // Prevent the event from being created/modified
-
-                            // Show error message
-                            const errorMessage = [];
-                            if (!clientDropdown.value) errorMessage.push('Client');
-                            if (!locationDropdown.value) errorMessage.push('Location');
-
-                            alert(`Please select ${errorMessage.join(' and ')} before saving.`);
                             return;
                         }
 
@@ -319,16 +319,13 @@
             const container = args.element;
 
             // Initialize all components
-            initializeTabs(container);
+            initializeTabs(args, container);
             initializeClientSearch(container, clientData);
             initializeDateTimePickers(container);
             initializeLocationDropdown(container, locationData);
+            initializeInput(container);
+            initializeTeamMembersSearch(container, teamMemberData);
 
-            // Bind existing data
-            bindExistingData(args, container);
-        }
-
-        function bindExistingData(args, container) {
             // Recurrence Editor initialization
             let recurElement = container.querySelector('#RecurrenceEditor');
             if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
@@ -339,53 +336,20 @@
                 scheduler.eventWindow.recurrenceEditor = recurrObject;
             }
 
-            // Set selected client and location if available
-            if (args.data.Client) {
-                const clientDropdown = container.querySelector('#Client');
-                const clientDropDownList = clientDropdown.ej2_instances[0];
-                clientDropDownList.value = args.data.Client;
-                clientDropDownList.dataBind();
-            }
 
-            if (args.data.Location) {
-                const locationDropdown = container.querySelector('#location');
-                const locationDropDownList = locationDropdown.ej2_instances[0];
-                locationDropDownList.value = args.data.Location;
-                locationDropDownList.dataBind();
-            }
-
-            // Check if the event is recurring and apply the recurrence rule
-            if (args.data.IsRecurring) {
-                const recurrenceEditor = container.querySelector('#RecurrenceEditor');
-                if (recurrenceEditor) {
-                    const recurrenceEditorObj = recurrenceEditor.ej2_instances[0];
-                    if (recurrenceEditorObj) {
-                        recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
-                        recurrenceEditorObj.dataBind();
-                        recurrenceEditorObj.recurrenceId = args.data.RecurrenceID;
-                    }
-                }
-            }
-
-            // Bind IsAllDay checkbox
-            const isAllDayCheckbox = container.querySelector('#IsAllDay');
-            if (isAllDayCheckbox) {
-                const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
-                isAllDayInstance.checked = args.data.IsAllDay;
-                isAllDayInstance.dataBind();
-
-                if (args.data.IsAllDay) {
-                    updateDateTimePickers(container, true);
-                } else {
-                    updateDateTimePickers(container, false);
-                }
-            }
+            toggleFieldsByType("appointment", args, container);
         }
     });
     // Tab initialization function
-    function initializeTabs(container) {
+    function initializeTabs(args, container) {
         const tabs = container.querySelectorAll('.editor-tab');
         const contents = container.querySelectorAll('.tab-content');
+        const commonFields = container.querySelector('.common-fields');
+        const clientField = container.querySelector('.client-field');
+        const teamMemberField = container.querySelector('.team-member-field');
+        const locationField = container.querySelector('.location-field');
+        const recurrenceField = container.querySelector('.recurrence-field');
+        const eventNameField = container.querySelector('.event-name-field');
 
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -396,10 +360,148 @@
                 // Add active class to clicked tab and its content
                 tab.classList.add('active');
                 const contentId = `${tab.getAttribute('data-tab')}-tab`;
-                container.querySelector(`#${contentId}`).classList.add('active');
+                const contentElement = container.querySelector(`#${contentId}`);
+                contentElement.classList.add('active');
+
+                // Show common fields
+                commonFields.style.display = 'block';
+
+                // Call the function to toggle fields based on the active tab type
+                toggleFieldsByType(tab.getAttribute('data-tab'), args, container);
             });
         });
+    }
 
+    function toggleFieldsByType(type, args, container) {
+        const clientField = document.querySelector('.client-field');
+        const locationField = document.querySelector('.location-field');
+        const recurrenceField = document.querySelector('.recurrence-field');
+        const eventNameField = document.querySelector('.event-name-field');
+        const teamMemberField = document.querySelector('.team-member-field');
+
+        // Reset visibility
+        clientField.style.display = 'none';
+        locationField.style.display = 'none';
+        recurrenceField.style.display = 'none';
+        eventNameField.style.display = 'none';
+        teamMemberField.style.display = 'none';
+
+
+        switch (type) {
+            case 'appointment':
+                clientField.style.display = 'block';
+                locationField.style.display = 'block';
+                recurrenceField.style.display = 'block';
+                if (args.data.Type === 'APPOINTMENT') {
+                    bindAppointmentData(args, container);
+                }
+                break;
+            case 'event':
+                locationField.style.display = 'block';
+                recurrenceField.style.display = 'block';
+                eventNameField.style.display = 'block';
+                teamMemberField.style.display = 'block';
+                if (args.data.Type === 'EVENT') {
+                    bindEventData(args, container);
+                }
+                break;
+            case 'outofoffice':
+                // No specific fields to show for out of office
+                break;
+            default:
+                break;
+        }
+    }
+
+    function bindAppointmentData(args, container) {
+        // Set selected client if available
+        if (args.data.Client) {
+            const clientDropdown = container.querySelector('#Client');
+            const clientDropDownList = clientDropdown.ej2_instances[0];
+            clientDropDownList.value = args.data.Client;
+            clientDropDownList.dataBind();
+        }
+
+        // Set selected location if available
+        if (args.data.Location) {
+            const locationDropdown = container.querySelector('#Location');
+            const locationDropDownList = locationDropdown.ej2_instances[0];
+            locationDropDownList.value = args.data.Location;
+            locationDropDownList.dataBind();
+        }
+
+        // Check if the event is recurring and apply the recurrence rule
+        if (args.data.IsRecurring) {
+            const recurrenceEditor = container.querySelector('#RecurrenceEditor');
+            if (recurrenceEditor) {
+                const recurrenceEditorObj = recurrenceEditor.ej2_instances[0];
+                if (recurrenceEditorObj) {
+                    recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
+                    recurrenceEditorObj.dataBind();
+                    recurrenceEditorObj.recurrenceId = args.data.RecurrenceID;
+                }
+            }
+        }
+
+        // Bind IsAllDay checkbox
+        const isAllDayCheckbox = container.querySelector('#IsAllDay');
+        if (isAllDayCheckbox) {
+            const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
+            isAllDayInstance.checked = args.data.IsAllDay;
+            isAllDayInstance.dataBind();
+
+            updateDateTimePickers(container, args.data.IsAllDay);
+        }
+    }
+
+    function bindEventData(args, container) {
+        // Bind title for events
+        const subjectInput = container.querySelector('input[name="Subject"]');
+        if (subjectInput && !subjectInput.ej2_instances) {
+            new ej.inputs.TextBox({
+                placeholder: 'Event Name (Optional)',
+                floatLabelType: 'Auto',
+                value: args.data.Subject
+            }, subjectInput);
+        }
+
+        if (args.data.TeamMember) {
+            const teamMemberDropdown = container.querySelector('#TeamMember');
+            const teamMemberDropDownList = teamMemberDropdown.ej2_instances[0];
+            teamMemberDropDownList.value = args.data.TeamMember;
+            teamMemberDropDownList.dataBind();
+        }
+
+        // Set selected location if available
+        if (args.data.Location) {
+            const locationDropdown = container.querySelector('#Location');
+            const locationDropDownList = locationDropdown.ej2_instances[0];
+            locationDropDownList.value = args.data.Location;
+            locationDropDownList.dataBind();
+        }
+
+        // Check if the event is recurring and apply the recurrence rule
+        if (args.data.IsRecurring) {
+            const recurrenceEditor = container.querySelector('#RecurrenceEditor');
+            if (recurrenceEditor) {
+                const recurrenceEditorObj = recurrenceEditor.ej2_instances[0];
+                if (recurrenceEditorObj) {
+                    recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
+                    recurrenceEditorObj.dataBind();
+                    recurrenceEditorObj.recurrenceId = args.data.RecurrenceID;
+                }
+            }
+        }
+
+        // Bind IsAllDay checkbox
+        const isAllDayCheckbox = container.querySelector('#IsAllDay');
+        if (isAllDayCheckbox) {
+            const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
+            isAllDayInstance.checked = args.data.IsAllDay;
+            isAllDayInstance.dataBind();
+
+            updateDateTimePickers(container, args.data.IsAllDay);
+        }
     }
 
     // Updated client search initialization
@@ -495,13 +597,14 @@
 
     // Location dropdown initialization function
     function initializeLocationDropdown(container, locations) {
-        const locationDropdown = container.querySelector('input[name="location"]');
+        const locationDropdown = container.querySelector('#Location');
 
         const dropDownList = new ej.dropdowns.DropDownList({
             dataSource: locations,
             fields: { text: 'name', value: 'id' },
             placeholder: 'Select Location',
             allowFiltering: true,
+            popupHeight: '200px',
             filtering: (e) => {
                 const query = new ej.data.Query().where('name', 'contains', e.text, true);
                 e.updateData(locations, query);
@@ -582,5 +685,93 @@
                 }
             }
         });
+    }
+
+    function initializeInput(container) {
+        const subjectInput = container.querySelector('input[name="Subject"]');
+
+        if (subjectInput && !subjectInput.ej2_instances) {
+            new ej.inputs.TextBox({
+                placeholder: 'Event Name (Optional)',
+                floatLabelType: 'Auto'
+            }, subjectInput);
+        }
+    }
+
+    function initializeTeamMembersSearch(container, teamMembers) {
+        const teamMemberSearch = container.querySelector('#TeamMember');
+
+        const dropDownList = new ej.dropdowns.DropDownList({
+            dataSource: teamMembers,
+            fields: { text: 'name', value: 'id' },
+            placeholder: 'Search Team Member',
+            allowFiltering: true,
+            popupHeight: '200px',
+            filtering: (e) => {
+                const query = new ej.data.Query().where('name', 'contains', e.text, true);
+                e.updateData(teamMembers, query);
+            }
+        });
+
+        dropDownList.appendTo(teamMemberSearch);
+    }
+
+    // Function to validate appointment fields
+    function validateAppointment(eventData) {
+        const { StartTime, EndTime, Client, Location } = eventData;
+
+        // Check if required fields are filled
+        if (!Client) {
+            alert('Client is required for appointments.');
+            return false;
+        }
+        if (!Location) {
+            alert('Location is required for appointments.');
+            return false;
+        }
+        if (!StartTime || !EndTime) {
+            alert('Start and End times are required.');
+            return false;
+        }
+
+        // Ensure end time is after start time
+        const startTime = new Date(StartTime);
+        const endTime = new Date(EndTime);
+        if (startTime >= endTime) {
+            alert('Start time must be less than end time.');
+            return false;
+        }
+
+        return true; // All validations passed
+    }
+
+    // Function to validate event fields
+    function validateEvent(eventData) {
+
+        const { StartTime, EndTime, TeamMember, Location } = eventData;
+
+
+        if (!TeamMember) {
+            alert('Team member is required for events.');
+            return false;
+        }
+        if (!Location) {
+            alert('Location is required for events.');
+            return false;
+        }
+        if (!StartTime || !EndTime) {
+            alert('Start and End times are required.');
+            return false;
+        }
+
+        // Ensure end time is after start time
+        const startTime = new Date(StartTime);
+        const endTime = new Date(EndTime);
+        if (startTime >= endTime) {
+            alert('Start time must be less than end time.');
+            return false;
+        }
+
+        return true; // All validations passed
     }
 </script>
