@@ -319,12 +319,12 @@
             const container = args.element;
 
             // Initialize all components
-            initializeTabs(args, container);
             initializeClientSearch(container, clientData);
             initializeDateTimePickers(container);
             initializeLocationDropdown(container, locationData);
             initializeInput(container);
             initializeTeamMembersSearch(container, teamMemberData);
+
 
             // Recurrence Editor initialization
             let recurElement = container.querySelector('#RecurrenceEditor');
@@ -336,8 +336,7 @@
                 scheduler.eventWindow.recurrenceEditor = recurrObject;
             }
 
-
-            toggleFieldsByType("appointment", args, container);
+            initializeTabs(args, container);
         }
     });
     // Tab initialization function
@@ -351,6 +350,28 @@
         const recurrenceField = container.querySelector('.recurrence-field');
         const eventNameField = container.querySelector('.event-name-field');
 
+        // Set initial active tab based on args.data.Type
+        const eventType = (args.data.Type || 'APPOINTMENT').toLowerCase();
+        const initialTab = container.querySelector(`.editor-tab[data-tab="${eventType}"]`);
+        const initialContent = container.querySelector(`#${eventType}-tab`);
+
+        if (initialTab && initialContent) {
+            // Remove active class from all tabs and contents
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+
+            // Set initial active tab and content
+            initialTab.classList.add('active');
+            initialContent.classList.add('active');
+
+            // Show common fields
+            commonFields.style.display = 'block';
+
+            // Toggle fields for initial tab
+            toggleFieldsByType(eventType, args, container);
+        }
+
+        // Add click event listeners for tab switching
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 // Remove active class from all tabs and contents
@@ -371,7 +392,6 @@
             });
         });
     }
-
     function toggleFieldsByType(type, args, container) {
         const clientField = document.querySelector('.client-field');
         const locationField = document.querySelector('.location-field');
@@ -549,7 +569,7 @@
 
                 new ej.calendars.DateTimePicker({
                     value: new Date(input.value) || new Date(),
-                    format: 'MM/dd/yyyy HH:mm',
+                    format: 'MM/dd/yyyy hh:mm a',
                     change: function (args) {
                         // Update end time with same date when start time changes
                         const endInput = container.querySelector('input[name="EndTime"]');
@@ -570,7 +590,7 @@
 
                 new ej.calendars.DateTimePicker({
                     value: new Date(input.value) || new Date(),
-                    format: 'HH:mm',
+                    format: 'hh:mm a',
                     enabled: !isAllDay,
                     depth: 'Hour',
                     start: 'Hour',
@@ -639,7 +659,7 @@
                 } else {
                     new ej.calendars.DateTimePicker({
                         value: currentDate,
-                        format: 'yyyy-MM-dd HH:mm',
+                        format: 'MM/dd/yyyy hh:mm a',
                         change: function (args) {
                             // Update end time date when start time changes
                             const endInput = container.querySelector('input[name="EndTime"]');
@@ -669,7 +689,7 @@
                 } else {
                     new ej.calendars.DateTimePicker({
                         value: currentDate,
-                        format: 'HH:mm',
+                        format: 'hh:mm a',
                         step: 15,
                         change: function (args) {
                             // Get date from start time and apply to end time
