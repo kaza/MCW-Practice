@@ -86,6 +86,8 @@
                             isValid = validateAppointment(eventData);
                         } else if (activeTab === 'event') {
                             isValid = validateEvent(eventData);
+                        } else if (activeTab === 'outofoffice') {
+                            isValid = validateOutOfOffice(eventData);
                         }
 
                         if (!isValid) {
@@ -93,27 +95,35 @@
                             return;
                         }
 
-                        // Ensure end date matches start date
+                        // Ensure end date matches start date if not all day
                         const startTime = new Date(eventData.StartTime);
                         let endTime = new Date(eventData.EndTime);
 
-                        // Set the end date to match start date while preserving end time
-                        endTime = new Date(
-                            startTime.getFullYear(),
-                            startTime.getMonth(),
-                            startTime.getDate(),
-                            endTime.getHours(),
-                            endTime.getMinutes()
-                        );
+                        // Check if the event is an all-day event
+                        if (!eventData.IsAllDay) {
+                            // Set the end date to match start date while preserving end time
+                            endTime = new Date(
+                                startTime.getFullYear(),
+                                startTime.getMonth(),
+                                startTime.getDate(),
+                                endTime.getHours(),
+                                endTime.getMinutes()
+                            );
 
-                        // Update the end time in eventData
-                        eventData.EndTime = endTime.toISOString();
+                            // Update the end time in eventData
+                            eventData.EndTime = endTime.toISOString();
 
-                        // Validate time
-                        if (startTime >= endTime) {
-                            args.cancel = true;
-                            alert('Start time must be less than end time.');
-                            return;
+                            // Validate time
+                            if (startTime >= endTime) {
+                                args.cancel = true;
+                                alert('Start time must be less than end time.');
+                                return;
+                            }
+                        } else {
+                            // If it's an all-day event, set the end time to the end of the day
+                            endTime = new Date(startTime);
+                            endTime.setHours(23, 59, 59, 999); 
+                            eventData.EndTime = endTime.toISOString(); 
                         }
                     }
                     const action = args.requestType.replace('event', '').toLowerCase();
@@ -148,7 +158,7 @@
                         case 'event':
                             eventType = 'EVENT';
                             break;
-                        case 'outofoffice':
+                        case 'out_of_office':
                             eventType = 'OUT_OF_OFFICE';
                             break;
                         default:
@@ -209,28 +219,30 @@
             switch (selectedView) {
                 case 'Day':
                     startDate = new Date(selectedDate);
+                    startDate.setHours(0, 0, 0, 0);
                     endDate = new Date(selectedDate);
                     endDate.setHours(23, 59, 59, 999);
                     break;
                 case 'Week':
                     startDate = new Date(selectedDate);
                     startDate.setDate(selectedDate.getDate() - selectedDate.getDay());
+                    startDate.setHours(0, 0, 0, 0);
                     endDate = new Date(startDate);
                     endDate.setDate(startDate.getDate() + 6);
                     endDate.setHours(23, 59, 59, 999);
                     break;
                 case 'Month':
                     startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+                    startDate.setHours(0, 0, 0, 0);
                     endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
                     endDate.setHours(23, 59, 59, 999);
                     break;
                 default:
-                    return null; // Handle other views if necessary
+                    return null;
             }
 
             return { startDate, endDate };
         }
-
         // Load initial events
         const currentDate = scheduler.selectedDate;
         const selectedView = scheduler.currentView;
@@ -324,6 +336,7 @@
             initializeLocationDropdown(container, locationData);
             initializeInput(container);
             initializeTeamMembersSearch(container, teamMemberData);
+            initializeOutOfOfficeFields(container);
 
 
             // Recurrence Editor initialization
@@ -398,6 +411,7 @@
         const recurrenceField = document.querySelector('.recurrence-field');
         const eventNameField = document.querySelector('.event-name-field');
         const teamMemberField = document.querySelector('.team-member-field');
+        const cancelAppointmentField = document.querySelector('.cancel-appointment-field');
 
         // Reset visibility
         clientField.style.display = 'none';
@@ -405,7 +419,7 @@
         recurrenceField.style.display = 'none';
         eventNameField.style.display = 'none';
         teamMemberField.style.display = 'none';
-
+        cancelAppointmentField.style.display = 'none';
 
         switch (type) {
             case 'appointment':
@@ -425,8 +439,12 @@
                     bindEventData(args, container);
                 }
                 break;
-            case 'outofoffice':
-                // No specific fields to show for out of office
+            case 'out_of_office':
+                teamMemberField.style.display = 'block';
+                cancelAppointmentField.style.display = 'block';
+                if (args.data.Type === 'OUT_OF_OFFICE') {
+                    bindOutOfOfficeData(args, container);
+                }
                 break;
             default:
                 break;
@@ -524,6 +542,38 @@
         }
     }
 
+    function bindOutOfOfficeData(args, container) {
+
+        if (args.data.TeamMember) {
+            const teamMemberDropdown = container.querySelector('#TeamMember');
+            const teamMemberDropDownList = teamMemberDropdown.ej2_instances[0];
+            teamMemberDropDownList.value = args.data.TeamMember;
+            teamMemberDropDownList.dataBind();
+        }
+        const cancelAppointmentCheckbox = container.querySelector('#IsCancelAppointment');
+        if (cancelAppointmentCheckbox) {
+            const cancelAppointmentInstance = cancelAppointmentCheckbox.ej2_instances[0];
+            cancelAppointmentInstance.checked = args.data.IsCancelAppointment;
+            cancelAppointmentInstance.dataBind();
+        }
+
+        const notifyClientCheckbox = container.querySelector('#IsNotifyClient');
+        if (notifyClientCheckbox) {
+            const notifyClientInstance = notifyClientCheckbox.ej2_instances[0];
+            notifyClientInstance.checked = args.data.IsNotifyClient;
+            notifyClientInstance.dataBind();
+        }
+
+        // Bind IsAllDay checkbox
+        const isAllDayCheckbox = container.querySelector('#IsAllDay');
+        if (isAllDayCheckbox) {
+            const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
+            isAllDayInstance.checked = args.data.IsAllDay;
+            isAllDayInstance.dataBind();
+
+            updateDateTimePickers(container, args.data.IsAllDay);
+        }
+    }
     // Updated client search initialization
     function initializeClientSearch(container, clients) {
         const clientSearch = container.querySelector('#Client');
@@ -718,6 +768,21 @@
         }
     }
 
+    function initializeOutOfOfficeFields(container) {
+        const cancelAppointmentCheckbox = container.querySelector('#IsCancelAppointment');
+        if (cancelAppointmentCheckbox && !cancelAppointmentCheckbox.ej2_instances) {
+            new ej.buttons.CheckBox({
+                checked: false,
+            }, cancelAppointmentCheckbox);
+        }
+        const notifyClientCheckbox = container.querySelector('#IsNotifyClient');
+        if (notifyClientCheckbox && !notifyClientCheckbox.ej2_instances) {
+            new ej.buttons.CheckBox({
+                checked: false,
+            }, notifyClientCheckbox);
+        }
+    }
+
     function initializeTeamMembersSearch(container, teamMembers) {
         const teamMemberSearch = container.querySelector('#TeamMember');
 
@@ -738,7 +803,7 @@
 
     // Function to validate appointment fields
     function validateAppointment(eventData) {
-        const { StartTime, EndTime, Client, Location } = eventData;
+        const { StartTime, EndTime, Client, Location, IsAllDay } = eventData;
 
         // Check if required fields are filled
         if (!Client) {
@@ -749,17 +814,25 @@
             alert('Location is required for appointments.');
             return false;
         }
-        if (!StartTime || !EndTime) {
-            alert('Start and End times are required.');
+        if (!StartTime) {
+            alert('Start time is required.');
             return false;
         }
 
-        // Ensure end time is after start time
-        const startTime = new Date(StartTime);
-        const endTime = new Date(EndTime);
-        if (startTime >= endTime) {
-            alert('Start time must be less than end time.');
+        // If IsAllDay is false, check for EndTime
+        if (!IsAllDay && !EndTime) {
+            alert('End time is required when not an all-day event.');
             return false;
+        }
+
+        // Ensure end time is after start time only if not all day
+        if (!IsAllDay) {
+            const startTime = new Date(StartTime);
+            const endTime = new Date(EndTime);
+            if (startTime >= endTime) {
+                alert('Start time must be less than end time.');
+                return false;
+            }
         }
 
         return true; // All validations passed
@@ -767,9 +840,7 @@
 
     // Function to validate event fields
     function validateEvent(eventData) {
-
-        const { StartTime, EndTime, TeamMember, Location } = eventData;
-
+        const { StartTime, EndTime, TeamMember, Location, IsAllDay } = eventData;
 
         if (!TeamMember) {
             alert('Team member is required for events.');
@@ -779,17 +850,56 @@
             alert('Location is required for events.');
             return false;
         }
-        if (!StartTime || !EndTime) {
-            alert('Start and End times are required.');
+        if (!StartTime) {
+            alert('Start time is required.');
             return false;
         }
 
-        // Ensure end time is after start time
-        const startTime = new Date(StartTime);
-        const endTime = new Date(EndTime);
-        if (startTime >= endTime) {
-            alert('Start time must be less than end time.');
+        // If IsAllDay is false, check for EndTime
+        if (!IsAllDay && !EndTime) {
+            alert('End time is required when not an all-day event.');
             return false;
+        }
+
+        // Ensure end time is after start time only if not all day
+        if (!IsAllDay) {
+            const startTime = new Date(StartTime);
+            const endTime = new Date(EndTime);
+            if (startTime >= endTime) {
+                alert('Start time must be less than end time.');
+                return false;
+            }
+        }
+
+        return true; // All validations passed
+    }
+
+    function validateOutOfOffice(eventData) {
+        const { StartTime, EndTime, TeamMember, IsAllDay } = eventData;
+
+        if (!TeamMember) {
+            alert('Team member is required for out of office.');
+            return false;
+        }
+        if (!StartTime) {
+            alert('Start time is required.');
+            return false;
+        }
+
+        // If IsAllDay is false, check for EndTime
+        if (!IsAllDay && !EndTime) {
+            alert('End time is required when not an all-day event.');
+            return false;
+        }
+
+        // Ensure end time is after start time only if not all day
+        if (!IsAllDay) {
+            const startTime = new Date(StartTime);
+            const endTime = new Date(EndTime);
+            if (startTime >= endTime) {
+                alert('Start time must be less than end time.');
+                return false;
+            }
         }
 
         return true; // All validations passed
