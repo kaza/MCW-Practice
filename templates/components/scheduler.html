@@ -8,7 +8,7 @@
 {% include 'components/scheduler-editor.html' %}
 {% endblock %}
 
-
+<script src="{% static 'js/recurring-control.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
@@ -363,7 +363,7 @@
             initializeClientSearch(container, clientData);
             initializeDateTimePicker(args.data);
             initializeLocationDropdown(container, locationData);
-            initializeRecurringControl();
+            initializeRecurringControl(args.data.StartTime);
             // initializeInput(container);
             // initializeTeamMembersSearch(container, teamMemberData);
             // initializeOutOfOfficeFields(container);
@@ -790,45 +790,8 @@
             console.log('Automatically selected location:', firstLocation);
         }
     }
-    // Recurring control initialization function
-    function initializeRecurringControl() {
-            const recurringCheckbox = document.getElementById('recurring');
-            const recurrenceEditor = document.querySelector('.recurrence-editor');
-            
-            if (recurringCheckbox && recurrenceEditor) {
-                recurringCheckbox.addEventListener('change', function(e) {
-                    recurrenceEditor.style.display = e.target.checked ? 'block' : 'none';
-                });
-                
-                // Initialize DOW checkboxes
-                const dowLabels = document.querySelectorAll('.dows-container label');
-                dowLabels.forEach(label => {
-                    const checkbox = label.querySelector('input[type="checkbox"]');
-                    checkbox.addEventListener('change', function() {
-                        label.classList.toggle('checked', this.checked);
-                    });
-                });
-                
-                // Initialize end type toggle
-                const endTypeSelect = document.getElementById('recurring-frequency-end-type');
-                const endCountSelect = document.getElementById('recurring-frequency-end-count');
-                const eventsLabel = document.querySelector('.events-label');
-                
-                if (endTypeSelect) {
-                    endTypeSelect.addEventListener('change', function() {
-                        const isAfter = this.value === 'After';
-                        if (endCountSelect) endCountSelect.style.display = isAfter ? 'block' : 'none';
-                        if (eventsLabel) eventsLabel.style.display = isAfter ? 'block' : 'none';
-                        
-                        // If "On Date" is selected, show date picker instead
-                        if (this.value === 'On Date') {
-                            // You can add date picker initialization here if needed
-                        }
-                    });
-                }
-            }
-        }
 
+    
        
     // Utility function to get CSRF token
     function getCsrfToken() {
