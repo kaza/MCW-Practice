@@ -49,10 +49,7 @@
                     startTime: { name: 'StartTime' },
                     endTime: { name: 'EndTime' },
                     isAllDay: { name: 'IsAllDay' },
-                    resourceId: { name: 'ResourceId' },
-                    recurrenceID: { name: 'RecurrenceID' },
-                    recurrenceRule: { name: 'RecurrenceRule' },
-                    recurrenceException: { name: 'RecurrenceException' }
+                    resourceId: { name: 'ResourceId' }
                 },
                 enableRecurrenceValidation: true
             },
@@ -122,8 +119,8 @@
                         } else {
                             // If it's an all-day event, set the end time to the end of the day
                             endTime = new Date(startTime);
-                            endTime.setHours(23, 59, 59, 999); 
-                            eventData.EndTime = endTime.toISOString(); 
+                            endTime.setHours(23, 59, 59, 999);
+                            eventData.EndTime = endTime.toISOString();
                         }
                     }
                     const action = args.requestType.replace('event', '').toLowerCase();
@@ -326,31 +323,65 @@
             scheduler.dataBind();
         });
 
+        $(document).on('click', '#done-button', function () {
+            const args = {
+                requestType: 'eventCreate',
+                data: null
+            };
+            scheduler.actionBegin(args);
+        });
+        $(document).on('click', '#cancel-button', function () {
+            scheduler.closeEditor();
+        });
+
         // Initialize editor components
         function initializeEditorComponents(args) {
             const container = args.element;
 
             // Initialize all components
-            initializeClientSearch(container, clientData);
-            initializeDateTimePickers(container);
-            initializeLocationDropdown(container, locationData);
-            initializeInput(container);
-            initializeTeamMembersSearch(container, teamMemberData);
-            initializeOutOfOfficeFields(container);
 
-
-            // Recurrence Editor initialization
-            let recurElement = container.querySelector('#RecurrenceEditor');
-            if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
-                let recurrObject = new ej.schedule.RecurrenceEditor({
-                    // You can add specific configuration here if needed
+            // Tab Navigation
+            const tabs = document.querySelectorAll('.tab-link');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
                 });
-                recurrObject.appendTo(recurElement);
-                scheduler.eventWindow.recurrenceEditor = recurrObject;
-            }
+            });
 
-            initializeTabs(args, container);
+            // Appointment Type Selection
+            const typeButtons = document.querySelectorAll('.type-btn');
+            typeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    typeButtons.forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                });
+            });
+
+
+            initializeClientSearch(container, clientData);
+            initializeDateTimePicker(args.data);
+            initializeLocationDropdown(container, locationData);
+            initializeRecurringControl();
+            // initializeInput(container);
+            // initializeTeamMembersSearch(container, teamMemberData);
+            // initializeOutOfOfficeFields(container);
+
+
+            // // Recurrence Editor initialization
+            // let recurElement = container.querySelector('#RecurrenceEditor');
+            // if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
+            //     let recurrObject = new ej.schedule.RecurrenceEditor({
+            //         // You can add specific configuration here if needed
+            //     });
+            //     recurrObject.appendTo(recurElement);
+            //     scheduler.eventWindow.recurrenceEditor = recurrObject;
+            // }
+
+            // initializeTabs(args, container);
         }
+
     });
     // Tab initialization function
     function initializeTabs(args, container) {
@@ -576,113 +607,229 @@
     }
     // Updated client search initialization
     function initializeClientSearch(container, clients) {
-        const clientSearch = container.querySelector('#Client');
-
-        const dropDownList = new ej.dropdowns.DropDownList({
-            dataSource: clients,
-            fields: { text: 'name', value: 'id' },
-            placeholder: 'Search Client',
-            allowFiltering: true,
-            popupHeight: '200px',
-            filtering: (e) => {
-                const query = new ej.data.Query().where('name', 'contains', e.text, true);
-                e.updateData(clients, query);
+        const clientSearch = new DynamicSearch({
+            containerId: 'clientSearchContainer',
+            items: clients,
+            onSelect: function (selectedClient) {
+                console.log('Selected client:', selectedClient);
+                // Handle the selection here
             }
         });
-
-        dropDownList.appendTo(clientSearch);
     }
     // Date/time pickers initialization function
-    function initializeDateTimePickers(container) {
-        const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
-        const endTimeInputs = container.querySelectorAll('input[name="EndTime"]');
-        const isAllDayInputs = container.querySelectorAll('input[name="IsAllDay"]');
+    function initializeDateTimePicker(dateData) {
+        // Cache all DOM elements
+        const elements = {
+            // Regular view elements
+            dateInput: document.querySelector('.datetime-section .date-input'),
+            startDate: document.getElementById('startDate'),
+            startTimeInput: document.getElementById('startTime'),
+            endTimeInput: document.getElementById('endTime'),
+            durationInput: document.getElementById('duration'),
+            regularTimeView: document.getElementById('regularTimeView'),
 
-        // Initialize IsAllDay checkbox
-        isAllDayInputs.forEach(input => {
-            if (!input.classList.contains('e-checkbox')) {
-                new ej.buttons.CheckBox({
-                    checked: false,
-                    change: (e) => {
-                        updateDateTimePickers(container, e.checked);
+            // All-day view elements
+            allDayCheckbox: document.getElementById('allDay'),
+            allDayView: document.getElementById('allDayView'),
+            allDayStartDate: document.getElementById('allDayStartDate'),
+            allDayEndDate: document.getElementById('allDayEndDate'),
+            numberOfDays: document.getElementById('numberOfDays')
+        };
+
+        // Helper Functions
+        const helpers = {
+            formatTimeToHHMM(date) {
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${hours}:${minutes}`;
+            },
+
+            formatDateToYYYYMMDD(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            },
+
+            calculateDuration() {
+                if (elements.startTimeInput?.value && elements.endTimeInput?.value) {
+                    const start = new Date(`2000-01-01T${elements.startTimeInput.value}`);
+                    const end = new Date(`2000-01-01T${elements.endTimeInput.value}`);
+                    const duration = (end - start) / (1000 * 60);
+                    if (elements.durationInput) {
+                        elements.durationInput.value = duration >= 0 ? duration : 0;
                     }
-                }, input);
+                }
+            },
+
+            calculateNumberOfDays() {
+                if (elements.allDayStartDate?.value && elements.allDayEndDate?.value) {
+                    const start = new Date(elements.allDayStartDate.value);
+                    const end = new Date(elements.allDayEndDate.value);
+                    const diffTime = Math.abs(end - start);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                    if (elements.numberOfDays) {
+                        elements.numberOfDays.value = diffDays;
+                    }
+                }
+            },
+
+            toggleViews(isAllDay) {
+                if (elements.regularTimeView) {
+                    elements.regularTimeView.style.display = isAllDay ? 'none' : 'flex';
+                    elements.startDate.style.display = isAllDay ? 'none' : 'block';
+                }
+                if (elements.allDayView) {
+                    elements.allDayView.style.display = isAllDay ? 'block' : 'none';
+                }
+            },
+
+            syncViewData(isAllDay) {
+                if (isAllDay) {
+                    // Regular to All-day
+                    if (elements.allDayStartDate && elements.dateInput) {
+                        elements.allDayStartDate.value = elements.dateInput.value;
+                    }
+                    if (elements.allDayEndDate && elements.dateInput) {
+                        elements.allDayEndDate.value = elements.dateInput.value;
+                    }
+                    helpers.calculateNumberOfDays();
+                } else {
+                    // All-day to Regular
+                    if (elements.dateInput && elements.allDayStartDate) {
+                        elements.dateInput.value = elements.allDayStartDate.value;
+                    }
+                    helpers.calculateDuration();
+                }
             }
-        });
+        };
 
-        // Initialize date/time pickers
-        function initializePickers(isAllDay = false) {
-            startTimeInputs.forEach(input => {
-                if (input.ej2_instances) {
-                    input.ej2_instances[0].destroy();
-                }
-
-                new ej.calendars.DateTimePicker({
-                    value: new Date(input.value) || new Date(),
-                    format: 'MM/dd/yyyy hh:mm a',
-                    change: function (args) {
-                        // Update end time with same date when start time changes
-                        const endInput = container.querySelector('input[name="EndTime"]');
-                        if (endInput && endInput.ej2_instances && endInput.ej2_instances[0]) {
-                            const endTime = endInput.ej2_instances[0].value;
-                            const newEndDate = new Date(args.value);
-                            newEndDate.setHours(endTime.getHours(), endTime.getMinutes());
-                            endInput.ej2_instances[0].value = newEndDate;
-                        }
-                    }
-                }, input);
+        // Initialize event listeners
+        function initializeEventListeners() {
+            // All-day toggle
+            elements.allDayCheckbox?.addEventListener('change', (e) => {
+                const isAllDay = e.target.checked;
+                helpers.toggleViews(isAllDay);
+                helpers.syncViewData(isAllDay);
             });
 
-            endTimeInputs.forEach(input => {
-                if (input.ej2_instances) {
-                    input.ej2_instances[0].destroy();
-                }
+            // Regular view time changes
+            elements.startTimeInput?.addEventListener('change', helpers.calculateDuration);
+            elements.endTimeInput?.addEventListener('change', helpers.calculateDuration);
 
-                new ej.calendars.DateTimePicker({
-                    value: new Date(input.value) || new Date(),
-                    format: 'hh:mm a',
-                    enabled: !isAllDay,
-                    depth: 'Hour',
-                    start: 'Hour',
-                    stepHour: 1,
-                    stepMinute: 15,
-                    dateDisabled: true, // Disable date selection
-                    change: function (args) {
-                        const startInput = container.querySelector('input[name="StartTime"]');
-                        if (startInput && startInput.ej2_instances && startInput.ej2_instances[0]) {
-                            const startDate = startInput.ej2_instances[0].value;
-                            const newDate = new Date(args.value);
-                            newDate.setFullYear(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-                            args.value = newDate;
-                        }
-                    }
-                }, input);
-            });
+            // All-day view date changes
+            elements.allDayStartDate?.addEventListener('change', helpers.calculateNumberOfDays);
+            elements.allDayEndDate?.addEventListener('change', helpers.calculateNumberOfDays);
         }
 
-        // Initial setup
-        const isAllDay = container.querySelector('input[name="IsAllDay"]').ej2_instances[0].checked;
-        initializePickers(isAllDay);
-    }
+        // Initialize with data
+        function initializeWithData() {
+            try {
+                const startDateTime = new Date(dateData.StartTime);
+                const endDateTime = new Date(dateData.EndTime);
 
+                if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+                    console.error('Invalid date values:', dateData.StartTime, dateData.EndTime);
+                    return;
+                }
+
+                // Set regular view values
+                if (elements.dateInput) {
+                    elements.dateInput.value = helpers.formatDateToYYYYMMDD(startDateTime);
+                }
+                if (elements.startTimeInput) {
+                    elements.startTimeInput.value = helpers.formatTimeToHHMM(startDateTime);
+                }
+                if (elements.endTimeInput) {
+                    elements.endTimeInput.value = helpers.formatTimeToHHMM(endDateTime);
+                }
+
+                // Set all-day view values
+                if (elements.allDayStartDate) {
+                    elements.allDayStartDate.value = helpers.formatDateToYYYYMMDD(startDateTime);
+                }
+                if (elements.allDayEndDate) {
+                    elements.allDayEndDate.value = helpers.formatDateToYYYYMMDD(endDateTime);
+                }
+
+                // Calculate initial values
+                helpers.calculateDuration();
+                helpers.calculateNumberOfDays();
+
+                // Set initial view based on IsAllDay
+                const isAllDay = dateData.IsAllDay || false;
+                if (elements.allDayCheckbox) {
+                    elements.allDayCheckbox.checked = isAllDay;
+                }
+                helpers.toggleViews(isAllDay);
+
+            } catch (error) {
+                console.error('Error initializing date/time pickers:', error);
+            }
+        }
+
+        // Initialize everything
+        initializeEventListeners();
+        if (dateData) {
+            initializeWithData();
+        }
+    }
     // Location dropdown initialization function
     function initializeLocationDropdown(container, locations) {
-        const locationDropdown = container.querySelector('#Location');
-
-        const dropDownList = new ej.dropdowns.DropDownList({
-            dataSource: locations,
-            fields: { text: 'name', value: 'id' },
-            placeholder: 'Select Location',
-            allowFiltering: true,
-            popupHeight: '200px',
-            filtering: (e) => {
-                const query = new ej.data.Query().where('name', 'contains', e.text, true);
-                e.updateData(locations, query);
+        const locationSearch = new DynamicSearch({
+            containerId: 'locationSearchContainer',
+            items: locations,
+            onSelect: function (selectedLocation) {
+                console.log('Selected location:', selectedLocation);
+                // Handle the selection here
             }
         });
-
-        dropDownList.appendTo(locationDropdown);
+        if (locations.length > 0) {
+            const firstLocation = locations[0];
+            locationSearch.selectItem(firstLocation);
+            console.log('Automatically selected location:', firstLocation);
+        }
     }
+    // Recurring control initialization function
+    function initializeRecurringControl() {
+            const recurringCheckbox = document.getElementById('recurring');
+            const recurrenceEditor = document.querySelector('.recurrence-editor');
+            
+            if (recurringCheckbox && recurrenceEditor) {
+                recurringCheckbox.addEventListener('change', function(e) {
+                    recurrenceEditor.style.display = e.target.checked ? 'block' : 'none';
+                });
+                
+                // Initialize DOW checkboxes
+                const dowLabels = document.querySelectorAll('.dows-container label');
+                dowLabels.forEach(label => {
+                    const checkbox = label.querySelector('input[type="checkbox"]');
+                    checkbox.addEventListener('change', function() {
+                        label.classList.toggle('checked', this.checked);
+                    });
+                });
+                
+                // Initialize end type toggle
+                const endTypeSelect = document.getElementById('recurring-frequency-end-type');
+                const endCountSelect = document.getElementById('recurring-frequency-end-count');
+                const eventsLabel = document.querySelector('.events-label');
+                
+                if (endTypeSelect) {
+                    endTypeSelect.addEventListener('change', function() {
+                        const isAfter = this.value === 'After';
+                        if (endCountSelect) endCountSelect.style.display = isAfter ? 'block' : 'none';
+                        if (eventsLabel) eventsLabel.style.display = isAfter ? 'block' : 'none';
+                        
+                        // If "On Date" is selected, show date picker instead
+                        if (this.value === 'On Date') {
+                            // You can add date picker initialization here if needed
+                        }
+                    });
+                }
+            }
+        }
+
+       
     // Utility function to get CSRF token
     function getCsrfToken() {
         const csrfCookie = document.cookie
@@ -904,4 +1051,6 @@
 
         return true; // All validations passed
     }
+
+
 </script>

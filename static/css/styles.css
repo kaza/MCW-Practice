@@ -20,11 +20,21 @@
     color: #4488c9; 
 }
 
+#scheduler_dialog_wrapper_dialog-header {
+    display: none;
+}
+#scheduler_dialog_wrapper{
+    width: 470px !important;
+}
+div.e-dialog .e-footer-content {
+    display: none !important;
+}
 /* Badge styles */
 .badge {
     background-color: #ff5252; /* Red background for badges */
     color: #ffffff; /* White text color for badges */
 }
+
 
 /* Scheduler container styles */
 .scheduler-container {
@@ -91,263 +101,200 @@
     min-height: 600px !important;
 }
 
-/* Editor Styles */
-.custom-event-editor {
-    width: 100%;
-    min-width: 400px; /* Minimum width for the editor */
-}
+/* Appointment Tab in calendar specific styles */
 
-
-.custom-event-editor .e-textlabel {
-    flex: 0 0 120px;
-    padding-right: 15px;
-    text-align: right;
-    font-weight: 500;
-    white-space: nowrap;
-    margin-bottom: 15px;
-}
-
-.custom-event-editor td {
-    padding: 7px 16px 7px 7px;
-    width: 100%;
-    padding-right: 16px;
-}
-
-.custom-event-editor tr {
-    display: flex;
-    align-items: center;
-}
-
-
-/* Tabs Styles */
-.editor-tabs {
-    display: flex;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 15px;
-}
-
-.editor-tab {
-    padding: 10px 20px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    border-bottom: none;
-    margin-bottom: -1px;
-}
-
-.editor-tab.active {
-    border-color: #ddd;
-    border-bottom-color: white;
-    background: white;
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-/* Client Search Styles */
-.client-search-container {
+.select-search-container {
     position: relative;
-    display: flex;
-    align-items: center;
+    width: 100%;
 }
 
-.client-search {
-    padding-right: 100px;
-}
-
-.create-client-link {
+.select-search-dropdown {
     position: absolute;
-    right: 10px;
-    color: #007bff;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-.create-client-link:hover {
-    text-decoration: underline;
-}
-
-/* Appointment Heading */
-.appointment-heading {
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 15px;
-    color: #333;
-}
-
-/* Location Dropdown */
-.location-dropdown {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.create-client-form .form-group {
-    margin-bottom: 15px;
-}
-
-.create-client-form label {
-    display: block;
-    margin-bottom: 5px;
-}
-
-.create-client-form .e-input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-/* Client Section Styles */
-.client-section {
-    margin-bottom: 24px;
-    padding: 16px;
-    border-radius: 4px;
-}
-
-.client-search-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.client-search {
-    padding: 8px 12px;
-    border-radius: 4px;
-    border: 1px solid #ddd;
-}
-
-.create-client-link {
-    position: absolute;
-    right: 12px;
-    color: #007bff;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-/* Appointment Section Styles */
-.appointment-section {
-    padding: 16px;
-}
-
-.appointment-heading {
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 16px;
-    color: #333;
-}
-
-/* Location Search Styles */
-.location-search-container,
-.client-search-container {
-    width: 100%;
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-        
-.location-search,
-.client-search {
-    width: 100%;
-    min-width: 300px; 
-    padding: 8px 12px;
-    border-radius: 4px;
-    border: 1px solid #ddd;
-}
-
-/* Editor Styles */
-.custom-event-editor .e-textlabel {
-    flex: 0 0 150px; 
-    font-weight: 500;
-}
-
-.custom-event-editor td {
-    padding: 7px;
-    padding-right: 16px;
-}
-
-/* Tab Styles */
-.editor-tabs {
-    display: flex;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 15px;
-}
-
-.e-field {
-    width: 100%;
-    min-width: 250px; 
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-.e-field[type="checkbox"] {
-    margin-left: 10px;
-}
-
-.e-field[type="select"],
-select.e-field {
-    width: 100%;
-    min-width: 250px;
-}
-
-.editor-tab {
-    padding: 10px 20px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    border-bottom: none;
-    margin-bottom: -1px;
-}
-
-.editor-tab.active {
-    border-color: #ddd;
-    border-bottom-color: white;
-    background: white;
-}
-
-.tab-content {
-    width: 100%;
-    min-width: 400px;
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
-.new-fields {
-    width: 100%;
-    padding: 0 15px;
-}
-
-.spinner-container {
-    display: none;
-    position: fixed;
-    top: 0;
+    top: 100%;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    justify-content: center;
+    right: 0;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-top: 4px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: none;
+}
+
+.dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
     align-items: center;
-    z-index: 9999;
+    gap: 10px;
 }
 
-.spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid #f3f3f3;
-    border-top: 5px solid #3498db;
+.dropdown-item:hover,
+.dropdown-item.highlight {
+    background-color: #e8f3ff;
+}
+
+.dropdown-item img {
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    object-fit: cover;
 }
 
-#EventEditorTemplate {
-    min-width: 500px;
-    width: 100%;
-    padding: 15px;
+/* Scrollbar styling */
+.select-search-dropdown::-webkit-scrollbar {
+    width: 6px;
 }
+
+.select-search-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.select-search-dropdown::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.select-search-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* Recurring Editor specific styles */
+.recurrence-editor {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    padding: 12px 0;
+  }
+  
+  .editor-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .row-label {
+    color: #333;
+    font-size: 14px;
+    margin-right: 8px;
+  }
+  
+  select {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+    color: #333;
+    font-size: 14px;
+    margin-right: 8px;
+  }
+  
+  #recurring-frequency-select {
+    width: 50px;
+  }
+  
+  #recurring-frequency-period-select {
+    width: 90px;
+  }
+  
+  .recurring-dow {
+    display: flex;
+    gap: 2px;
+  }
+  
+  .dows-container {
+    display: flex;
+    gap: 2px;
+  }
+  
+  .recurring-dow label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #fff;
+    margin: 0;
+  }
+  
+  .recurring-dow label.checked {
+    background-color: #0072C6;
+    color: white;
+    border-color: #0072C6;
+  }
+  
+  .recurring-dow input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+  
+  .recurring-dow span[aria-hidden="true"] {
+    font-size: 13px;
+    font-weight: normal;
+  }
+  
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+  
+  .recurring-end {
+    display: flex;
+    align-items: center;
+  }
+  
+  .end-type-align {
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+  }
+  
+  .end-type {
+    width: 90px;
+  }
+  
+  .end-event-count {
+    width: 60px;
+    margin-right: 8px;
+  }
+  
+  .events-label {
+    font-size: 14px;
+    color: #333;
+  }
+  
+  /* Hover states */
+  .recurring-dow label:hover:not(.checked) {
+    background-color: #f5f5f5;
+  }
+  
+  /* Focus states */
+  select:focus {
+    outline: none;
+    border-color: #0072C6;
+    box-shadow: 0 0 0 2px rgba(0, 114, 198, 0.1);
+  }
+  
+  .validated-input {
+    margin: 0;
+  }
+  
+  .clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
+  }

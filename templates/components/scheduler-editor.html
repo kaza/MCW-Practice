@@ -1,4 +1,7 @@
+<!-- templates/appointments/create.html -->
 {% load static %}
+
+{% include 'components/dynamic_search.html' %}
 
 <div class="scheduler-container">
     <div class="scheduler-toolbar">
@@ -8,152 +11,516 @@
         <div id="scheduler" class="h-full w-full"></div>
     </div>
 </div>
-
-<!-- Editor Templates -->
 <script id="EventEditorTemplate" type="text/x-template">
-    <div class="editor-tabs">
-        <div class="editor-tab" data-tab="appointment">Appointment</div>
-        <div class="editor-tab" data-tab="event">Event</div>
-        <div class="editor-tab" data-tab="out_of_office">Out of Office</div>
-    </div>
+    <div class="appointment-container">
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <a href="#" class="tab-link active">Appointment</a>
+            <a href="#" class="tab-link">Event</a>
+            <a href="#" class="tab-link">Out of office</a>
+        </div>
     
-    <div class="new-fields">
-
-        <div class="client-field" style="display: none;">
-            <table class="custom-event-editor" width="100%" cellpadding="5">
-                <tbody>
-                    <tr>
-                        <td class="e-textlabel">Client</td>
-                        <td>
-                            <div class="location-search-container">
-                                <input type="text" id="Client" name="Client"  class="e-field location-search"  placeholder="Search Client" />
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <!-- Appointment Type Selection -->
+        <div class="type-selection">
+            <button class="type-btn selected">
+                <img src="{% static 'images/individual_couple.svg' %}" alt="Description of the icon" width="40" height="24">
+                Individual or couple
+            </button>
+            <button class="type-btn">
+                <img src="{% static 'images/group.svg' %}" alt="Description of the icon" width="40" height="24">
+                Group
+            </button>
         </div>
-
-        <div class="event-name-field" style="display: none;">
-            <table class="custom-event-editor" width="100%" cellpadding="5">
-                <tbody>
-                    <tr>
-                        <td class="e-textlabel">Event Name</td>
-                        <td>
-                            <input type="text" id="Subject" name="Subject" class="e-field" placeholder="Event Name (Optional)" />
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+    
+        <!-- Client Search -->
+        <div class="search-section">
+            <div class="search-wrapper">
+                <div class="select-search-container" id="clientSearchContainer">
+                    <input type="text" placeholder="Search Client" class="search-input" data-search-id="">
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="select-search-dropdown">
+                        <!-- Dropdown items will be populated here -->
+                    </div>
+                </div>
+            </div>
+            <a href="#" class="create-link">+ Create client</a>
         </div>
-
-        <div class="team-member-field" style="display: none;">
-            <table class="custom-event-editor" width="100%" cellpadding="5">
-                <tbody>
-                    <tr>
-                        <td class="e-textlabel">Team Member</td>
-                        <td>
-                            <input type="text" id="TeamMember" name="TeamMember" class="e-field" placeholder="Team Member" />
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+    
+        <!-- Appointment Details -->
+        <div class="details-section">
+            <div class="section-title">Appointment details</div>
+            
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="allDay">
+                <label for="allDay">All day</label>
+            </div>
+    
+            <div class="datetime-section">
+                <!-- Regular time view -->
+                <input type="date" class="date-input" id="startDate">
+                
+                <div class="time-wrapper" id="regularTimeView">
+                    <input type="time" id="startTime" class="time-input">
+                    <span class="to-text">to</span>
+                    <input type="time" id="endTime" class="time-input">
+                    <input type="number" id="duration" class="duration-input" disabled>
+                    <span class="min-text">min</span>
+                </div>
+            
+                <!-- All day view -->
+                <div class="all-day-wrapper" id="allDayView" style="display: none;">
+                    <div class="date-range">
+                        <input type="date" id="allDayStartDate" class="date-input">
+                        <span class="to-text">to</span>
+                        <input type="date" id="allDayEndDate" class="date-input">
+                        <input type="number" id="numberOfDays" class="duration-input" disabled>
+                        <span class="day-text">day</span>
+                    </div>
+                    <div class="days-wrapper">
+                        
+                    </div>
+                </div>
+            </div>
+    
+            <div class="location-section">
+                <label>Location</label>
+                <div class="select-search-container" id="locationSearchContainer">
+                    <input type="text" placeholder="Search Location" class="search-input" data-search-id="">
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="select-search-dropdown">
+                        <!-- Dropdown items will be populated here -->
+                    </div>
+                </div>
+            </div>
+    
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="recurring">
+                <label for="recurring">Recurring</label>
+            </div>
+    
+            <!-- Add this after the recurring checkbox -->
+            <div class="recurrence-editor" style="display: none;">
+              <div class="editor-row frequency">
+                <label class="row-label" for="recurring-frequency-select">
+                  Every
+                </label>
+                <select id="recurring-frequency-select" name="recurringFrequencySelect">
+                    <option value="1">
+                      1
+                    </option>
+                    <option value="2">
+                      2
+                    </option>
+                    <option value="3">
+                      3
+                    </option>
+                    <option value="4">
+                      4
+                    </option>
+                    <option value="5">
+                      5
+                    </option>
+                    <option value="6">
+                      6
+                    </option>
+                    <option value="7">
+                      7
+                    </option>
+                    <option value="8">
+                      8
+                    </option>
+                </select>
+              
+                <select id="recurring-frequency-period-select" name="recurringFrequencyPeriodSelect">
+                    <option value="WEEKLY">
+                      week
+                    </option>
+                    <option value="MONTHLY">
+                      month
+                    </option>
+                    <option value="YEARLY">
+                      year
+                    </option>
+                </select>
+              </div>
+              
+              <div class="dow editor-row">
+                <div data-validation-path="recurringDow"  class="validated-input recurring-dow-container">
+                  <div class="recurring-dow clearfix">
+          <div id="ember468" class="ember-view dows-container">  
+            <label class="checked">
+              <span aria-hidden="true">
+                S
+              </span>
+              <span class="sr-only">
+                SU
+              </span>
+              <input name="SU" class="recurring-dow-SU" aria-label="Sunday" type="checkbox">
+        
+            </label>
+          
+          
+            <label>
+              <span aria-hidden="true">
+                M
+              </span>
+              <span class="sr-only">
+                MO
+              </span>
+              <input name="MO" class="recurring-dow-MO" aria-label="Monday" type="checkbox">
+        
+            </label>
+          
+          
+            <label>
+              <span aria-hidden="true">
+                T
+              </span>
+              <span class="sr-only">
+                TU
+              </span>
+              <input name="TU" class="recurring-dow-TU" aria-label="Tuesday" type="checkbox">
+        
+            </label>
+          
+          
+            <label>
+              <span aria-hidden="true">
+                W
+              </span>
+              <span class="sr-only">
+                WE
+              </span>
+              <input name="WE" class="recurring-dow-WE" aria-label="Wednesday" type="checkbox">
+        
+            </label>
+          
+          
+            <label>
+              <span aria-hidden="true">
+                T
+              </span>
+              <span class="sr-only">
+                TH
+              </span>
+              <input name="TH" class="recurring-dow-TH" aria-label="Thursday" type="checkbox">
+        
+            </label>
+          
+          
+            <label>
+              <span aria-hidden="true">
+                F
+              </span>
+              <span class="sr-only">
+                FR
+              </span>
+              <input name="FR" class="recurring-dow-FR" aria-label="Friday" type="checkbox">
+        
+            </label>
+          
+          
+            <label>
+              <span aria-hidden="true">
+                S
+              </span>
+              <span class="sr-only">
+                SA
+              </span>
+              <input name="SA" class="recurring-dow-SA" aria-label="Saturday" type="checkbox">
+        
+            </label>
+          
         </div>
-
-
-
-    <div class="location-field" style="display: none;">
-        <table class="custom-event-editor" width="100%" cellpadding="5">
-            <tbody>
-                <tr>
-                    <td class="e-textlabel">Location</td>
-                    <td>
-                        <div class="location-search-container">
-                            <input type="text" id="Location" name="Location" class="e-field location-search" placeholder="Search Location" />
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-                </table>
+        </div>
+        </div>
+   </div>
+          <div class="editor-row recurring-end">
+            <div class="end-type-align">
+              <label class="row-label" for="recurring-frequency-end-type">
+                Ends
+              </label>
+              <select class="end-type" id="recurring-frequency-end-type" name="recurringFrequencyEndType">
+                  <option value="After">
+                    After
+                  </option>
+                  <option value="On Date">
+                    On Date
+                  </option>
+              </select>
+            </div>
+              <select class="end-event-count" id="recurring-frequency-end-count" name="recurringFrequencyEndCount">
+                  <option value="1">
+                    1
+                  </option>
+                  <option value="2">
+                    2
+                  </option>
+                  <option value="3">
+                    3
+                  </option>
+                  <option value="4">
+                    4
+                  </option>
+                  <option value="5">
+                    5
+                  </option>
+                  <option value="6">
+                    6
+                  </option>
+                  <option value="7">
+                    7
+                  </option>
+                  <option value="8">
+                    8
+                  </option>
+                  <option value="9">
+                    9
+                  </option>
+                  <option value="10">
+                    10
+                  </option>
+              </select>
+              <label class="events-label" for="recurring-frequency-end-count">
+                events
+              </label>
+          </div>
+        
             </div>
         </div>
-
-    <!-- Common Fields -->
-    <div class="common-fields">
-        <table class="custom-event-editor" width="100%" cellpadding="5">
-            <tbody>
-                <tr>
-                    <td class="e-textlabel">From</td>
-                    <td>
-                        <input id="StartTime" class="e-field" type="text" name="StartTime" />
-                    </td>
-                </tr>
-                <tr>
-                    <td class="e-textlabel">To</td>
-                    <td>
-                        <input id="EndTime" class="e-field" type="text" name="EndTime" />
-                    </td>
-                </tr>
-                <tr>
-                    <td class="e-textlabel">All Day</td>
-                    <td>
-                        <input id="IsAllDay" class="e-field" type="checkbox" name="IsAllDay" />
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Recurrence Field (Only for Appointment and Event Tabs) -->
-    <div class="recurrence-field" style="display: none;">
-        <table class="custom-event-editor" width="100%" cellpadding="5">
-            <tbody>
-                <tr>
-                    <td class="e-textlabel">Recurrence</td>
-                    <td colspan="4"> 
-                        <div id='RecurrenceEditor'></div> 
-                    </td> 
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-
-    <div class="cancel-appointment-field" style="display: none;">
-        <table class="custom-event-editor" width="100%" cellpadding="5">
-            <tbody>
-                <tr>
-                    <td class="e-textlabel">Cancel appointments</td>
-                    <td>
-                        <input id="IsCancelAppointment" class="e-field" type="checkbox" name="IsCancelAppointment" />
-                    </td>
-                </tr>
-                <tr>
-                    <td class="e-textlabel">Notify clients</td>
-                    <td>
-                        <input id="IsNotifyClient" class="e-field" type="checkbox" name="IsNotifyClient" />
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Appointment Tab -->
-    <div class="tab-content active" id="appointment-tab">
-        <div class="appointment-section">
-            <!-- Additional Appointment-specific fields can go here -->
+    
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn-cancel" id="cancel-button">Cancel</button>
+            <button class="btn-done" id="done-button" >Done</button>
         </div>
     </div>
-
-    <!-- Event Tab -->
-    <div class="tab-content" id="event-tab">
-        <div class="event-section">
-            <!-- The Event Name field is already included in the new-fields section -->
-        </div>
-    </div>
-
-    <!-- Out of Office Tab -->
-    <div class="tab-content" id="out_of_office-tab">
-       
-    </div>
+    
 </script>
+
+<style>
+    .appointment-container {
+        background: white;
+        width: 100%;
+        max-width: 500px;
+        padding: 20px;
+    }
+
+    .tab-navigation {
+        display: flex;
+        gap: 24px;
+        border-bottom: 1px solid #e0e0e0;
+        margin-bottom: 20px;
+    }
+
+    .tab-link {
+        padding: 8px 0;
+        color: #666;
+        text-decoration: none;
+        font-size: 14px;
+    }
+
+    .tab-link.active {
+        color: #007bff;
+        border-bottom: 2px solid #007bff;
+    }
+
+    .type-selection {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .type-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .type-btn.selected {
+        background: #e8f3ff;
+        border-color: #007bff;
+    }
+
+    .search-section {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .search-wrapper {
+        flex: 1;
+        position: relative;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .dropdown-arrow {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+        font-size: 12px;
+    }
+
+    .create-link {
+        color: #007bff;
+        text-decoration: none;
+        font-size: 14px;
+    }
+
+    .section-title {
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 15px;
+        font-weight: 500;
+    }
+
+    .checkbox-wrapper {
+        margin: 10px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+    }
+
+    .datetime-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 15px 0;
+    }
+
+    .date-input {
+        padding: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .time-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .time-input {
+        padding: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        width: 117px;
+        font-size: 14px;
+    }
+
+    .to-text,
+    .min-text {
+        color: #666;
+        font-size: 14px;
+    }
+
+    .duration-input {
+        width: 50px;
+        padding: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .location-section {
+        margin: 15px 0;
+        font-size: 14px;
+    }
+
+    .location-select {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 5px;
+    }
+
+    .location-dot {
+        color: #ff69b4;
+        font-size: 12px;
+    }
+
+    .location-select select {
+        border: none;
+        width: 100%;
+        outline: none;
+        font-size: 14px;
+        color: #333;
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .btn-cancel {
+        padding: 8px 16px;
+        border: none;
+        background: none;
+        color: #666;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .btn-done {
+        padding: 8px 16px;
+        border: none;
+        background: #007bff;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+    }
+
+    .all-day-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .date-range {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .days-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .day-text {
+        color: #666;
+        font-size: 14px;
+    }
+</style>
