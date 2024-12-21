@@ -60,21 +60,29 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
     // If all validations pass, proceed with creating the event
     if (isValid) {
         const eventData = {
+            eventType: 'APPOINTMENT',
             StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
             EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
             IsAllDay: isAllDay,
             Client: selectedClient,
             Location: selectedLocation
         };
-        // Get recurring values if recurring is checked
+
+        // Handle recurring events
         if (document.getElementById('recurring').checked) {
             const recurringData = getRecurringValues();
             if (!recurringData.isValid) {
-                showError(recurringData.error);
+                showError('recurring-error', recurringData.error);
                 return;
             }
-            eventData.recurring = recurringData.data;
+
+            // Convert recurring data to RRULE format
+            const rrule = constructRRule(recurringData.data, eventData.StartTime);
+            if (rrule) {
+                eventData.RecurrenceRule = rrule;
+            }
         }
+
         const args = {
             requestType: 'eventCreate',
             data: eventData

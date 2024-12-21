@@ -182,67 +182,80 @@ class SchedulerDataService:
         ).values('id', 'name')
 
     @classmethod
-    def create_event(cls, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_event(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new event with recurrence handling"""
-        event_type = event_data.get('eventType')
-        recurrence_rule = event_data.get('RecurrenceRule')
+        event_type = data.get('eventData').get('eventType')
+        recurrence_rule = data.get('eventData').get('RecurrenceRule')
         
-        # Create the main event
-        if event_type == 'APPOINTMENT':
-            # For appointments, include the client
-            event = Event.objects.create(
-                type_id=EventType.objects.get(name=event_type).id,
-                clinician_id=event_data['resourceId'],
-                start_datetime=event_data['StartTime'],
-                end_datetime=event_data['EndTime'],
-                is_all_day=event_data.get('IsAllDay', False),
-                location_id=event_data.get('Location'),
-                patient_id=event_data.get('Client'), 
-                status_id=1,
-                cancel_appointments=event_data.get('IsCancelAppointment', False),
-                notify_clients=event_data.get('IsNotifyClient', False),
-                is_recurring=bool(recurrence_rule),
-                recurrence_rule=recurrence_rule,
-                parent_event=None 
-            )
-        elif event_type == 'EVENT':
-            event = Event.objects.create(
-                type_id=EventType.objects.get(name=event_type).id,
-                title=event_data.get('Subject'),
-                clinician_id=event_data['resourceId'],
-                start_datetime=event_data['StartTime'],
-                end_datetime=event_data['EndTime'],
-                is_all_day=event_data.get('IsAllDay', False),
-                location_id=event_data.get('location'),
-                team_member_id=event_data.get('TeamMember'), 
-                status_id=1,
-                cancel_appointments=event_data.get('IsCancelAppointment', False),
-                notify_clients=event_data.get('IsNotifyClient', False),
-                is_recurring=bool(recurrence_rule),
-                recurrence_rule=recurrence_rule,
-                parent_event=None
-            )
-        elif event_type == 'OUT_OF_OFFICE':
-            event = Event.objects.create(
-                type_id=EventType.objects.get(name=event_type).id,
-                status_id=1,
-                clinician_id=event_data['resourceId'],
-                start_datetime=event_data['StartTime'],
-                end_datetime=event_data['EndTime'],
-                is_all_day=event_data.get('IsAllDay', False),
-                team_member_id=event_data.get('TeamMember'),
-                cancel_appointments=event_data.get('IsCancelAppointment', False),
-                notify_clients=event_data.get('IsNotifyClient', False),
-                parent_event=None,
-                is_recurring=False,
-                recurrence_rule=None,
-            )
-        if recurrence_rule:
-            # Start a background thread to handle recurrence
-            threading.Thread(target=cls._handle_recurring_events, args=(event, recurrence_rule, event_data)).start()
-
-        return cls._convert_event_to_dict(event)
+        # Convert datetime strings to datetime objects if they're strings
+        start_time = data.get('eventData').get('StartTime')
+        end_time = data.get('eventData').get('EndTime')
+        if isinstance(start_time, str):
+            start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        if isinstance(end_time, str):
+            end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
             
+        # Common event fields
+        common_fields = {
+            'type_id': EventType.objects.get(name=event_type).id,
+            'clinician_id': data.get('resourceId'),
+            'start_datetime': start_time,
+            'end_datetime': end_time,
+            'is_all_day': data.get('eventData').get('IsAllDay', False),
+            'status_id': 1,  # Default status
+            'is_recurring': bool(recurrence_rule),
+            'recurrence_rule': recurrence_rule,
+            'parent_event': None
+        }
+        
+        try:
+            # Create the main event based on type
+            if event_type == 'APPOINTMENT':
+                event = Event.objects.create(
+                    **common_fields,
+                    location_id=data.get('eventData').get('Location').get('id'),
+                    patient_id=data.get('eventData').get('Client').get('id'),
+                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
+                    notify_clients=data.get('eventData').get('IsNotifyClient', False)
+                )
+            
+            elif event_type == 'EVENT':
+                event = Event.objects.create(
+                    **common_fields,
+                    title=data.get('eventData').get('Subject'),
+                    location_id=data.get('eventData').get('Location').get('id'),
+                    team_member_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
+                    notify_clients=data.get('eventData').get('IsNotifyClient', False)
+                )
+            
+            elif event_type == 'OutOfOffice':
+                event = Event.objects.create(
+                    **common_fields,
+                    team_member_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
+                    notify_clients=data.get('eventData').get('IsNotifyClient', False),
+                    is_recurring=False,  # Out of office events don't support recurrence
+                    recurrence_rule=None
+                )
+            else:
+                raise ValueError(f"Invalid event type: {event_type}")
+
+            # Handle recurring events in background thread
+            if recurrence_rule and event_type != 'OUT_OF_OFFICE':
+                threading.Thread(
+                    target=cls._handle_recurring_events,
+                    args=(event, recurrence_rule, data.get('eventData')),
+                    daemon=True  # Make thread daemon so it doesn't block server shutdown
+                ).start()
+
+            return cls._convert_event_to_dict(event)
+            
+        except Exception as e:
+            # Log the error and re-raise
+            print(f"Error creating event: {str(e)}")
+            raise
+
     @classmethod
     def update_event(cls, event_id: int, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing event and handle recurrence updates"""
@@ -362,7 +375,7 @@ class SchedulerDataService:
                     rule_dict[key.strip()] = value.strip()
 
             # Convert start_datetime to datetime object
-            dtstart = datetime.fromisoformat(event.start_datetime.replace('Z', '+00:00'))
+            dtstart = event.start_datetime
 
             # Map frequency string to rrule constant
             freq_map = {
@@ -383,7 +396,18 @@ class SchedulerDataService:
             if 'COUNT' in rule_dict:
                 rule_params['count'] = int(rule_dict['COUNT'])
             if 'UNTIL' in rule_dict:
-                rule_params['until'] = datetime.fromisoformat(rule_dict['UNTIL'].replace('Z', '+00:00'))
+                # Parse UNTIL date from YYYYMMDD'T'HHMMSS'Z' format
+                until_str = rule_dict['UNTIL']
+                if 'T' in until_str:
+                    until_str = until_str.replace('T', '').replace('Z', '')
+                year = int(until_str[:4])
+                month = int(until_str[4:6])
+                day = int(until_str[6:8])
+                hour = int(until_str[8:10]) if len(until_str) > 8 else 23
+                minute = int(until_str[10:12]) if len(until_str) > 10 else 59
+                second = int(until_str[12:14]) if len(until_str) > 12 else 59
+                rule_params['until'] = datetime(year, month, day, hour, minute, second, tzinfo=dtstart.tzinfo)
+
             if 'BYDAY' in rule_dict:
                 weekday_map = {
                     'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
@@ -396,10 +420,7 @@ class SchedulerDataService:
             rule = rrule.rrule(**rule_params)
 
             # Calculate event duration
-            event_duration = (
-                datetime.fromisoformat(event_data['EndTime'].replace('Z', '+00:00')) -
-                datetime.fromisoformat(event_data['StartTime'].replace('Z', '+00:00'))
-            )
+            event_duration = event.end_datetime - event.start_datetime
 
             # Create occurrences
             for occurrence_start in rule:
@@ -420,7 +441,7 @@ class SchedulerDataService:
                         cancel_appointments=event.cancel_appointments,
                         notify_clients=event.notify_clients,
                         is_recurring=True,
-                        recurrence_rule=None,
+                        recurrence_rule=None,  
                         parent_event=event,
                         occurrence_date=occurrence_start.date()
                     )

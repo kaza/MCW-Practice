@@ -59,6 +59,7 @@ function createEvent(selectedLocation , selectedTeamMember, scheduler) {
     // If all validations pass, proceed with creating the event
     if (isValid) {
         const eventData = {
+            eventType: 'EVENT',
             Subject: eventName,
             StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
             EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
@@ -67,14 +68,19 @@ function createEvent(selectedLocation , selectedTeamMember, scheduler) {
             TeamMember: selectedTeamMember
         };
 
-        // Get recurring values if recurring is checked
+        // Handle recurring events
         if (document.getElementById('recurring').checked) {
             const recurringData = getRecurringValues();
             if (!recurringData.isValid) {
-                showError(recurringData.error);
+                showError('recurring-error', recurringData.error);
                 return;
             }
-            eventData.recurring = recurringData.data;
+
+            // Convert recurring data to RRULE format
+            const rrule = constructRRule(recurringData.data, eventData.StartTime);
+            if (rrule) {
+                eventData.RecurrenceRule = rrule;
+            }
         }
 
         const args = {

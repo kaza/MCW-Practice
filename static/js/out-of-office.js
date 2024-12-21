@@ -53,6 +53,7 @@ function createOutOfOffice(selectedTeamMember, scheduler) {
     // If all validations pass, proceed with creating the Out of Office entry
     if (isValid) {
         const oofData = {
+            EventType: 'OutOfOffice',
             StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
             EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
             IsAllDay: isAllDay,

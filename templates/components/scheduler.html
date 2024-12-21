@@ -49,9 +49,6 @@
                 dataSource: [],
                 fields: {
                     id: 'Id',
-                    startTime: { name: 'StartTime' },
-                    endTime: { name: 'EndTime' },
-                    isAllDay: { name: 'IsAllDay' },
                     resourceId: { name: 'ResourceId' }
                 },
                 enableRecurrenceValidation: true
@@ -70,23 +67,9 @@
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
                     const eventData = args.data[0] || args.data;
-                    // Determine the active tab and set the eventType accordingly
-                    const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
-                    let eventType;
-
-                    switch (activeTab) {
-                        case 'appointment':
-                            eventType = 'APPOINTMENT';
-                            break;
-                        case 'event':
-                            eventType = 'EVENT';
-                            break;
-                        case 'out_of_office':
-                            eventType = 'OUT_OF_OFFICE';
-                            break;
-                        default:
-                            eventType = 'APPOINTMENT';
-                    }
+                    const action = args.requestType.replace('event', '').toLowerCase();
+                    const resourceId = currentResourceId;
+                
                     document.getElementById('spinner-container').style.display = 'flex';
                     fetch(window.location.href, {
                         method: 'POST',
@@ -96,8 +79,7 @@
                         },
                         body: JSON.stringify({
                             action: action,
-                            eventType: eventType,
-                            ...recurrenceData,
+                            eventData: eventData,
                             resourceId: resourceId
                         })
                     })

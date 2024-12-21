@@ -157,3 +157,33 @@ function unCheckRecurringControl() {
     recurringCheckbox.checked = false;
     recurrenceEditor.style.display = 'none';
 }
+
+function constructRRule(recurringData, startDate) {
+    try {
+        let rrule = `FREQ=${recurringData.period};INTERVAL=${recurringData.frequency}`;
+
+        // Add BYDAY for weekly recurrence
+        if (recurringData.period === 'WEEKLY' && recurringData.selectedDays?.length > 0) {
+            rrule += `;BYDAY=${recurringData.selectedDays.join(',')}`;
+        }
+
+        // Add end condition
+        if (recurringData.endType === 'After') {
+            rrule += `;COUNT=${recurringData.endValue}`;
+        } else if (recurringData.endType === 'On Date') {
+            // Format the end date to YYYYMMDD format for UNTIL
+            const untilDate = new Date(recurringData.endValue);
+            const untilDateStr = untilDate.toISOString().split('T')[0].replace(/-/g, '');
+            rrule += `;UNTIL=${untilDateStr}T235959Z`;
+        }
+
+        // Add DTSTART in UTC
+        const dtstart = new Date(startDate).toISOString();
+        rrule += `;DTSTART=${dtstart}`;
+
+        return rrule;
+    } catch (error) {
+        console.error('Error constructing RRULE:', error);
+        return null;
+    }
+}
