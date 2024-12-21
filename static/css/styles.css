@@ -26,6 +26,18 @@
 #scheduler_dialog_wrapper{
     width: 470px !important;
 }
+#scheduler_dialog_wrapper ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+@media (max-width: 1500px) {
+    #scheduler_dialog_wrapper {
+        max-height: 550px !important; 
+        height: auto; 
+        overflow-y: auto; 
+    }
+}
+
 div.e-dialog .e-footer-content {
     display: none !important;
 }
@@ -354,3 +366,6 @@ div.e-dialog .e-footer-content {
     height: 34px;
     width: 12.5rem;
 }
+
+
+

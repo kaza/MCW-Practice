@@ -9,7 +9,10 @@
 {% endblock %}
 
 <script src="{% static 'js/recurring-control.js' %}"></script>
+<script src="{% static 'js/appointment.js' %}"></script>
 <script>
+    let clientSearch;
+    let locationSearch;
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
         const clientData = JSON.parse('{{ clients|safe }}');
@@ -57,11 +60,8 @@
             popupOpen: function (args) {
                 if (args.type === 'Editor') {
                     initializeEditorComponents(args);
-
                     // Store the resourceId from args
                     currentResourceId = args.data.ResourceId;
-
-
                 }
                 if (args.type === 'QuickInfo') {
                     args.cancel = true;
@@ -70,80 +70,6 @@
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
                     const eventData = args.data[0] || args.data;
-
-                    if (args.requestType === 'eventCreate' || args.requestType === 'eventChange') {
-                        // Get the editor element
-                        const editorElement = document.querySelector('.e-schedule-dialog');
-
-                        let isValid = true;
-
-                        // Determine the active tab and validate accordingly
-                        const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
-                        if (activeTab === 'appointment') {
-                            isValid = validateAppointment(eventData);
-                        } else if (activeTab === 'event') {
-                            isValid = validateEvent(eventData);
-                        } else if (activeTab === 'outofoffice') {
-                            isValid = validateOutOfOffice(eventData);
-                        }
-
-                        if (!isValid) {
-                            args.cancel = true; // Prevent the event from being created/modified
-                            return;
-                        }
-
-                        // Ensure end date matches start date if not all day
-                        const startTime = new Date(eventData.StartTime);
-                        let endTime = new Date(eventData.EndTime);
-
-                        // Check if the event is an all-day event
-                        if (!eventData.IsAllDay) {
-                            // Set the end date to match start date while preserving end time
-                            endTime = new Date(
-                                startTime.getFullYear(),
-                                startTime.getMonth(),
-                                startTime.getDate(),
-                                endTime.getHours(),
-                                endTime.getMinutes()
-                            );
-
-                            // Update the end time in eventData
-                            eventData.EndTime = endTime.toISOString();
-
-                            // Validate time
-                            if (startTime >= endTime) {
-                                args.cancel = true;
-                                alert('Start time must be less than end time.');
-                                return;
-                            }
-                        } else {
-                            // If it's an all-day event, set the end time to the end of the day
-                            endTime = new Date(startTime);
-                            endTime.setHours(23, 59, 59, 999);
-                            eventData.EndTime = endTime.toISOString();
-                        }
-                    }
-                    const action = args.requestType.replace('event', '').toLowerCase();
-                    const resourceId = currentResourceId;
-
-                    const recurrenceData = {
-                        ...eventData,
-                        RecurrenceRule: eventData.RecurrenceRule || null,
-                        RecurrenceException: eventData.RecurrenceException || null
-                    };
-                    // For recurring event modifications
-                    if (args.requestType === 'eventChange') {
-                        // Check if this is a series or occurrence edit
-                        if (args.data.RecurrenceRule) {
-                            // Series edit
-                            recurrenceData.editType = 'series';
-                        } else {
-                            // Single occurrence edit
-                            recurrenceData.editType = 'occurrence';
-                            recurrenceData.originalEventId = args.data.RecurrenceID;
-                        }
-                    }
-
                     // Determine the active tab and set the eventType accordingly
                     const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
                     let eventType;
@@ -323,13 +249,19 @@
             scheduler.dataBind();
         });
 
-        $(document).on('click', '#done-button', function () {
-            const args = {
-                requestType: 'eventCreate',
-                data: null
-            };
-            scheduler.actionBegin(args);
+      
+        $(document).on('click', '#appointment-done-button', function () {
+            // Clear any existing error messages
+            clearErrorMessages();
+
+            // Get selected client and location
+            const selectedClient = clientSearch.getSelectedItem();
+            const selectedLocation = locationSearch.getSelectedItem();
+
+            // Call the createAppointment function
+            createAppointment(selectedClient, selectedLocation, scheduler);
         });
+        
         $(document).on('click', '#cancel-button', function () {
             scheduler.closeEditor();
         });
@@ -360,9 +292,9 @@
             });
 
 
-            initializeClientSearch(container, clientData);
+            initializeClientSearch(clientData);
             initializeDateTimePicker(args.data);
-            initializeLocationDropdown(container, locationData);
+            initializeLocationDropdown(locationData);
             initializeRecurringControl(args.data.StartTime);
             // initializeInput(container);
             // initializeTeamMembersSearch(container, teamMemberData);
@@ -605,17 +537,7 @@
             updateDateTimePickers(container, args.data.IsAllDay);
         }
     }
-    // Updated client search initialization
-    function initializeClientSearch(container, clients) {
-        const clientSearch = new DynamicSearch({
-            containerId: 'clientSearchContainer',
-            items: clients,
-            onSelect: function (selectedClient) {
-                console.log('Selected client:', selectedClient);
-                // Handle the selection here
-            }
-        });
-    }
+   
     // Date/time pickers initialization function
     function initializeDateTimePicker(dateData) {
         // Cache all DOM elements
@@ -775,8 +697,8 @@
         }
     }
     // Location dropdown initialization function
-    function initializeLocationDropdown(container, locations) {
-        const locationSearch = new DynamicSearch({
+    function initializeLocationDropdown(locations) {
+        locationSearch = new DynamicSearch({
             containerId: 'locationSearchContainer',
             items: locations,
             onSelect: function (selectedLocation) {
@@ -791,15 +713,6 @@
         }
     }
 
-    
-       
-    // Utility function to get CSRF token
-    function getCsrfToken() {
-        const csrfCookie = document.cookie
-            .split(';')
-            .find(cookie => cookie.trim().startsWith('csrftoken='));
-        return csrfCookie ? csrfCookie.split('=')[1] : '';
-    }
 
     // Function to update date/time pickers when AllDay is toggled
     function updateDateTimePickers(container, isAllDay) {
@@ -910,110 +823,5 @@
 
         dropDownList.appendTo(teamMemberSearch);
     }
-
-    // Function to validate appointment fields
-    function validateAppointment(eventData) {
-        const { StartTime, EndTime, Client, Location, IsAllDay } = eventData;
-
-        // Check if required fields are filled
-        if (!Client) {
-            alert('Client is required for appointments.');
-            return false;
-        }
-        if (!Location) {
-            alert('Location is required for appointments.');
-            return false;
-        }
-        if (!StartTime) {
-            alert('Start time is required.');
-            return false;
-        }
-
-        // If IsAllDay is false, check for EndTime
-        if (!IsAllDay && !EndTime) {
-            alert('End time is required when not an all-day event.');
-            return false;
-        }
-
-        // Ensure end time is after start time only if not all day
-        if (!IsAllDay) {
-            const startTime = new Date(StartTime);
-            const endTime = new Date(EndTime);
-            if (startTime >= endTime) {
-                alert('Start time must be less than end time.');
-                return false;
-            }
-        }
-
-        return true; // All validations passed
-    }
-
-    // Function to validate event fields
-    function validateEvent(eventData) {
-        const { StartTime, EndTime, TeamMember, Location, IsAllDay } = eventData;
-
-        if (!TeamMember) {
-            alert('Team member is required for events.');
-            return false;
-        }
-        if (!Location) {
-            alert('Location is required for events.');
-            return false;
-        }
-        if (!StartTime) {
-            alert('Start time is required.');
-            return false;
-        }
-
-        // If IsAllDay is false, check for EndTime
-        if (!IsAllDay && !EndTime) {
-            alert('End time is required when not an all-day event.');
-            return false;
-        }
-
-        // Ensure end time is after start time only if not all day
-        if (!IsAllDay) {
-            const startTime = new Date(StartTime);
-            const endTime = new Date(EndTime);
-            if (startTime >= endTime) {
-                alert('Start time must be less than end time.');
-                return false;
-            }
-        }
-
-        return true; // All validations passed
-    }
-
-    function validateOutOfOffice(eventData) {
-        const { StartTime, EndTime, TeamMember, IsAllDay } = eventData;
-
-        if (!TeamMember) {
-            alert('Team member is required for out of office.');
-            return false;
-        }
-        if (!StartTime) {
-            alert('Start time is required.');
-            return false;
-        }
-
-        // If IsAllDay is false, check for EndTime
-        if (!IsAllDay && !EndTime) {
-            alert('End time is required when not an all-day event.');
-            return false;
-        }
-
-        // Ensure end time is after start time only if not all day
-        if (!IsAllDay) {
-            const startTime = new Date(StartTime);
-            const endTime = new Date(EndTime);
-            if (startTime >= endTime) {
-                alert('Start time must be less than end time.');
-                return false;
-            }
-        }
-
-        return true; // All validations passed
-    }
-
 
 </script>

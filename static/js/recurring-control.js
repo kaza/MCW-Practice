@@ -97,3 +97,56 @@ function initializeRecurringControl(startDate) {
         }
     }
 }
+
+function getRecurringValues() {
+    if (!document.getElementById('recurring').checked) {
+        return { isValid: true, data: null };
+    }
+
+    const frequency = document.getElementById('recurring-frequency-select').value;
+    const period = document.getElementById('recurring-frequency-period-select').value;
+    const endType = document.getElementById('recurring-frequency-end-type').value;
+    
+    // Get selected weekdays for weekly recurrence
+    const selectedDays = [];
+    if (period === 'WEEKLY') {
+        const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+        weekdays.forEach(day => {
+            if (document.querySelector(`.recurring-dow-${day}`).checked) {
+                selectedDays.push(day);
+            }
+        });
+        
+        if (selectedDays.length === 0) {
+            return {
+                isValid: false,
+                error: 'Please select at least one day of the week for weekly recurrence'
+            };
+        }
+    }
+
+    // Validate end condition
+    let endValue;
+    if (endType === 'After') {
+        endValue = document.getElementById('recurring-frequency-end-count').value;
+    } else {
+        endValue = document.getElementById('recurring-date-picker').value;
+        if (!endValue) {
+            return {
+                isValid: false,
+                error: 'Please select an end date'
+            };
+        }
+    }
+
+    return {
+        isValid: true,
+        data: {
+            frequency,
+            period,
+            endType,
+            endValue,
+            selectedDays: period === 'WEEKLY' ? selectedDays : null
+        }
+    };
+}

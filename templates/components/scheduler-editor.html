@@ -42,6 +42,7 @@
                         <!-- Dropdown items will be populated here -->
                     </div>
                 </div>
+                <div class="error-message" id="client-error"></div>
             </div>
             <a href="#" class="create-link">+ Create client</a>
         </div>
@@ -58,6 +59,7 @@
             <div class="datetime-section">
                 <!-- Regular time view -->
                 <input type="date" class="date-input" id="startDate">
+                <div class="error-message" id="date-error"></div>
                 
                 <div class="time-wrapper" id="regularTimeView">
                     <input type="time" id="startTime" class="time-input">
@@ -65,14 +67,17 @@
                     <input type="time" id="endTime" class="time-input">
                     <input type="number" id="duration" class="duration-input" disabled>
                     <span class="min-text">min</span>
+                    <div class="error-message" id="time-error"></div>
                 </div>
             
                 <!-- All day view -->
                 <div class="all-day-wrapper" id="allDayView" style="display: none;">
                     <div class="date-range">
                         <input type="date" id="allDayStartDate" class="date-input">
+                        <div class="error-message" id="allDayStartDate-error"></div>
                         <span class="to-text">to</span>
                         <input type="date" id="allDayEndDate" class="date-input">
+                        <div class="error-message" id="allDayEndDate-error"></div>
                         <input type="number" id="numberOfDays" class="duration-input" disabled>
                         <span class="day-text">day</span>
                     </div>
@@ -91,6 +96,7 @@
                         <!-- Dropdown items will be populated here -->
                     </div>
                 </div>
+                <div class="error-message" id="location-error"></div>
             </div>
     
             <div class="checkbox-wrapper">
@@ -104,7 +110,7 @@
         <!-- Action Buttons -->
         <div class="action-buttons">
             <button class="btn-cancel" id="cancel-button">Cancel</button>
-            <button class="btn-done" id="done-button" >Done</button>
+            <button class="btn-done" id="appointment-done-button" >Done</button>
         </div>
     </div>
     
@@ -334,5 +340,20 @@
     .day-text {
         color: #666;
         font-size: 14px;
+    }
+
+    .error-message {
+        color: red;
+        font-size: 12px;
+        margin-top: 4px;
+        display: none;
+    }
+
+    .search-wrapper {
+        position: relative;
+    }
+
+    .datetime-section .error-message {
+        margin-bottom: 8px;
     }
 </style>

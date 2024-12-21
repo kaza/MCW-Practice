@@ -144,4 +144,15 @@ class DynamicSearch {
         this.dropdown.style.display = 'none';
         this.selectedIndex = -1;
     }
+
+    getSelectedItem() {
+        // Check if the search input value is empty
+        if (this.searchInput.value.trim() === '') {
+            return null; 
+        }
+        return {
+            id: this.searchInput.dataset.searchId,
+            name: this.searchInput.value
+        };
+    }
 }
