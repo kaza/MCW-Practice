@@ -1,6 +1,6 @@
 let oofTeamMemberSearch;
 
-function createOutOfOffice(selectedTeamMember) {
+function createOutOfOffice(selectedTeamMember, scheduler) {
     // Get all the necessary values
     const startDate = document.getElementById('oof-startDate').value;
     const startTime = document.getElementById('oof-startTime').value;
@@ -61,9 +61,8 @@ function createOutOfOffice(selectedTeamMember) {
             NotifyClients: document.getElementById('oof-notifyClients').checked
         };
 
-        // Handle the creation logic (e.g., send to server)
         const args = {
-            requestType: 'outOfOfficeCreate',
+            requestType: 'eventCreate',
             data: oofData
         };
 

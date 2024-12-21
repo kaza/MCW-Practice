@@ -1,6 +1,6 @@
 let eventLocationSearch;
 let eventTeamMemberSearch;  
-function createEvent(selectedLocation, scheduler) {
+function createEvent(selectedLocation , selectedTeamMember, scheduler) {
     // Get all the necessary values
     const eventName = document.getElementById('event-name').value;
     const startDate = document.getElementById('event-startDate').value;
@@ -18,7 +18,11 @@ function createEvent(selectedLocation, scheduler) {
         showError('event-location-error', 'Please select a location');
         isValid = false;
     }
-
+    // Team member validation
+    if (!selectedTeamMember) {
+        showError('event-team-member-error', 'Please select a team member');
+        isValid = false;
+    }
     // Date validation
     if (!startDate) {
         showError('event-date-error', 'Please select a date');
@@ -59,12 +63,13 @@ function createEvent(selectedLocation, scheduler) {
             StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
             EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
             IsAllDay: isAllDay,
-            Location: selectedLocation
+            Location: selectedLocation,
+            TeamMember: selectedTeamMember
         };
 
         // Get recurring values if recurring is checked
-        if (document.getElementById('event-recurring').checked) {
-            const recurringData = getRecurringValues('event-');
+        if (document.getElementById('recurring').checked) {
+            const recurringData = getRecurringValues();
             if (!recurringData.isValid) {
                 showError(recurringData.error);
                 return;

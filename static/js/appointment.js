@@ -62,7 +62,7 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
         const eventData = {
             StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
             EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
-            IsAllDay: isAllDay, 
+            IsAllDay: isAllDay,
             Client: selectedClient,
             Location: selectedLocation
         };
@@ -92,8 +92,8 @@ function initializeClientSearch(clients) {
     });
 }
 
-  // Date/time pickers initialization function
-  function initializeDateTimePicker(dateData) {
+// Date/time pickers initialization function
+function initializeDateTimePicker(dateData) {
     // Cache all DOM elements
     const elements = {
         // Regular view elements
@@ -206,4 +206,50 @@ function initializeLocationDropdown(locations) {
         console.log('Automatically selected location:', firstLocation);
     }
 }
+
+function initializeTabNavigation() {
+    const tabs = document.querySelectorAll('.tab-link');
+    const appointmentSection = document.querySelector('.appointment-section');
+    const outOfOfficeSection = document.querySelector('.out-of-office-section');
+    const eventSection = document.querySelector('.event-section');
+    const recurringSection = document.querySelector('#recurring-section');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabType = tab.textContent.toLowerCase();
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            // Uncheck recurring control
+            unCheckRecurringControl();
+            // Show/hide appropriate sections
+            if (tabType === 'event') {
+                appointmentSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'none';
+                eventSection.style.display = 'block';
+                recurringSection.style.display = 'block';
+            } else if (tabType === 'out of office') {
+                appointmentSection.style.display = 'none';
+                eventSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'block';
+                recurringSection.style.display = 'none';
+            } else {
+                appointmentSection.style.display = 'block';
+                eventSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'none';
+                recurringSection.style.display = 'block';
+            }
+        });
+    });
+}
+// Call the function to initialize tab navigation
+initializeTabNavigation();
+// Appointment Type Selection
+const typeButtons = document.querySelectorAll('.type-btn');
+typeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        typeButtons.forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+    });
+});
 

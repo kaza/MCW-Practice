@@ -223,12 +223,25 @@
             // Clear any existing error messages
             clearErrorMessages();
 
-            // Get selected client and location
-            const selectedClient = clientSearch.getSelectedItem();
-            const selectedLocation = locationSearch.getSelectedItem();
+            // Determine which tab is active
+            const activeTab = document.querySelector('.tab-link.active').textContent.toLowerCase();
 
-            // Call the createAppointment function
-            createAppointment(selectedClient, selectedLocation, scheduler);
+            let selectedClient, selectedLocation, selectedTeamMember;
+
+            // Get selected client and location based on the active tab
+            if (activeTab === 'appointment') {
+                selectedClient = clientSearch.getSelectedItem();
+                selectedLocation = locationSearch.getSelectedItem();
+                createAppointment(selectedClient, selectedLocation, scheduler);
+            } else if (activeTab === 'event') {
+                selectedLocation = eventLocationSearch.getSelectedItem();
+                selectedTeamMember = eventTeamMemberSearch.getSelectedItem();
+                const eventName = document.getElementById('event-name').value;
+                createEvent(selectedLocation, selectedTeamMember, scheduler);
+            } else if (activeTab === 'out of office') {
+                selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
+                createOutOfOffice(selectedTeamMember, scheduler);
+            }
         });
         
         $(document).on('click', '#cancel-button', function () {
@@ -255,52 +268,9 @@
             initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
 
             // Tab Navigation
-            const tabs = document.querySelectorAll('.tab-link');
-            const appointmentSection = document.querySelector('.appointment-section');
-            const outOfOfficeSection = document.querySelector('.out-of-office-section');
-            const eventSection = document.querySelector('.event-section');
-            const recurringSection = document.querySelector('#recurring-section');
+            initializeTabNavigation();
 
-            tabs.forEach(tab => {
-                tab.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const tabType = tab.textContent.toLowerCase();
-
-                    // Update active tab
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-
-                    // uncheck recurring control
-                    unCheckRecurringControl();
-
-                    // Show/hide appropriate sections
-                    if (tabType === 'event') {
-                        appointmentSection.style.display = 'none';
-                        outOfOfficeSection.style.display = 'none';
-                        eventSection.style.display = 'block';
-                        recurringSection.style.display = 'block';
-                    } else if (tabType === 'out of office') {
-                        appointmentSection.style.display = 'none';
-                        eventSection.style.display = 'none';
-                        outOfOfficeSection.style.display = 'block';
-                        recurringSection.style.display = 'none';
-                    } else {
-                        appointmentSection.style.display = 'block';
-                        eventSection.style.display = 'none';
-                        outOfOfficeSection.style.display = 'none';
-                        recurringSection.style.display = 'block';
-                    }
-                });
-            });
-
-            // Appointment Type Selection
-            const typeButtons = document.querySelectorAll('.type-btn');
-            typeButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    typeButtons.forEach(b => b.classList.remove('selected'));
-                    btn.classList.add('selected');
-                });
-            });
+           
         }
 
     });
