@@ -21,6 +21,7 @@
         </div>
     
         <!-- Appointment Type Selection -->
+        <div class="appointment-section">
         <div class="type-selection">
             <button class="type-btn selected">
                 <img src="{% static 'images/individual_couple.svg' %}" alt="Description of the icon" width="40" height="24">
@@ -98,22 +99,146 @@
                 </div>
                 <div class="error-message" id="location-error"></div>
             </div>
+    </div>
+    </div>
+    <div class="event-section" style="display: none;">
+        <div class="event-name-section">
+            <input type="text" id="event-name" placeholder="Event name (optional)" class="search-input">
+        </div>
     
+        <div class="details-section">
+            <div class="section-title">Appointment details</div>
+            
             <div class="checkbox-wrapper">
-                <input type="checkbox" id="recurring">
-                <label for="recurring">Recurring</label>
+                <input type="checkbox" id="event-allDay">
+                <label for="event-allDay">All day</label>
             </div>
     
-            <!-- Add this after the recurring checkbox -->
-            {% include 'components/recurring-control.html' %}
-
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-            <button class="btn-cancel" id="cancel-button">Cancel</button>
-            <button class="btn-done" id="appointment-done-button" >Done</button>
+            <div class="datetime-section">
+                <input type="date" class="date-input" id="event-startDate">
+                <div class="error-message" id="event-date-error"></div>
+                
+                <div class="time-wrapper" id="event-regularTimeView">
+                    <input type="time" id="event-startTime" class="time-input">
+                    <span class="to-text">to</span>
+                    <input type="time" id="event-endTime" class="time-input">
+                    <input type="number" id="event-duration" class="duration-input" disabled>
+                    <span class="min-text">min</span>
+                    <div class="error-message" id="event-time-error"></div>
+                </div>
+            
+                <!-- All day view -->
+                <div class="all-day-wrapper" id="event-allDayView" style="display: none;">
+                    <div class="date-range">
+                        <input type="date" id="event-allDayStartDate" class="date-input">
+                        <div class="error-message" id="event-allDayStartDate-error"></div>
+                        <span class="to-text">to</span>
+                        <input type="date" id="event-allDayEndDate" class="date-input">
+                        <div class="error-message" id="event-allDayEndDate-error"></div>
+                        <input type="number" id="event-numberOfDays" class="duration-input" disabled>
+                        <span class="day-text">day</span>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="team-member-section">
+                <label>Team member</label>
+                <div class="select-search-container" id="event-teamMemberSearchContainer">
+                    <input type="text" placeholder="Search Team member" class="search-input" data-search-id="">
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="select-search-dropdown">
+                        <!-- Dropdown items will be populated here -->
+                    </div>
+                </div>
+                <div class="error-message" id="event-team-member-error"></div>
+            </div>
+    
+            <div class="location-section">
+                <label>Location</label>
+                <div class="select-search-container" id="event-locationSearchContainer">
+                    <input type="text" placeholder="Search Location" class="search-input" data-search-id="">
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="select-search-dropdown">
+                        <!-- Dropdown items will be populated here -->
+                    </div>
+                </div>
+                <div class="error-message" id="event-location-error"></div>
+            </div>
         </div>
     </div>
+    <!-- Out of Office Section -->
+    <div class="out-of-office-section" style="display: none;">
+        <div class="details-section">
+            <div class="section-title">Out of Office Details</div>
+            
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="oof-allDay">
+                <label for="oof-allDay">All day</label>
+            </div>
     
+            <div class="datetime-section">
+                <input type="date" class="date-input" id="oof-startDate">
+                <div class="error-message" id="oof-date-error"></div>
+
+                <div class="time-wrapper" id="oof-regularTimeView">
+                    <input type="time" id="oof-startTime" class="time-input">
+                    <span class="to-text">to</span>
+                    <input type="time" id="oof-endTime" class="time-input">
+                    <input type="number" id="oof-duration" class="duration-input" disabled>
+                    <span class="min-text">min</span>
+                    <div class="error-message" id="oof-time-error"></div>
+                </div>
+            
+                <!-- All day view -->
+                <div class="all-day-wrapper" id="oof-allDayView" style="display: none;">
+                    <div class="date-range">
+                        <input type="date" id="oof-allDayStartDate" class="date-input">
+                        <div class="error-message" id="oof-allDayStartDate-error"></div>
+                        <span class="to-text">to</span>
+                        <input type="date" id="oof-allDayEndDate" class="date-input">
+                        <div class="error-message" id="oof-allDayEndDate-error"></div>
+                        <input type="number" id="oof-numberOfDays" class="duration-input" disabled>
+                        <span class="day-text">day</span>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="team-member-section">
+                <label>Team member</label>
+                <div class="select-search-container" id="oof-teamMemberSearchContainer">
+                    <input type="text" placeholder="Search Team member" class="search-input" data-search-id="">
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="select-search-dropdown">
+                        <!-- Dropdown items will be populated here -->
+                    </div>
+                </div>
+                <div class="error-message" id="oof-team-member-error"></div>
+            </div>
+    
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="oof-cancelAppointments">
+                <label for="oof-cancelAppointments">Cancel appointments during this time</label>
+            </div>
+    
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="oof-notifyClients">
+                <label for="oof-notifyClients">Notify clients and contacts of cancellation</label>
+            </div>
+        </div>
+    </div>
+    <div id="recurring-section">
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="recurring">
+            <label for="recurring">Recurring</label>
+        </div>
+        {% include 'components/recurring-control.html'%}
+    </div>
+      <!-- Action Buttons -->
+      <div class="action-buttons">
+        <button class="btn-cancel" id="cancel-button">Cancel</button>
+        <button class="btn-done" id="done-button" >Done</button>
+        </div>
+    </div>
 </script>
 
 <style>
@@ -287,6 +412,35 @@
         color: #333;
     }
 
+    .team-member-section {
+        margin: 15px 0;
+        font-size: 14px;
+    }
+
+    .team-member-select {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 5px;
+    }
+
+    .team-member-dot {
+        color: #ff69b4;
+        font-size: 12px;
+    }
+
+    .team-member-select select {
+        border: none;
+        width: 100%;
+        outline: none;
+        font-size: 14px;
+        color: #333;
+    }
+
+    
     .action-buttons {
         display: flex;
         justify-content: flex-end;

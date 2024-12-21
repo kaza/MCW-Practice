@@ -150,3 +150,10 @@ function getRecurringValues() {
         }
     };
 }
+
+function unCheckRecurringControl() {
+    const recurringCheckbox = document.getElementById('recurring');
+    const recurrenceEditor = document.querySelector('.recurrence-editor-container');
+    recurringCheckbox.checked = false;
+    recurrenceEditor.style.display = 'none';
+}

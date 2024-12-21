@@ -10,9 +10,9 @@
 
 <script src="{% static 'js/recurring-control.js' %}"></script>
 <script src="{% static 'js/appointment.js' %}"></script>
+<script src="{% static 'js/event.js' %}"></script>
+<script src="{% static 'js/out-of-office.js' %}"></script>
 <script>
-    let clientSearch;
-    let locationSearch;
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
         const clientData = JSON.parse('{{ clients|safe }}');
@@ -219,7 +219,7 @@
         });
 
       
-        $(document).on('click', '#appointment-done-button', function () {
+        $(document).on('click', '#done-button', function () {
             // Clear any existing error messages
             clearErrorMessages();
 
@@ -240,14 +240,56 @@
             const container = args.element;
 
             // Initialize all components
+            initializeClientSearch(clientData);
+            initializeDateTimePicker(args.data);
+            initializeLocationDropdown(locationData);
+            initializeRecurringControl(args.data.StartTime);
+            
+            // Initialize event components
+            initializeEventDateTimePicker(args.data);
+            initializeEventLocationDropdown(locationData);
+            initializeEventTeamMemberDropdown(teamMemberData);
+            
+            // Initialize out of office components
+            initializeOutOfOfficeDateTimePicker(args.data);
+            initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
 
             // Tab Navigation
             const tabs = document.querySelectorAll('.tab-link');
+            const appointmentSection = document.querySelector('.appointment-section');
+            const outOfOfficeSection = document.querySelector('.out-of-office-section');
+            const eventSection = document.querySelector('.event-section');
+            const recurringSection = document.querySelector('#recurring-section');
+
             tabs.forEach(tab => {
                 tab.addEventListener('click', (e) => {
                     e.preventDefault();
+                    const tabType = tab.textContent.toLowerCase();
+
+                    // Update active tab
                     tabs.forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
+
+                    // uncheck recurring control
+                    unCheckRecurringControl();
+
+                    // Show/hide appropriate sections
+                    if (tabType === 'event') {
+                        appointmentSection.style.display = 'none';
+                        outOfOfficeSection.style.display = 'none';
+                        eventSection.style.display = 'block';
+                        recurringSection.style.display = 'block';
+                    } else if (tabType === 'out of office') {
+                        appointmentSection.style.display = 'none';
+                        eventSection.style.display = 'none';
+                        outOfOfficeSection.style.display = 'block';
+                        recurringSection.style.display = 'none';
+                    } else {
+                        appointmentSection.style.display = 'block';
+                        eventSection.style.display = 'none';
+                        outOfOfficeSection.style.display = 'none';
+                        recurringSection.style.display = 'block';
+                    }
                 });
             });
 
@@ -259,12 +301,6 @@
                     btn.classList.add('selected');
                 });
             });
-
-
-            initializeClientSearch(clientData);
-            initializeDateTimePicker(args.data);
-            initializeLocationDropdown(locationData);
-            initializeRecurringControl(args.data.StartTime);
         }
 
     });

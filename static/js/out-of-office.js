@@ -1,39 +1,33 @@
-let clientSearch;
-let locationSearch;
-function createAppointment(selectedClient, selectedLocation, scheduler) {
+let oofTeamMemberSearch;
+
+function createOutOfOffice(selectedTeamMember) {
     // Get all the necessary values
-    const startDate = document.getElementById('startDate').value;
-    const startTime = document.getElementById('startTime').value;
-    const endTime = document.getElementById('endTime').value;
-    const isAllDay = document.getElementById('allDay').checked;
-    const allDayStartDate = document.getElementById('allDayStartDate').value;
-    const allDayEndDate = document.getElementById('allDayEndDate').value;
+    const startDate = document.getElementById('oof-startDate').value;
+    const startTime = document.getElementById('oof-startTime').value;
+    const endTime = document.getElementById('oof-endTime').value;
+    const isAllDay = document.getElementById('oof-allDay').checked;
+    const allDayStartDate = document.getElementById('oof-allDayStartDate').value;
+    const allDayEndDate = document.getElementById('oof-allDayEndDate').value;
 
     // Validate required fields
     let isValid = true;
 
-    // Client validation
-    if (!selectedClient) {
-        showError('client-error', 'Please select a client');
-        isValid = false;
-    }
-
-    // Location validation
-    if (!selectedLocation) {
-        showError('location-error', 'Please select a location');
+    // Team member validation
+    if (!selectedTeamMember) {
+        showError('oof-team-member-error', 'Please select a team member');
         isValid = false;
     }
 
     // Date validation
     if (!startDate) {
-        showError('date-error', 'Please select a date');
+        showError('oof-date-error', 'Please select a date');
         isValid = false;
     }
 
     if (!isAllDay) {
         // Time validation
         if (!startTime || !endTime) {
-            showError('time-error', 'Start time and end time are required');
+            showError('oof-time-error', 'Start time and end time are required');
             isValid = false;
         } else {
             // Validate end time is after start time
@@ -41,75 +35,56 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
             const endDateTime = new Date(`${startDate}T${endTime}`);
 
             if (endDateTime <= startDateTime) {
-                showError('time-error', 'End time must be after start time');
+                showError('oof-time-error', 'End time must be after start time');
                 isValid = false;
             }
         }
-    }
-    else {
+    } else {
         if (!allDayStartDate || !allDayEndDate) {
-            showError('allDayStartDate-error', 'Please select a date range');
+            showError('oof-allDayStartDate-error', 'Please select a date range');
             isValid = false;
         }
         if (allDayEndDate < allDayStartDate) {
-            showError('allDayEndDate-error', 'End date must be after start date');
+            showError('oof-allDayEndDate-error', 'End date must be after start date');
             isValid = false;
         }
     }
 
-    // If all validations pass, proceed with creating the event
+    // If all validations pass, proceed with creating the Out of Office entry
     if (isValid) {
-        const eventData = {
+        const oofData = {
             StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
             EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
-            IsAllDay: isAllDay, 
-            Client: selectedClient,
-            Location: selectedLocation
+            IsAllDay: isAllDay,
+            TeamMember: selectedTeamMember,
+            CancelAppointments: document.getElementById('oof-cancelAppointments').checked,
+            NotifyClients: document.getElementById('oof-notifyClients').checked
         };
-        // Get recurring values if recurring is checked
-        if (document.getElementById('recurring').checked) {
-            const recurringData = getRecurringValues();
-            if (!recurringData.isValid) {
-                showError(recurringData.error);
-                return;
-            }
-            eventData.recurring = recurringData.data;
-        }
+
+        // Handle the creation logic (e.g., send to server)
         const args = {
-            requestType: 'eventCreate',
-            data: eventData
+            requestType: 'outOfOfficeCreate',
+            data: oofData
         };
+
+        // Assuming you have a scheduler instance available
         scheduler.actionBegin(args);
     }
 }
 
-function initializeClientSearch(clients) {
-    clientSearch = new DynamicSearch({
-        containerId: 'clientSearchContainer',
-        items: clients,
-        onSelect: function (selectedClient) {
-        }
-    });
-}
-
-  // Date/time pickers initialization function
-  function initializeDateTimePicker(dateData) {
+function initializeOutOfOfficeDateTimePicker(dateData) {
     // Cache all DOM elements
     const elements = {
-        // Regular view elements
-        dateInput: document.querySelector('.datetime-section .date-input'),
-        startDate: document.getElementById('startDate'),
-        startTimeInput: document.getElementById('startTime'),
-        endTimeInput: document.getElementById('endTime'),
-        durationInput: document.getElementById('duration'),
-        regularTimeView: document.getElementById('regularTimeView'),
-
-        // All-day view elements
-        allDayCheckbox: document.getElementById('allDay'),
-        allDayView: document.getElementById('allDayView'),
-        allDayStartDate: document.getElementById('allDayStartDate'),
-        allDayEndDate: document.getElementById('allDayEndDate'),
-        numberOfDays: document.getElementById('numberOfDays')
+        dateInput: document.getElementById('oof-startDate'),
+        startTimeInput: document.getElementById('oof-startTime'),
+        endTimeInput: document.getElementById('oof-endTime'),
+        durationInput: document.getElementById('oof-duration'),
+        regularTimeView: document.getElementById('oof-regularTimeView'),
+        allDayCheckbox: document.getElementById('oof-allDay'),
+        allDayView: document.getElementById('oof-allDayView'),
+        allDayStartDate: document.getElementById('oof-allDayStartDate'),
+        allDayEndDate: document.getElementById('oof-allDayEndDate'),
+        numberOfDays: document.getElementById('oof-numberOfDays')
     };
 
     // Initialize event listeners
@@ -117,7 +92,7 @@ function initializeClientSearch(clients) {
         // All-day toggle
         elements.allDayCheckbox?.addEventListener('change', (e) => {
             const isAllDay = e.target.checked;
-            toggleViews(isAllDay, elements.regularTimeView, elements.startDate, elements.allDayView);
+            toggleViews(isAllDay, elements.regularTimeView, elements.dateInput, elements.allDayView);
             syncViewData(isAllDay, elements);
         });
 
@@ -177,7 +152,7 @@ function initializeClientSearch(clients) {
             if (elements.allDayCheckbox) {
                 elements.allDayCheckbox.checked = isAllDay;
             }
-            toggleViews(isAllDay, elements.regularTimeView, elements.startDate, elements.allDayView);
+            toggleViews(isAllDay, elements.regularTimeView, elements.dateInput, elements.allDayView);
 
         } catch (error) {
             console.error('Error initializing date/time pickers:', error);
@@ -190,20 +165,18 @@ function initializeClientSearch(clients) {
         initializeWithData();
     }
 }
-// Location dropdown initialization function
-function initializeLocationDropdown(locations) {
-    locationSearch = new DynamicSearch({
-        containerId: 'locationSearchContainer',
-        items: locations,
-        onSelect: function (selectedLocation) {
-            console.log('Selected location:', selectedLocation);
-            // Handle the selection here
+
+function initializeOutOfOfficeTeamMemberDropdown(teamMembers) {
+    oofTeamMemberSearch = new DynamicSearch({
+        containerId: 'oof-teamMemberSearchContainer',
+        items: teamMembers,
+        onSelect: function (selectedTeamMember) {
+            console.log('Selected team member:', selectedTeamMember);
         }
     });
-    if (locations.length > 0) {
-        const firstLocation = locations[0];
-        locationSearch.selectItem(firstLocation);
-        console.log('Automatically selected location:', firstLocation);
+
+    if (teamMembers.length > 0) {
+        const firstTeamMember = teamMembers[0];
+        oofTeamMemberSearch.selectItem(firstTeamMember);
     }
 }
-
