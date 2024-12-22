@@ -96,6 +96,21 @@ function initializeClientSearch(clients) {
         containerId: 'clientSearchContainer',
         items: clients,
         onSelect: function (selectedClient) {
+            // Show the clinician section when a client is selected
+            document.querySelector('.clinician-section').style.display = 'block';
+
+            // Fetch clinicians for the selected client
+            fetch(`api/get_client_clinicians/${selectedClient.id}/`)
+                .then(response => response.json())
+                .then(clinicians => {
+                    initializeClinicianDropdown(clinicians);
+                })
+                .catch(error => {
+                    console.error('Error fetching clinicians:', error);
+                });
+        },
+        onDeselect: function () {
+            document.querySelector('.clinician-section').style.display = 'none';
         }
     });
 }
@@ -215,37 +230,55 @@ function initializeLocationDropdown(locations) {
     }
 }
 
+function initializeClinicianDropdown(clinicians) {
+    clinicianSearch = new DynamicSearch({
+        containerId: 'clinicianSearchContainer',
+        items: clinicians,
+        onSelect: function (selectedClinician) {
+        }
+    });
+    if (clinicians.length > 0) {
+        const firstClinician = clinicians[0];
+        clinicianSearch.selectItem(firstClinician);
+        console.log('Automatically selected clinician:', firstClinician);
+    }
+}
+
 function initializeTabNavigation() {
     const tabs = document.querySelectorAll('.tab-link');
     const appointmentSection = document.querySelector('.appointment-section');
     const outOfOfficeSection = document.querySelector('.out-of-office-section');
     const eventSection = document.querySelector('.event-section');
     const recurringSection = document.querySelector('#recurring-section');
-    tabs.forEach(tab => {
+    const servicesSection = document.querySelector('.services-section'); // Add this line
+     tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
             e.preventDefault();
             const tabType = tab.textContent.toLowerCase();
+            
             // Update active tab
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            // Uncheck recurring control
-            unCheckRecurringControl();
+            
             // Show/hide appropriate sections
-            if (tabType === 'event') {
-                appointmentSection.style.display = 'none';
-                outOfOfficeSection.style.display = 'none';
-                eventSection.style.display = 'block';
-                recurringSection.style.display = 'block';
-            } else if (tabType === 'out of office') {
-                appointmentSection.style.display = 'none';
-                eventSection.style.display = 'none';
-                outOfOfficeSection.style.display = 'block';
-                recurringSection.style.display = 'none';
-            } else {
+            if (tabType === 'appointment') {
                 appointmentSection.style.display = 'block';
                 eventSection.style.display = 'none';
                 outOfOfficeSection.style.display = 'none';
                 recurringSection.style.display = 'block';
+                servicesSection.style.display = 'block'; // Show services section
+            } else if (tabType === 'event') {
+                appointmentSection.style.display = 'none';
+                eventSection.style.display = 'block';
+                outOfOfficeSection.style.display = 'none';
+                recurringSection.style.display = 'block';
+                servicesSection.style.display = 'none'; // Hide services section
+            } else { // Out of office
+                appointmentSection.style.display = 'none';
+                eventSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'block';
+                recurringSection.style.display = 'none';
+                servicesSection.style.display = 'none'; // Hide services section
             }
         });
     });

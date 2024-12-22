@@ -87,7 +87,17 @@
                     </div>
                 </div>
             </div>
-    
+            
+            <div class="clinician-section" style="display: none;">
+                <label>Clinician</label>
+                <div class="select-search-container" id="clinicianSearchContainer">
+                    <input type="text" placeholder="Search Clinician" class="search-input" data-search-id="">
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="select-search-dropdown">
+                        <!-- Dropdown items will be populated here -->
+                    </div>
+                </div>
+            </div>
             <div class="location-section">
                 <label>Location</label>
                 <div class="select-search-container" id="locationSearchContainer">
@@ -233,11 +243,17 @@
         </div>
         {% include 'components/recurring-control.html'%}
     </div>
-      <!-- Action Buttons -->
-      <div class="action-buttons">
+
+    <!-- Add services section here -->
+    <div class="services-section">
+        {% include 'components/practice_services.html' %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
         <button class="btn-cancel" id="cancel-button">Cancel</button>
-        <button class="btn-done" id="done-button" >Done</button>
-        </div>
+        <button class="btn-done" id="done-button">Done</button>
+    </div>
     </div>
 </script>
 
@@ -440,6 +456,34 @@
         color: #333;
     }
 
+    .clinician-section {
+        margin: 15px 0;
+        font-size: 14px;
+    }
+
+    .clinician-select {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 5px;
+    }
+
+    .clinician-dot {
+        color: #ff69b4;
+        font-size: 12px;
+    }
+
+    .clinician-select select {
+        border: none;
+        width: 100%;
+        outline: none;
+        font-size: 14px;
+        color: #333;
+    }
+
     
     .action-buttons {
         display: flex;
@@ -510,4 +554,5 @@
     .datetime-section .error-message {
         margin-bottom: 8px;
     }
+
 </style>

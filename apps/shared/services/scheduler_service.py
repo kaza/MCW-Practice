@@ -11,7 +11,8 @@ from dateutil import rrule
 from django.contrib.auth.models import User 
 import threading
 
-from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location
+from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location, PracticeService, PatientDefaultService
+from apps.accounts.models import Login  
 
 class SchedulerDataService:
     """Service class to handle all scheduler related data operations"""
@@ -181,6 +182,78 @@ class SchedulerDataService:
             Q(name__icontains=query)
         ).values('id', 'name')
 
+    
+    @classmethod
+    def get_practice_services(cls) -> List[Dict[str, Any]]:
+        """Get all practice services"""
+        return PracticeService.objects.values('id', 'type', 'rate', 'code', 'description')
+    
+
+    @classmethod
+    def get_client_clinicians(cls, patient_id: int) -> List[Dict[str, Any]]:
+        """Get all clinicians for a client"""
+        # Get all clinicians with user type 'ADMIN'
+        admin_clinicians = Clinician.objects.filter(
+            login_id__in=Login.objects.filter(user_type='ADMIN').values('id')
+        )
+
+        # Get clinicians assigned to the specified patient
+        assigned_clinicians = Clinician.objects.filter(
+            id__in=Patient.objects.filter(id=patient_id).values('clinician_id')
+        )
+
+        # Combine both querysets
+        combined_clinicians = admin_clinicians | assigned_clinicians
+
+        return list(combined_clinicians.annotate(
+            name=Concat('first_name', Value(' '), 'last_name')
+        ).values('id', 'name').distinct())  # Use distinct to avoid duplicates
+    
+    @classmethod
+    def search_clinicians(cls, patient_id: int, query: str) -> List[Dict[str, Any]]:
+        """Search clinicians by name"""
+        # Get all clinicians with user type 'ADMIN'
+        admin_clinicians = Clinician.objects.filter(
+            login_id__in=Login.objects.filter(user_type='ADMIN').values('id')
+        )
+
+        # Get clinicians assigned to the specified patient
+        assigned_clinicians = Clinician.objects.filter(
+            id__in=Patient.objects.filter(id=patient_id).values('clinician_id')
+        )
+
+        # Combine both querysets and apply the search query
+        combined_clinicians = admin_clinicians | assigned_clinicians
+
+        return list(combined_clinicians.filter(
+            Q(first_name__icontains=query) | Q(last_name__icontains=query)
+        ).annotate(
+            name=Concat('first_name', Value(' '), 'last_name')
+        ).values('id', 'name').distinct())  # Use distinct to avoid duplicates
+    
+    @classmethod
+    def get_clinician_services(cls, clinician_id: int, patient_id: int) -> Dict[str, Any]:
+        """Get all services for a clinician or return practice services if not assigned to patient"""
+        # Get the clinician's services
+        clinician_services = PracticeService.objects.filter(
+            clinician_id=clinician_id
+        ).values('id', 'type', 'rate', 'code', 'description')
+
+        # Check if the clinician is assigned to the patient
+        is_assigned_to_patient = Patient.objects.filter(id=patient_id, clinician_id=clinician_id).exists()
+
+        if not is_assigned_to_patient:
+            # If not assigned, return practice services and patient default services
+            practice_services = PracticeService.objects.values('id', 'type', 'rate', 'code', 'description')
+            patient_default_services = PatientDefaultService.objects.filter(patient_id=patient_id).values('service_id', 'custom_rate', 'is_primary')
+
+            return {
+                'practice_services': practice_services,
+                'patient_default_services': patient_default_services
+            }
+
+        return clinician_services
+    
     @classmethod
     def create_event(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new event with recurrence handling"""
