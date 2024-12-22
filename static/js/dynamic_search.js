@@ -155,4 +155,10 @@ class DynamicSearch {
             name: this.searchInput.value
         };
     }
+
+    reset() {
+        this.searchInput.value = '';
+        this.searchInput.dataset.searchId = '';
+        this.hideDropdown();
+    }
 }

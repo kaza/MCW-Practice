@@ -103,7 +103,7 @@ function initializeClientSearch(clients) {
             fetch(`api/get_client_clinicians/${selectedClient.id}/`)
                 .then(response => response.json())
                 .then(clinicians => {
-                    initializeClinicianDropdown(clinicians);
+                    initializeClinicianDropdown(clinicians , selectedClient);
                 })
                 .catch(error => {
                     console.error('Error fetching clinicians:', error);
@@ -111,6 +111,7 @@ function initializeClientSearch(clients) {
         },
         onDeselect: function () {
             document.querySelector('.clinician-section').style.display = 'none';
+            document.querySelector('.services-section').style.display = 'none';
         }
     });
 }
@@ -230,7 +231,7 @@ function initializeLocationDropdown(locations) {
     }
 }
 
-function initializeClinicianDropdown(clinicians) {
+function initializeClinicianDropdown(clinicians , selectedClient) {
     clinicianSearch = new DynamicSearch({
         containerId: 'clinicianSearchContainer',
         items: clinicians,
@@ -241,56 +242,55 @@ function initializeClinicianDropdown(clinicians) {
         const firstClinician = clinicians[0];
         clinicianSearch.selectItem(firstClinician);
         console.log('Automatically selected clinician:', firstClinician);
+        fetch(`api/get_clinician_services/${firstClinician.id}/${selectedClient.id}/`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    InitializePracticeServices(result.data);
+                    document.querySelector('.services-section').style.display = 'block';
+                } else {
+                    console.error('Error:', result.error);
+                }
+            })
+            .catch(error => console.error('Error:', error));
     }
 }
 
-function initializeTabNavigation() {
-    const tabs = document.querySelectorAll('.tab-link');
-    const appointmentSection = document.querySelector('.appointment-section');
-    const outOfOfficeSection = document.querySelector('.out-of-office-section');
-    const eventSection = document.querySelector('.event-section');
-    const recurringSection = document.querySelector('#recurring-section');
-    const servicesSection = document.querySelector('.services-section'); // Add this line
-     tabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tabType = tab.textContent.toLowerCase();
-            
-            // Update active tab
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            // Show/hide appropriate sections
-            if (tabType === 'appointment') {
-                appointmentSection.style.display = 'block';
-                eventSection.style.display = 'none';
-                outOfOfficeSection.style.display = 'none';
-                recurringSection.style.display = 'block';
-                servicesSection.style.display = 'block'; // Show services section
-            } else if (tabType === 'event') {
-                appointmentSection.style.display = 'none';
-                eventSection.style.display = 'block';
-                outOfOfficeSection.style.display = 'none';
-                recurringSection.style.display = 'block';
-                servicesSection.style.display = 'none'; // Hide services section
-            } else { // Out of office
-                appointmentSection.style.display = 'none';
-                eventSection.style.display = 'none';
-                outOfOfficeSection.style.display = 'block';
-                recurringSection.style.display = 'none';
-                servicesSection.style.display = 'none'; // Hide services section
-            }
-        });
+// Helper function to clear error messages
+function clearErrorMessages() {
+    const errorElements = document.querySelectorAll('[id$="-error"]');
+    errorElements.forEach(element => {
+        element.textContent = '';
+        element.style.display = 'none';
     });
 }
-// Call the function to initialize tab navigation
-initializeTabNavigation();
-// Appointment Type Selection
-const typeButtons = document.querySelectorAll('.type-btn');
-typeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        typeButtons.forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-    });
-});
+
+
+function reInitializeAppointment(dateData) {
+    // Reset and reinitialize client search
+    if (clientSearch) {
+        clientSearch.reset();
+        initializeClientSearch(clientSearch.items);
+    }
+
+    // Reset and reinitialize location search
+    if (locationSearch) {
+        locationSearch.reset();
+        initializeLocationDropdown(locationSearch.items);
+    }
+
+    // Reset and reinitialize clinician search
+    if (clinicianSearch) {
+        clinicianSearch.reset();
+
+    }
+
+    // Reset datetime picker
+    initializeDateTimePicker(dateData);
+
+
+    // Hide clinician and services sections
+    document.querySelector('.clinician-section').style.display = 'none';
+    document.querySelector('.services-section').style.display = 'none';
+}
 

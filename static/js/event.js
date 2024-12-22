@@ -215,3 +215,15 @@ function initializeEventTeamMemberDropdown(teamMembers) {
         eventTeamMemberSearch.selectItem(firstTeamMember);
     }
 }
+
+function reInitializeEventComponents(dateData) {
+    if (eventLocationSearch) {
+        eventLocationSearch.reset();
+        initializeEventLocationDropdown(eventLocationSearch.items);
+    }
+    if (eventTeamMemberSearch) {
+        eventTeamMemberSearch.reset();
+        initializeEventTeamMemberDropdown(eventTeamMemberSearch.items);
+    }
+    initializeEventDateTimePicker(dateData);
+}

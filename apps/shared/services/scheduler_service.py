@@ -11,7 +11,7 @@ from dateutil import rrule
 from django.contrib.auth.models import User 
 import threading
 
-from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location, PracticeService, PatientDefaultService
+from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
 from apps.accounts.models import Login  
 
 class SchedulerDataService:
@@ -233,27 +233,110 @@ class SchedulerDataService:
     
     @classmethod
     def get_clinician_services(cls, clinician_id: int, patient_id: int) -> Dict[str, Any]:
-        """Get all services for a clinician or return practice services if not assigned to patient"""
-        # Get the clinician's services
-        clinician_services = PracticeService.objects.filter(
+        """
+        Get services for a clinician and patient's default services if assigned.
+        
+        Args:
+            clinician_id: The ID of the clinician
+            patient_id: The ID of the patient
+            
+        Returns:
+            Dict containing either clinician_services or practice_services, 
+            along with patient_default_services
+        """
+        # Check if clinician is assigned to patient
+        is_assigned = Patient.objects.filter(
+            id=patient_id, 
             clinician_id=clinician_id
-        ).values('id', 'type', 'rate', 'code', 'description')
+        ).exists()
 
-        # Check if the clinician is assigned to the patient
-        is_assigned_to_patient = Patient.objects.filter(id=patient_id, clinician_id=clinician_id).exists()
+        # Get patient default services
+        patient_defaults = PatientDefaultService.objects.filter(
+            patient_id=patient_id
+        ).select_related('service').values(
+            'service_id',
+            'custom_rate',
+            'is_primary',
+            'service__id',
+            'service__type',
+            'service__rate',
+            'service__code',
+            'service__description',
+            'service__duration'
+        )
 
-        if not is_assigned_to_patient:
-            # If not assigned, return practice services and patient default services
-            practice_services = PracticeService.objects.values('id', 'type', 'rate', 'code', 'description')
-            patient_default_services = PatientDefaultService.objects.filter(patient_id=patient_id).values('service_id', 'custom_rate', 'is_primary')
+        # Process default services to match service structure
+        processed_default_services = []
+        for default in patient_defaults:
+            processed_default_services.append({
+                'id': default['service__id'],
+                'type': default['service__type'],
+                'rate': float(default['custom_rate'] if default['custom_rate'] is not None else default['service__rate']),
+                'code': default['service__code'],
+                'description': default['service__description'],
+                'duration': default['service__duration'],
+                'is_primary': default['is_primary']
+            })
+
+        if is_assigned:
+            # Get clinician's active services
+            clinician_services = ClinicianService.objects.filter(
+                clinician_id=clinician_id,
+                is_active=True
+            ).select_related('service').values(
+                'service__id',
+                'service__type',
+                'custom_rate',
+                'service__code',
+                'service__description',
+                'service__duration',
+                'service__rate'
+            )
+
+            # Process clinician services
+            services_data = []
+            for service in clinician_services:
+                services_data.append({
+                    'id': service['service__id'],
+                    'type': service['service__type'],
+                    'rate': float(service['custom_rate'] if service['custom_rate'] is not None else service['service__rate']),
+                    'code': service['service__code'],
+                    'description': service['service__description'],
+                    'duration': service['service__duration']
+                })
 
             return {
-                'practice_services': practice_services,
-                'patient_default_services': patient_default_services
+                'clinician_services': services_data,
+                'patient_default_services': processed_default_services
+            }
+        else:
+            # Get all practice services
+            practice_services = PracticeService.objects.all().values(
+                'id',
+                'type',
+                'rate',
+                'code',
+                'description',
+                'duration'
+            )
+
+            # Process practice services
+            services_data = []
+            for service in practice_services:
+                services_data.append({
+                    'id': service['id'],
+                    'type': service['type'],
+                    'rate': float(service['rate']),
+                    'code': service['code'],
+                    'description': service['description'],
+                    'duration': service['duration']
+                })
+
+            return {
+                'practice_services': services_data,
+                'patient_default_services': processed_default_services
             }
 
-        return clinician_services
-    
     @classmethod
     def create_event(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new event with recurrence handling"""

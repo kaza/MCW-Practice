@@ -180,3 +180,14 @@ function initializeOutOfOfficeTeamMemberDropdown(teamMembers) {
         oofTeamMemberSearch.selectItem(firstTeamMember);
     }
 }
+
+function reInitializeOutOfOfficeComponents(dateData) {
+    if (oofTeamMemberSearch) {
+        oofTeamMemberSearch.reset();
+        initializeOutOfOfficeTeamMemberDropdown(oofTeamMemberSearch.items);
+    }
+    initializeOutOfOfficeDateTimePicker(dateData);
+
+    document.getElementById('oof-cancelAppointments').checked = false;
+    document.getElementById('oof-notifyClients').checked = false;
+}       

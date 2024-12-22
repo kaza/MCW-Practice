@@ -187,3 +187,59 @@ function constructRRule(recurringData, startDate) {
         return null;
     }
 }
+
+function reInitializeRecurringControl(startDate) {
+    // Reset checkbox
+    const recurringCheckbox = document.getElementById('recurring');
+    const recurrenceEditor = document.querySelector('.recurrence-editor-container');
+    if (recurringCheckbox) {
+        recurringCheckbox.checked = false;
+        recurrenceEditor.style.display = 'none';
+    }
+    
+    // Reset DOW checkboxes
+    const dowLabels = document.querySelectorAll('.dows-container label');
+    dowLabels.forEach(label => {
+        const checkbox = label.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            checkbox.checked = false;
+            label.classList.remove('checked');
+        }
+    });
+    
+    // Reset end type selections
+    const endTypeSelect = document.getElementById('recurring-frequency-end-type');
+    const endCountSelect = document.getElementById('recurring-frequency-end-count');
+    const datePickerInput = document.getElementById('recurring-date-picker');
+    
+    if (endTypeSelect) endTypeSelect.value = 'After';
+    if (endCountSelect) {
+        endCountSelect.value = '';
+        endCountSelect.style.display = 'block';
+    }
+    if (datePickerInput) {
+        datePickerInput.value = '';
+        datePickerInput.style.display = 'none';
+    }
+    
+    // Reinitialize with new start date if provided
+    if (startDate) {
+        initializeRecurringControl(startDate);
+        const frequencySelect = document.getElementById('recurring-frequency-select');
+        const frequencyPeriodSelect = document.getElementById('recurring-frequency-period-select');
+        const endTypeSelect = document.getElementById('recurring-frequency-end-type');
+        const endCountSelect = document.getElementById('recurring-frequency-end-count');
+        const weekdaysContainer = document.querySelector('#weekdays-container');
+        const dowLabels = document.querySelectorAll('.dows-container label');
+        dowLabels.forEach(label => {
+            const checkbox = label.querySelector('input[type="checkbox"]');
+            if (checkbox) checkbox.checked = false;
+        });
+        frequencySelect.selectedIndex = 0;
+        frequencyPeriodSelect.selectedIndex = 0;
+        endTypeSelect.selectedIndex = 0;
+        endCountSelect.selectedIndex = 0;   
+        weekdaysContainer.style.display = 'block';
+        weekdaysContainer.style.display = 'flex';
+    }
+}

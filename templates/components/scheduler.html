@@ -12,6 +12,7 @@
 <script src="{% static 'js/appointment.js' %}"></script>
 <script src="{% static 'js/event.js' %}"></script>
 <script src="{% static 'js/out-of-office.js' %}"></script>
+<script src="{% static 'js/practice_services.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
@@ -250,10 +251,65 @@
             initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
 
             // Tab Navigation
-            initializeTabNavigation();
+            initializeTabNavigation(args.data);
 
            
         }
 
     });
+
+    function initializeTabNavigation(dateData) {
+    const tabs = document.querySelectorAll('.tab-link');
+    const appointmentSection = document.querySelector('.appointment-section');
+    const outOfOfficeSection = document.querySelector('.out-of-office-section');
+    const eventSection = document.querySelector('.event-section');
+    const recurringSection = document.querySelector('#recurring-section');
+    const servicesSection = document.querySelector('.services-section');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabType = tab.textContent.toLowerCase();
+            
+            // Clear any existing error messages
+            clearErrorMessages();
+            
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            
+            // Show/hide and reinitialize appropriate sections
+            if (tabType === 'appointment') {
+                appointmentSection.style.display = 'block';
+                eventSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'none';
+                recurringSection.style.display = 'block';
+                
+                reInitializeAppointment(dateData);
+                reInitializeRecurringControl(dateData.StartTime);
+                reInitializePracticeServices();
+                
+            } else if (tabType === 'event') {
+                appointmentSection.style.display = 'none';
+                eventSection.style.display = 'block';
+                outOfOfficeSection.style.display = 'none';
+                recurringSection.style.display = 'block';
+                servicesSection.style.display = 'none';
+                
+                reInitializeEventComponents(dateData);
+                reInitializeRecurringControl(dateData.StartTime);
+                
+            } else { // Out of office
+                appointmentSection.style.display = 'none';
+                eventSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'block';
+                recurringSection.style.display = 'none';
+                servicesSection.style.display = 'none';
+                
+                reInitializeOutOfOfficeComponents(dateData);
+            }
+        });
+    });
+}
 </script>

@@ -24,7 +24,7 @@
     display: none;
 }
 #scheduler_dialog_wrapper{
-    width: 470px !important;
+    width: 435px !important;
 }
 #scheduler_dialog_wrapper ::-webkit-scrollbar {
     width: 12px;
@@ -50,14 +50,16 @@ div.e-dialog .e-footer-content {
 
 /* Scheduler container styles */
 .scheduler-container {
-    background-color: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 9rem);
-    width: 100%;
-    padding: 20px;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 9rem);
+  width: 100%;
+  padding: 20px;
+  position: relative;  
+  overflow-y: auto;   
 }
 
 .scheduler-toolbar {
@@ -139,7 +141,7 @@ div.e-dialog .e-footer-content {
 .dropdown-item {
     padding: 8px 12px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
     display: flex;
     align-items: center;
     gap: 10px;
