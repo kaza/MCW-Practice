@@ -57,16 +57,16 @@
             editorTemplate: '#EventEditorTemplate',
             popupOpen: function (args) {
                 if (args.type === 'Editor') {
-                    initializeEditorComponents(args);
-                    // Store the resourceId from args
-                    currentResourceId = args.data.ResourceId;
+                    initializeEditorComponents(args)
+                        .then(() => {
+                            currentResourceId = args.data.ResourceId;
+                        })
+                        .catch(() => {
+                        });
                 }
                 if (args.type === 'QuickInfo') {
                     args.cancel = true;
                 }
-            },
-            dataBound: function() {
-               console.log('dataBound');
             },
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
@@ -239,42 +239,51 @@
 
         // Initialize editor components
         function initializeEditorComponents(args) {
-            const container = args.element;
-            const isExistingEvent = args.data.Id ? true : false;
+            return new Promise((resolve, reject) => {
+                const container = args.element;
+                const isExistingEvent = args.data.Id ? true : false;
 
-            // Initialize all components
-            initializeClientSearch(clientData);
-            initializeDateTimePicker(args.data);
-            initializeLocationDropdown(locationData);
-            initializeRecurringControl(args.data.StartTime);
+                try {
+                    // Initialize all components
+                    initializeClientSearch(clientData);
+                    initializeDateTimePicker(args.data);
+                    initializeLocationDropdown(locationData);
+                    initializeRecurringControl(args.data.StartTime);
 
-            // Initialize event components
-            initializeEventDateTimePicker(args.data);
-            initializeEventLocationDropdown(locationData);
-            initializeEventTeamMemberDropdown(teamMemberData);
+                    // Initialize event components
+                    initializeEventDateTimePicker(args.data);
+                    initializeEventLocationDropdown(locationData);
+                    initializeEventTeamMemberDropdown(teamMemberData);
 
-            // Initialize out of office components
-            initializeOutOfOfficeDateTimePicker(args.data);
-            initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
+                    // Initialize out of office components
+                    initializeOutOfOfficeDateTimePicker(args.data);
+                    initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
 
-            if (isExistingEvent) {
-                // Hide tab navigation and type selection for existing events
-                const tabNavigation = container.querySelector('.tab-navigation');
-                const typeSelection = container.querySelector('.type-selection');
-                const searchSection = container.querySelector('.search-section');
-                const clientDetails = container.querySelector('.client-details-container');
-                
-                if (tabNavigation) tabNavigation.style.display = 'none';
-                if (typeSelection) typeSelection.style.display = 'none';
-                if (searchSection) searchSection.style.display = 'none';
-                if (clientDetails) clientDetails.style.display = 'block';
+                    if (isExistingEvent) {
+                        // Hide tab navigation and type selection for existing events
+                        const tabNavigation = container.querySelector('.tab-navigation');
+                        const typeSelection = container.querySelector('.type-selection');
+                        const searchSection = container.querySelector('.search-section');
+                        const clientDetails = container.querySelector('.client-details-container');
+                        
+                        if (tabNavigation) tabNavigation.style.display = 'none';
+                        if (typeSelection) typeSelection.style.display = 'none';
+                        if (searchSection) searchSection.style.display = 'none';
+                        if (clientDetails) clientDetails.style.display = 'block';
 
-                // Load event data
-                loadEventData(args.data.Id, container);
-            } else {
-                // For new events, show tab navigation and initialize it
-                initializeTabNavigation(args.data);
-            }
+                        
+                        loadEventData(args.data.Id, container)
+                            .then(() => resolve()) 
+                            .catch(error => reject(error)); 
+                    } else {
+                        // For new events, show tab navigation and initialize it
+                        initializeTabNavigation(args.data);
+                        resolve(); 
+                    }
+                } catch (error) {
+                    reject(error); 
+                }
+            });
         }
 
     });

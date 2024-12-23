@@ -418,81 +418,74 @@ function reInitializeAppointment(dateData) {
 function loadEventData(eventId, container) {
     showSpinner();
 
+    return new Promise((resolve, reject) => {
+        // Fetch appointment states
+        fetch('api/get_appointment_states/')
+            .then(response => response.json())
+            .then(states => {
+                const stateSection = container.querySelector('.appointment-state-section');
+                if (stateSection) {
+                    stateSection.style.display = 'block';
+                    initializeAppointmentState(states);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching appointment states:', error);
+                reject(error); // Reject on error
+            });
 
-    // Fetch appointment states
-    fetch('api/get_appointment_states/')
-        .then(response => response.json())
-        .then(states => {
-            const stateSection = container.querySelector('.appointment-state-section');
-            if (stateSection) {
-                stateSection.style.display = 'block';
-                initializeAppointmentState(states);
+        // Fetch event data
+        fetch(`api/get_event_data/${eventId}/`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .catch(error => {
-            console.error('Error fetching appointment states:', error);
-        })
-        .finally(() => {
-            hideSpinner();
-        });
+            .then(response => response.json())
+            .then(data => {
+                // Show appropriate section based on event type
+                const appointmentSection = container.querySelector('.appointment-section');
+                const eventSection = container.querySelector('.event-section');
+                const outOfOfficeSection = container.querySelector('.out-of-office-section');
 
-    // Fetch event data
-    showSpinner();
-    fetch(`api/get_event_data/${eventId}/`, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-        .then(response => response.json())
-        .then(data => {
-            // Show appropriate section based on event type
-            const appointmentSection = container.querySelector('.appointment-section');
-            const eventSection = container.querySelector('.event-section');
-            const outOfOfficeSection = container.querySelector('.out-of-office-section');
+                // Hide all sections first
+                if (appointmentSection) appointmentSection.style.display = 'none';
+                if (eventSection) eventSection.style.display = 'none';
+                if (outOfOfficeSection) outOfOfficeSection.style.display = 'none';
 
-            // Hide all sections first
-            if (appointmentSection) appointmentSection.style.display = 'none';
-            if (eventSection) eventSection.style.display = 'none';
-            if (outOfOfficeSection) outOfOfficeSection.style.display = 'none';
+                // Show relevant section and bind data
+                if (data.Type === 'APPOINTMENT') {
+                    if (appointmentSection) {
+                        appointmentSection.style.display = 'block';
 
-            // Show relevant section and bind data
-            if (data.Type === 'APPOINTMENT') {
-                if (appointmentSection) {
-                    appointmentSection.style.display = 'block';
+                        // Show client details if client exists
+                        if (data.Client) {
+                            updateClientDetails(data.Client);
+                        }
 
-                    // Show client details if client exists
-                    if (data.Client) {
-                        updateClientDetails(data.Client);
-                    }
-
-                    // Initialize and set appointment state
-                    if (data.Status) {
-                        const stateSelect = document.getElementById('appointment-state');
-                        if (stateSelect) {
-                            stateSelect.value = data.Status.id;
-                            updateOptionStyle(stateSelect);
+                        // Initialize and set appointment state
+                        if (data.Status) {
+                            const stateSelect = document.getElementById('appointment-state');
+                            if (stateSelect) {
+                                stateSelect.value = data.Status.id;
+                                updateOptionStyle(stateSelect);
+                            }
                         }
                     }
+                } else if (data.Type === 'EVENT') {
+                    if (eventSection) eventSection.style.display = 'block';
+                } else if (data.Type === 'OUT_OF_OFFICE') {
+                    if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
                 }
-            } else if (data.Type === 'EVENT') {
-                if (eventSection) eventSection.style.display = 'block';
-            } else if (data.Type === 'OUT_OF_OFFICE') {
-                if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
-            }
 
-            // Set location if it exists
-            if (data.Location) {
-                const location = locationData.find(l => l.id === data.Location);
-                if (location) {
-                    locationSearch.selectItem(location);
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching event data:', error);
-        })
-        .finally(() => {
-            hideSpinner();
-        });
+                resolve(); // Resolve after processing event data
+            })
+            .catch(error => {
+                console.error('Error fetching event data:', error);
+                reject(error); // Reject on error
+            })
+            .finally(() => {
+                hideSpinner();
+            });
+    });
 }
 
