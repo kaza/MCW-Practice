@@ -1,5 +1,28 @@
 let clientSearch;
 let locationSearch;
+let clinicianSearch;
+const stateColors = {
+    '1': {
+        color: '#10643d',
+        background: '#e7f9f1'
+    },
+    '2': {
+        color: '#6d504c',
+        background: '#fdebe8'
+    },
+    '3': {
+        color: '#94782f',
+        background: '#fff9e8'
+    },
+    '4': {
+        color: '#6e514c',
+        background: '#fdebe8'
+    },
+    '5': {
+        color: '#7a6b44',
+        background: '#fff9e8'
+    }
+};
 function createAppointment(selectedClient, selectedLocation, scheduler) {
     // Get all the necessary values
     const startDate = document.getElementById('startDate').value;
@@ -102,6 +125,7 @@ function initializeClientSearch(clients) {
         containerId: 'clientSearchContainer',
         items: clients,
         onSelect: function (selectedClient) {
+
             // Show the clinician section when a client is selected
             document.querySelector('.clinician-section').style.display = 'block';
 
@@ -110,7 +134,7 @@ function initializeClientSearch(clients) {
             fetch(`api/get_client_clinicians/${selectedClient.id}/`)
                 .then(response => response.json())
                 .then(clinicians => {
-                    initializeClinicianDropdown(clinicians , selectedClient);
+                    initializeClinicianDropdown(clinicians, selectedClient);
                     hideSpinner();
                 })
                 .catch(error => {
@@ -121,9 +145,94 @@ function initializeClientSearch(clients) {
         onDeselect: function () {
             document.querySelector('.clinician-section').style.display = 'none';
             document.querySelector('.services-section').style.display = 'none';
+            hideClientDetails();
         }
     });
 }
+
+function updateClientDetails(client) {
+    const detailsContainer = document.querySelector('.client-info');
+    if (detailsContainer) {
+        detailsContainer.innerHTML = `
+         <div class="client-main-row">
+             <div class="client-name" id="client-name">${client.full_name}</div>
+             <button class="caret-button" id="toggle-client-info">
+                <svg class="caret-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 9l6 6 6-6"/>
+                </svg>
+             </button>
+         </div>
+        <div class="client-phone" style="display: block;">
+            ${client.phone ? `<div class="info-item"> ${client.phone} <span class="home-tag">Mobile</span></div>` : ''}
+         </div>
+         <div class="client-email" style="display: block;">
+            ${client.email ? `<div class="info-item"> ${client.email} <span class="home-tag">Home</span></div>` : ''}
+         </div>
+        `;
+        detailsContainer.style.display = 'block';
+
+        // Add event listener to toggle email and phone visibility
+        document.getElementById('toggle-client-info').addEventListener('click', function () {
+            const emailSection = detailsContainer.querySelector('.client-email');
+            const phoneSection = detailsContainer.querySelector('.client-phone');
+            const isEmailVisible = emailSection.style.display === 'block';
+            const isPhoneVisible = phoneSection.style.display === 'block';
+
+            // Toggle visibility
+            emailSection.style.display = isEmailVisible ? 'none' : 'block';
+            phoneSection.style.display = isPhoneVisible ? 'none' : 'block';
+
+            this.classList.toggle('expanded');
+        });
+    }
+}
+
+function hideClientDetails() {
+    const detailsContainer = document.querySelector('.client-info');
+    if (detailsContainer) {
+        detailsContainer.style.display = 'none';
+    }
+}
+
+function initializeAppointmentState(states, selectedStateId = null) {
+    const stateSelect = document.getElementById('appointment-state');
+    if (stateSelect) {
+
+        stateSelect.addEventListener('change', function () {
+            updateOptionStyle(this);
+        });
+
+        // Clear existing options
+        stateSelect.innerHTML = '';
+
+        // Populate the dropdown with states
+        states.forEach(state => {
+            const option = document.createElement('option');
+            option.value = state.id;
+            option.textContent = state.name;
+            stateSelect.appendChild(option);
+        });
+    }
+}
+
+function updateOptionStyle(select) {
+    const selectedOption = select.options[select.selectedIndex];
+    const selectedValue = select.value.toLowerCase();
+    const colors = stateColors[selectedValue] || { color: '', background: '' };
+
+    // Reset all options to default
+    Array.from(select.options).forEach(option => {
+        option.style.color = '';
+        option.style.backgroundColor = '';
+    });
+
+    // Style only the selected option
+    select.style.color = colors.color;
+    select.style.backgroundColor = colors.background;
+    selectedOption.style.color = colors.color;
+    selectedOption.style.backgroundColor = colors.background;
+}
+
 
 // Date/time pickers initialization function
 function initializeDateTimePicker(dateData) {
@@ -240,7 +349,7 @@ function initializeLocationDropdown(locations) {
     }
 }
 
-function initializeClinicianDropdown(clinicians , selectedClient) {
+function initializeClinicianDropdown(clinicians, selectedClient) {
     clinicianSearch = new DynamicSearch({
         containerId: 'clinicianSearchContainer',
         items: clinicians,
@@ -304,5 +413,86 @@ function reInitializeAppointment(dateData) {
     // Hide clinician and services sections
     document.querySelector('.clinician-section').style.display = 'none';
     document.querySelector('.services-section').style.display = 'none';
+}
+
+function loadEventData(eventId, container) {
+    showSpinner();
+
+
+    // Fetch appointment states
+    fetch('api/get_appointment_states/')
+        .then(response => response.json())
+        .then(states => {
+            const stateSection = container.querySelector('.appointment-state-section');
+            if (stateSection) {
+                stateSection.style.display = 'block';
+                initializeAppointmentState(states);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching appointment states:', error);
+        })
+        .finally(() => {
+            hideSpinner();
+        });
+
+    // Fetch event data
+    showSpinner();
+    fetch(`api/get_event_data/${eventId}/`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            // Show appropriate section based on event type
+            const appointmentSection = container.querySelector('.appointment-section');
+            const eventSection = container.querySelector('.event-section');
+            const outOfOfficeSection = container.querySelector('.out-of-office-section');
+
+            // Hide all sections first
+            if (appointmentSection) appointmentSection.style.display = 'none';
+            if (eventSection) eventSection.style.display = 'none';
+            if (outOfOfficeSection) outOfOfficeSection.style.display = 'none';
+
+            // Show relevant section and bind data
+            if (data.Type === 'APPOINTMENT') {
+                if (appointmentSection) {
+                    appointmentSection.style.display = 'block';
+
+                    // Show client details if client exists
+                    if (data.Client) {
+                        updateClientDetails(data.Client);
+                    }
+
+                    // Initialize and set appointment state
+                    if (data.Status) {
+                        const stateSelect = document.getElementById('appointment-state');
+                        if (stateSelect) {
+                            stateSelect.value = data.Status.id;
+                            updateOptionStyle(stateSelect);
+                        }
+                    }
+                }
+            } else if (data.Type === 'EVENT') {
+                if (eventSection) eventSection.style.display = 'block';
+            } else if (data.Type === 'OUT_OF_OFFICE') {
+                if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
+            }
+
+            // Set location if it exists
+            if (data.Location) {
+                const location = locationData.find(l => l.id === data.Location);
+                if (location) {
+                    locationSearch.selectItem(location);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching event data:', error);
+        })
+        .finally(() => {
+            hideSpinner();
+        });
 }
 

@@ -88,16 +88,34 @@ class SchedulerDataService:
     
     @classmethod
     def get_event_data(cls, event_id: int) -> Dict[str, Any]:
-        """Get event data for a specific event by event ID, including associated services"""
+        """Get event data for a specific event by event ID, including associated services and client information"""
         try:
             event = Event.objects.get(id=event_id)
             event_data = cls._convert_event_to_dict(event)
+            
+            # Fetch associated services
             event_services = EventService.objects.filter(event=event).values(
                 'service_id', 'fee', 'modifiers'
             )
             event_data['services'] = list(event_services)
 
-            return list(event_data)
+            # Fetch client information if the event is an appointment
+            if event.type.name == EventType.APPOINTMENT and event.patient:
+                event_data['Client'] = {
+                    'id': event.patient.id,
+                    'full_name': event.patient.get_full_name(),
+                    'email': event.patient.email,
+                    'phone': event.patient.phone,
+                }
+
+            # Fetch appointment state
+            if event.status:
+                event_data['Status'] = {
+                    'id': event.status.id,
+                    'name': event.status.name,
+                }
+
+            return event_data
         except Event.DoesNotExist:
             return {'error': 'Event not found'}
     

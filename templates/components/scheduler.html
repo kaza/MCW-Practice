@@ -65,6 +65,9 @@
                     args.cancel = true;
                 }
             },
+            dataBound: function() {
+               console.log('dataBound');
+            },
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
                     const eventData = args.data[0] || args.data;
@@ -237,6 +240,7 @@
         // Initialize editor components
         function initializeEditorComponents(args) {
             const container = args.element;
+            const isExistingEvent = args.data.Id ? true : false;
 
             // Initialize all components
             initializeClientSearch(clientData);
@@ -253,27 +257,23 @@
             initializeOutOfOfficeDateTimePicker(args.data);
             initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
 
-            // Tab Navigation
-            initializeTabNavigation(args.data);
+            if (isExistingEvent) {
+                // Hide tab navigation and type selection for existing events
+                const tabNavigation = container.querySelector('.tab-navigation');
+                const typeSelection = container.querySelector('.type-selection');
+                const searchSection = container.querySelector('.search-section');
+                const clientDetails = container.querySelector('.client-details-container');
+                
+                if (tabNavigation) tabNavigation.style.display = 'none';
+                if (typeSelection) typeSelection.style.display = 'none';
+                if (searchSection) searchSection.style.display = 'none';
+                if (clientDetails) clientDetails.style.display = 'block';
 
-            // If the event has an ID it means it is an existing event, fetch the event data
-            if (args.data.Id) {
-                showSpinner();
-                fetch(`api/get_event_data/${args.data.Id}/`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-
-                    }).catch(error => {
-                        console.error('Error:', error);
-                    })
-                    .finally(() => {
-                        hideSpinner();
-                    });
-
+                // Load event data
+                loadEventData(args.data.Id, container);
+            } else {
+                // For new events, show tab navigation and initialize it
+                initializeTabNavigation(args.data);
             }
         }
 

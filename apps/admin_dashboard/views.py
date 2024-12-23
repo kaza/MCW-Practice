@@ -157,3 +157,8 @@ class GetEventDataView(View):
     def get(self, request, event_id):
         event_data = SchedulerDataService.get_event_data(event_id)
         return JsonResponse(event_data, safe=False)
+            
+class GetAppointmentStatesView(View):
+    def get(self, request):
+        appointment_states = SchedulerDataService.get_appointment_states()
+        return JsonResponse(appointment_states, safe=False)
