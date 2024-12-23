@@ -11,7 +11,8 @@ from dateutil import rrule
 from django.contrib.auth.models import User 
 import threading
 
-from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location
+from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
+from apps.accounts.models import Login  
 
 class SchedulerDataService:
     """Service class to handle all scheduler related data operations"""
@@ -181,68 +182,236 @@ class SchedulerDataService:
             Q(name__icontains=query)
         ).values('id', 'name')
 
+    
     @classmethod
-    def create_event(cls, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new event with recurrence handling"""
-        event_type = event_data.get('eventType')
-        recurrence_rule = event_data.get('RecurrenceRule')
-        
-        # Create the main event
-        if event_type == 'APPOINTMENT':
-            # For appointments, include the client
-            event = Event.objects.create(
-                type_id=EventType.objects.get(name=event_type).id,
-                clinician_id=event_data['resourceId'],
-                start_datetime=event_data['StartTime'],
-                end_datetime=event_data['EndTime'],
-                is_all_day=event_data.get('IsAllDay', False),
-                location_id=event_data.get('Location'),
-                patient_id=event_data.get('Client'), 
-                status_id=1,
-                cancel_appointments=event_data.get('IsCancelAppointment', False),
-                notify_clients=event_data.get('IsNotifyClient', False),
-                is_recurring=bool(recurrence_rule),
-                recurrence_rule=recurrence_rule,
-                parent_event=None 
-            )
-        elif event_type == 'EVENT':
-            event = Event.objects.create(
-                type_id=EventType.objects.get(name=event_type).id,
-                title=event_data.get('Subject'),
-                clinician_id=event_data['resourceId'],
-                start_datetime=event_data['StartTime'],
-                end_datetime=event_data['EndTime'],
-                is_all_day=event_data.get('IsAllDay', False),
-                location_id=event_data.get('location'),
-                team_member_id=event_data.get('TeamMember'), 
-                status_id=1,
-                cancel_appointments=event_data.get('IsCancelAppointment', False),
-                notify_clients=event_data.get('IsNotifyClient', False),
-                is_recurring=bool(recurrence_rule),
-                recurrence_rule=recurrence_rule,
-                parent_event=None
-            )
-        elif event_type == 'OUT_OF_OFFICE':
-            event = Event.objects.create(
-                type_id=EventType.objects.get(name=event_type).id,
-                status_id=1,
-                clinician_id=event_data['resourceId'],
-                start_datetime=event_data['StartTime'],
-                end_datetime=event_data['EndTime'],
-                is_all_day=event_data.get('IsAllDay', False),
-                team_member_id=event_data.get('TeamMember'),
-                cancel_appointments=event_data.get('IsCancelAppointment', False),
-                notify_clients=event_data.get('IsNotifyClient', False),
-                parent_event=None,
-                is_recurring=False,
-                recurrence_rule=None,
-            )
-        if recurrence_rule:
-            # Start a background thread to handle recurrence
-            threading.Thread(target=cls._handle_recurring_events, args=(event, recurrence_rule, event_data)).start()
+    def get_practice_services(cls) -> List[Dict[str, Any]]:
+        """Get all practice services"""
+        return PracticeService.objects.values('id', 'type', 'rate', 'code', 'description')
+    
 
-        return cls._convert_event_to_dict(event)
+    @classmethod
+    def get_client_clinicians(cls, patient_id: int) -> List[Dict[str, Any]]:
+        """Get all clinicians for a client"""
+        # Get all clinicians with user type 'ADMIN'
+        admin_clinicians = Clinician.objects.filter(
+            login_id__in=Login.objects.filter(user_type='ADMIN').values('id')
+        )
+
+        # Get clinicians assigned to the specified patient
+        assigned_clinicians = Clinician.objects.filter(
+            id__in=Patient.objects.filter(id=patient_id).values('clinician_id')
+        )
+
+        # Combine both querysets
+        combined_clinicians = admin_clinicians | assigned_clinicians
+
+        return list(combined_clinicians.annotate(
+            name=Concat('first_name', Value(' '), 'last_name')
+        ).values('id', 'name').distinct())  # Use distinct to avoid duplicates
+    
+    @classmethod
+    def search_clinicians(cls, patient_id: int, query: str) -> List[Dict[str, Any]]:
+        """Search clinicians by name"""
+        # Get all clinicians with user type 'ADMIN'
+        admin_clinicians = Clinician.objects.filter(
+            login_id__in=Login.objects.filter(user_type='ADMIN').values('id')
+        )
+
+        # Get clinicians assigned to the specified patient
+        assigned_clinicians = Clinician.objects.filter(
+            id__in=Patient.objects.filter(id=patient_id).values('clinician_id')
+        )
+
+        # Combine both querysets and apply the search query
+        combined_clinicians = admin_clinicians | assigned_clinicians
+
+        return list(combined_clinicians.filter(
+            Q(first_name__icontains=query) | Q(last_name__icontains=query)
+        ).annotate(
+            name=Concat('first_name', Value(' '), 'last_name')
+        ).values('id', 'name').distinct())  # Use distinct to avoid duplicates
+    
+    @classmethod
+    def get_clinician_services(cls, clinician_id: int, patient_id: int) -> Dict[str, Any]:
+        """
+        Get services for a clinician and patient's default services if assigned.
+        
+        Args:
+            clinician_id: The ID of the clinician
+            patient_id: The ID of the patient
             
+        Returns:
+            Dict containing either clinician_services or practice_services, 
+            along with patient_default_services
+        """
+        # Check if clinician is assigned to patient
+        is_assigned = Patient.objects.filter(
+            id=patient_id, 
+            clinician_id=clinician_id
+        ).exists()
+
+        # Get patient default services
+        patient_defaults = PatientDefaultService.objects.filter(
+            patient_id=patient_id
+        ).select_related('service').values(
+            'service_id',
+            'custom_rate',
+            'is_primary',
+            'service__id',
+            'service__type',
+            'service__rate',
+            'service__code',
+            'service__description',
+            'service__duration'
+        )
+
+        # Process default services to match service structure
+        processed_default_services = []
+        for default in patient_defaults:
+            processed_default_services.append({
+                'id': default['service__id'],
+                'type': default['service__type'],
+                'rate': float(default['custom_rate'] if default['custom_rate'] is not None else default['service__rate']),
+                'code': default['service__code'],
+                'description': default['service__description'],
+                'duration': default['service__duration'],
+                'is_primary': default['is_primary']
+            })
+
+        if is_assigned:
+            # Get clinician's active services
+            clinician_services = ClinicianService.objects.filter(
+                clinician_id=clinician_id,
+                is_active=True
+            ).select_related('service').values(
+                'service__id',
+                'service__type',
+                'custom_rate',
+                'service__code',
+                'service__description',
+                'service__duration',
+                'service__rate'
+            )
+
+            # Process clinician services
+            services_data = []
+            for service in clinician_services:
+                services_data.append({
+                    'id': service['service__id'],
+                    'type': service['service__type'],
+                    'rate': float(service['custom_rate'] if service['custom_rate'] is not None else service['service__rate']),
+                    'code': service['service__code'],
+                    'description': service['service__description'],
+                    'duration': service['service__duration']
+                })
+
+            return {
+                'clinician_services': services_data,
+                'patient_default_services': processed_default_services
+            }
+        else:
+            # Get all practice services
+            practice_services = PracticeService.objects.all().values(
+                'id',
+                'type',
+                'rate',
+                'code',
+                'description',
+                'duration'
+            )
+
+            # Process practice services
+            services_data = []
+            for service in practice_services:
+                services_data.append({
+                    'id': service['id'],
+                    'type': service['type'],
+                    'rate': float(service['rate']),
+                    'code': service['code'],
+                    'description': service['description'],
+                    'duration': service['duration']
+                })
+
+            return {
+                'practice_services': services_data,
+                'patient_default_services': processed_default_services
+            }
+
+    @classmethod
+    def create_event(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new event with recurrence handling"""
+        event_type = data.get('eventData').get('eventType')
+        recurrence_rule = data.get('eventData').get('RecurrenceRule')
+        
+        # Convert datetime strings to datetime objects if they're strings
+        start_time = data.get('eventData').get('StartTime')
+        end_time = data.get('eventData').get('EndTime')
+        if isinstance(start_time, str):
+            start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        if isinstance(end_time, str):
+            end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            
+        # Common event fields
+        common_fields = {
+            'type_id': EventType.objects.get(name=event_type).id,
+            'clinician_id': data.get('resourceId'),
+            'start_datetime': start_time,
+            'end_datetime': end_time,
+            'is_all_day': data.get('eventData').get('IsAllDay', False),
+            'status_id': 1,  # Default status
+            'is_recurring': bool(recurrence_rule),
+            'recurrence_rule': recurrence_rule,
+            'parent_event': None
+        }
+        
+        try:
+            # Create the main event based on type
+            if event_type == 'APPOINTMENT':
+                event = Event.objects.create(
+                    **common_fields,
+                    location_id=data.get('eventData').get('Location').get('id'),
+                    patient_id=data.get('eventData').get('Client').get('id'),
+                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
+                    notify_clients=data.get('eventData').get('IsNotifyClient', False)
+                )
+            
+            elif event_type == 'EVENT':
+                event = Event.objects.create(
+                    **common_fields,
+                    title=data.get('eventData').get('Subject'),
+                    location_id=data.get('eventData').get('Location').get('id'),
+                    team_member_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
+                    notify_clients=data.get('eventData').get('IsNotifyClient', False)
+                )
+            
+            elif event_type == 'OutOfOffice':
+                event = Event.objects.create(
+                    **common_fields,
+                    team_member_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
+                    notify_clients=data.get('eventData').get('IsNotifyClient', False),
+                    is_recurring=False,  # Out of office events don't support recurrence
+                    recurrence_rule=None
+                )
+            else:
+                raise ValueError(f"Invalid event type: {event_type}")
+
+            # Handle recurring events in background thread
+            if recurrence_rule and event_type != 'OUT_OF_OFFICE':
+                threading.Thread(
+                    target=cls._handle_recurring_events,
+                    args=(event, recurrence_rule, data.get('eventData')),
+                    daemon=True  # Make thread daemon so it doesn't block server shutdown
+                ).start()
+
+            return cls._convert_event_to_dict(event)
+            
+        except Exception as e:
+            # Log the error and re-raise
+            print(f"Error creating event: {str(e)}")
+            raise
+
     @classmethod
     def update_event(cls, event_id: int, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing event and handle recurrence updates"""
@@ -362,7 +531,7 @@ class SchedulerDataService:
                     rule_dict[key.strip()] = value.strip()
 
             # Convert start_datetime to datetime object
-            dtstart = datetime.fromisoformat(event.start_datetime.replace('Z', '+00:00'))
+            dtstart = event.start_datetime
 
             # Map frequency string to rrule constant
             freq_map = {
@@ -383,7 +552,18 @@ class SchedulerDataService:
             if 'COUNT' in rule_dict:
                 rule_params['count'] = int(rule_dict['COUNT'])
             if 'UNTIL' in rule_dict:
-                rule_params['until'] = datetime.fromisoformat(rule_dict['UNTIL'].replace('Z', '+00:00'))
+                # Parse UNTIL date from YYYYMMDD'T'HHMMSS'Z' format
+                until_str = rule_dict['UNTIL']
+                if 'T' in until_str:
+                    until_str = until_str.replace('T', '').replace('Z', '')
+                year = int(until_str[:4])
+                month = int(until_str[4:6])
+                day = int(until_str[6:8])
+                hour = int(until_str[8:10]) if len(until_str) > 8 else 23
+                minute = int(until_str[10:12]) if len(until_str) > 10 else 59
+                second = int(until_str[12:14]) if len(until_str) > 12 else 59
+                rule_params['until'] = datetime(year, month, day, hour, minute, second, tzinfo=dtstart.tzinfo)
+
             if 'BYDAY' in rule_dict:
                 weekday_map = {
                     'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
@@ -396,10 +576,7 @@ class SchedulerDataService:
             rule = rrule.rrule(**rule_params)
 
             # Calculate event duration
-            event_duration = (
-                datetime.fromisoformat(event_data['EndTime'].replace('Z', '+00:00')) -
-                datetime.fromisoformat(event_data['StartTime'].replace('Z', '+00:00'))
-            )
+            event_duration = event.end_datetime - event.start_datetime
 
             # Create occurrences
             for occurrence_start in rule:
@@ -420,7 +597,7 @@ class SchedulerDataService:
                         cancel_appointments=event.cancel_appointments,
                         notify_clients=event.notify_clients,
                         is_recurring=True,
-                        recurrence_rule=None,
+                        recurrence_rule=None,  
                         parent_event=event,
                         occurrence_date=occurrence_start.date()
                     )

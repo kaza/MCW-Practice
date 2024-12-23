@@ -88,3 +88,19 @@ class LocationSearchView(View):
             locations = SchedulerDataService.search_locations(query)
             return JsonResponse(locations, safe=False)
         return JsonResponse([], safe=False)
+    
+class GetClientCliniciansView(View):
+    def get(self, request, client_id):
+        clinicians = SchedulerDataService.get_client_clinicians(client_id)
+        return JsonResponse(clinicians, safe=False)
+    
+class ClinicianSearchView(View):
+    def get(self, request):
+        query = request.GET.get('q', '')
+        clinicians =  SchedulerDataService.search_clinicians(query)
+        return JsonResponse(clinicians, safe=False)
+    
+class GetClinicianServicesView(View):
+    def get(self, request, clinician_id, patient_id):
+        services = SchedulerDataService.get_clinician_services(clinician_id, patient_id )
+        return JsonResponse(services, safe=False)

@@ -123,6 +123,20 @@ class AppointmentState(models.Model):
     class Meta:
         db_table = 'appointment_state'
 
+class PracticeService(models.Model):
+    type = models.CharField(max_length=255, null=False, blank=False)
+    rate = models.FloatField(null=False, blank=False)
+    code = models.CharField(max_length=50, null=False, blank=False, unique=True)
+    description = models.TextField(null=True, blank=True)
+    duration = models.IntegerField(null=False, blank=False) 
+
+    def __str__(self):
+        return f"{self.code} - {self.type} ({self.duration} min)"
+
+    class Meta:
+        db_table = 'PracticeService'
+
+
 class Event(models.Model):
     # Common fields
     type = models.ForeignKey(EventType, on_delete=models.PROTECT)
@@ -137,6 +151,7 @@ class Event(models.Model):
     # Appointment specific fields
     patient = models.ForeignKey('Patient', on_delete=models.CASCADE, null=True, blank=True)
     status = models.ForeignKey(AppointmentState, on_delete=models.CASCADE, null=True, blank=True)
+    service = models.ForeignKey(PracticeService, on_delete=models.PROTECT, null=True, blank=True)
     
     # Out of office specific fields
     cancel_appointments = models.BooleanField(default=False)
@@ -154,6 +169,7 @@ class Event(models.Model):
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
 
     def __str__(self):
         if self.type.name == EventType.EVENT:
@@ -200,7 +216,7 @@ class Patient(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     login_id = models.CharField(max_length=255, unique=True)
-    clinician = models.ForeignKey('Clinician', on_delete=models.CASCADE)
+    clinician = models.ForeignKey('Clinician', null=True, blank=True, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -213,4 +229,38 @@ class Patient(models.Model):
         indexes = [
             models.Index(fields=['login_id']),
             models.Index(fields=['clinician']),
+        ]
+
+class ClinicianService(models.Model):
+    clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE)
+    service = models.ForeignKey(PracticeService, on_delete=models.CASCADE)
+    custom_rate = models.FloatField(null=True, blank=True) 
+    is_active = models.BooleanField(default=True)
+
+    def get_rate(self):
+        return self.custom_rate if self.custom_rate is not None else self.service.rate
+
+    class Meta:
+        db_table = 'Clinician_services'
+        unique_together = ('clinician', 'service')
+        indexes = [
+            models.Index(fields=['clinician']),
+            models.Index(fields=['service']),
+        ] 
+
+class PatientDefaultService(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    service = models.ForeignKey(PracticeService, on_delete=models.CASCADE)
+    custom_rate = models.FloatField(null=True, blank=True)
+    is_primary = models.BooleanField(default=False)
+
+    def get_rate(self):
+        return self.custom_rate if self.custom_rate is not None else self.service.rate
+
+    class Meta:
+        db_table = 'Patient_default_services'
+        unique_together = ('patient', 'service')
+        indexes = [
+            models.Index(fields=['patient']),
+            models.Index(fields=['service']),
         ]

@@ -8,7 +8,11 @@
 {% include 'components/scheduler-editor.html' %}
 {% endblock %}
 
-
+<script src="{% static 'js/recurring-control.js' %}"></script>
+<script src="{% static 'js/appointment.js' %}"></script>
+<script src="{% static 'js/event.js' %}"></script>
+<script src="{% static 'js/out-of-office.js' %}"></script>
+<script src="{% static 'js/practice_services.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
@@ -46,13 +50,7 @@
                 dataSource: [],
                 fields: {
                     id: 'Id',
-                    startTime: { name: 'StartTime' },
-                    endTime: { name: 'EndTime' },
-                    isAllDay: { name: 'IsAllDay' },
-                    resourceId: { name: 'ResourceId' },
-                    recurrenceID: { name: 'RecurrenceID' },
-                    recurrenceRule: { name: 'RecurrenceRule' },
-                    recurrenceException: { name: 'RecurrenceException' }
+                    resourceId: { name: 'ResourceId' }
                 },
                 enableRecurrenceValidation: true
             },
@@ -60,11 +58,8 @@
             popupOpen: function (args) {
                 if (args.type === 'Editor') {
                     initializeEditorComponents(args);
-
                     // Store the resourceId from args
                     currentResourceId = args.data.ResourceId;
-
-
                 }
                 if (args.type === 'QuickInfo') {
                     args.cancel = true;
@@ -73,97 +68,9 @@
             actionBegin: function (args) {
                 if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
                     const eventData = args.data[0] || args.data;
-
-                    if (args.requestType === 'eventCreate' || args.requestType === 'eventChange') {
-                        // Get the editor element
-                        const editorElement = document.querySelector('.e-schedule-dialog');
-
-                        let isValid = true;
-
-                        // Determine the active tab and validate accordingly
-                        const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
-                        if (activeTab === 'appointment') {
-                            isValid = validateAppointment(eventData);
-                        } else if (activeTab === 'event') {
-                            isValid = validateEvent(eventData);
-                        } else if (activeTab === 'outofoffice') {
-                            isValid = validateOutOfOffice(eventData);
-                        }
-
-                        if (!isValid) {
-                            args.cancel = true; // Prevent the event from being created/modified
-                            return;
-                        }
-
-                        // Ensure end date matches start date if not all day
-                        const startTime = new Date(eventData.StartTime);
-                        let endTime = new Date(eventData.EndTime);
-
-                        // Check if the event is an all-day event
-                        if (!eventData.IsAllDay) {
-                            // Set the end date to match start date while preserving end time
-                            endTime = new Date(
-                                startTime.getFullYear(),
-                                startTime.getMonth(),
-                                startTime.getDate(),
-                                endTime.getHours(),
-                                endTime.getMinutes()
-                            );
-
-                            // Update the end time in eventData
-                            eventData.EndTime = endTime.toISOString();
-
-                            // Validate time
-                            if (startTime >= endTime) {
-                                args.cancel = true;
-                                alert('Start time must be less than end time.');
-                                return;
-                            }
-                        } else {
-                            // If it's an all-day event, set the end time to the end of the day
-                            endTime = new Date(startTime);
-                            endTime.setHours(23, 59, 59, 999); 
-                            eventData.EndTime = endTime.toISOString(); 
-                        }
-                    }
                     const action = args.requestType.replace('event', '').toLowerCase();
                     const resourceId = currentResourceId;
-
-                    const recurrenceData = {
-                        ...eventData,
-                        RecurrenceRule: eventData.RecurrenceRule || null,
-                        RecurrenceException: eventData.RecurrenceException || null
-                    };
-                    // For recurring event modifications
-                    if (args.requestType === 'eventChange') {
-                        // Check if this is a series or occurrence edit
-                        if (args.data.RecurrenceRule) {
-                            // Series edit
-                            recurrenceData.editType = 'series';
-                        } else {
-                            // Single occurrence edit
-                            recurrenceData.editType = 'occurrence';
-                            recurrenceData.originalEventId = args.data.RecurrenceID;
-                        }
-                    }
-
-                    // Determine the active tab and set the eventType accordingly
-                    const activeTab = document.querySelector('.editor-tab.active').getAttribute('data-tab');
-                    let eventType;
-
-                    switch (activeTab) {
-                        case 'appointment':
-                            eventType = 'APPOINTMENT';
-                            break;
-                        case 'event':
-                            eventType = 'EVENT';
-                            break;
-                        case 'out_of_office':
-                            eventType = 'OUT_OF_OFFICE';
-                            break;
-                        default:
-                            eventType = 'APPOINTMENT';
-                    }
+                
                     document.getElementById('spinner-container').style.display = 'flex';
                     fetch(window.location.href, {
                         method: 'POST',
@@ -173,8 +80,7 @@
                         },
                         body: JSON.stringify({
                             action: action,
-                            eventType: eventType,
-                            ...recurrenceData,
+                            eventData: eventData,
                             resourceId: resourceId
                         })
                     })
@@ -212,37 +118,6 @@
 
         scheduler.appendTo('#scheduler');
 
-        // Utility function to get start and end dates based on the view
-        function getStartAndEndDates(selectedDate, selectedView) {
-            let startDate, endDate;
-
-            switch (selectedView) {
-                case 'Day':
-                    startDate = new Date(selectedDate);
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate = new Date(selectedDate);
-                    endDate.setHours(23, 59, 59, 999);
-                    break;
-                case 'Week':
-                    startDate = new Date(selectedDate);
-                    startDate.setDate(selectedDate.getDate() - selectedDate.getDay());
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate = new Date(startDate);
-                    endDate.setDate(startDate.getDate() + 6);
-                    endDate.setHours(23, 59, 59, 999);
-                    break;
-                case 'Month':
-                    startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-                    endDate.setHours(23, 59, 59, 999);
-                    break;
-                default:
-                    return null;
-            }
-
-            return { startDate, endDate };
-        }
         // Load initial events
         const currentDate = scheduler.selectedDate;
         const selectedView = scheduler.currentView;
@@ -326,582 +201,115 @@
             scheduler.dataBind();
         });
 
+      
+        $(document).on('click', '#done-button', function () {
+            // Clear any existing error messages
+            clearErrorMessages();
+
+            // Determine which tab is active
+            const activeTab = document.querySelector('.tab-link.active').textContent.toLowerCase();
+
+            let selectedClient, selectedLocation, selectedTeamMember;
+
+            // Get selected client and location based on the active tab
+            if (activeTab === 'appointment') {
+                selectedClient = clientSearch.getSelectedItem();
+                selectedLocation = locationSearch.getSelectedItem();
+                createAppointment(selectedClient, selectedLocation, scheduler);
+            } else if (activeTab === 'event') {
+                selectedLocation = eventLocationSearch.getSelectedItem();
+                selectedTeamMember = eventTeamMemberSearch.getSelectedItem();
+                const eventName = document.getElementById('event-name').value;
+                createEvent(selectedLocation, selectedTeamMember, scheduler);
+            } else if (activeTab === 'out of office') {
+                selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
+                createOutOfOffice(selectedTeamMember, scheduler);
+            }
+        });
+        
+        $(document).on('click', '#cancel-button', function () {
+            scheduler.closeEditor();
+        });
+
         // Initialize editor components
         function initializeEditorComponents(args) {
             const container = args.element;
 
             // Initialize all components
-            initializeClientSearch(container, clientData);
-            initializeDateTimePickers(container);
-            initializeLocationDropdown(container, locationData);
-            initializeInput(container);
-            initializeTeamMembersSearch(container, teamMemberData);
-            initializeOutOfOfficeFields(container);
+            initializeClientSearch(clientData);
+            initializeDateTimePicker(args.data);
+            initializeLocationDropdown(locationData);
+            initializeRecurringControl(args.data.StartTime);
+            
+            // Initialize event components
+            initializeEventDateTimePicker(args.data);
+            initializeEventLocationDropdown(locationData);
+            initializeEventTeamMemberDropdown(teamMemberData);
+            
+            // Initialize out of office components
+            initializeOutOfOfficeDateTimePicker(args.data);
+            initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
 
+            // Tab Navigation
+            initializeTabNavigation(args.data);
 
-            // Recurrence Editor initialization
-            let recurElement = container.querySelector('#RecurrenceEditor');
-            if (recurElement && !recurElement.classList.contains('e-recurrenceeditor')) {
-                let recurrObject = new ej.schedule.RecurrenceEditor({
-                    // You can add specific configuration here if needed
-                });
-                recurrObject.appendTo(recurElement);
-                scheduler.eventWindow.recurrenceEditor = recurrObject;
-            }
-
-            initializeTabs(args, container);
+           
         }
+
     });
-    // Tab initialization function
-    function initializeTabs(args, container) {
-        const tabs = container.querySelectorAll('.editor-tab');
-        const contents = container.querySelectorAll('.tab-content');
-        const commonFields = container.querySelector('.common-fields');
-        const clientField = container.querySelector('.client-field');
-        const teamMemberField = container.querySelector('.team-member-field');
-        const locationField = container.querySelector('.location-field');
-        const recurrenceField = container.querySelector('.recurrence-field');
-        const eventNameField = container.querySelector('.event-name-field');
 
-        // Set initial active tab based on args.data.Type
-        const eventType = (args.data.Type || 'APPOINTMENT').toLowerCase();
-        const initialTab = container.querySelector(`.editor-tab[data-tab="${eventType}"]`);
-        const initialContent = container.querySelector(`#${eventType}-tab`);
+    function initializeTabNavigation(dateData) {
+    const tabs = document.querySelectorAll('.tab-link');
+    const appointmentSection = document.querySelector('.appointment-section');
+    const outOfOfficeSection = document.querySelector('.out-of-office-section');
+    const eventSection = document.querySelector('.event-section');
+    const recurringSection = document.querySelector('#recurring-section');
+    const servicesSection = document.querySelector('.services-section');
 
-        if (initialTab && initialContent) {
-            // Remove active class from all tabs and contents
+    tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabType = tab.textContent.toLowerCase();
+            
+            // Clear any existing error messages
+            clearErrorMessages();
+            
+            // Update active tab
             tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-
-            // Set initial active tab and content
-            initialTab.classList.add('active');
-            initialContent.classList.add('active');
-
-            // Show common fields
-            commonFields.style.display = 'block';
-
-            // Toggle fields for initial tab
-            toggleFieldsByType(eventType, args, container);
-        }
-
-        // Add click event listeners for tab switching
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                // Remove active class from all tabs and contents
-                tabs.forEach(t => t.classList.remove('active'));
-                contents.forEach(c => c.classList.remove('active'));
-
-                // Add active class to clicked tab and its content
-                tab.classList.add('active');
-                const contentId = `${tab.getAttribute('data-tab')}-tab`;
-                const contentElement = container.querySelector(`#${contentId}`);
-                contentElement.classList.add('active');
-
-                // Show common fields
-                commonFields.style.display = 'block';
-
-                // Call the function to toggle fields based on the active tab type
-                toggleFieldsByType(tab.getAttribute('data-tab'), args, container);
-            });
-        });
-    }
-    function toggleFieldsByType(type, args, container) {
-        const clientField = document.querySelector('.client-field');
-        const locationField = document.querySelector('.location-field');
-        const recurrenceField = document.querySelector('.recurrence-field');
-        const eventNameField = document.querySelector('.event-name-field');
-        const teamMemberField = document.querySelector('.team-member-field');
-        const cancelAppointmentField = document.querySelector('.cancel-appointment-field');
-
-        // Reset visibility
-        clientField.style.display = 'none';
-        locationField.style.display = 'none';
-        recurrenceField.style.display = 'none';
-        eventNameField.style.display = 'none';
-        teamMemberField.style.display = 'none';
-        cancelAppointmentField.style.display = 'none';
-
-        switch (type) {
-            case 'appointment':
-                clientField.style.display = 'block';
-                locationField.style.display = 'block';
-                recurrenceField.style.display = 'block';
-                if (args.data.Type === 'APPOINTMENT') {
-                    bindAppointmentData(args, container);
-                }
-                break;
-            case 'event':
-                locationField.style.display = 'block';
-                recurrenceField.style.display = 'block';
-                eventNameField.style.display = 'block';
-                teamMemberField.style.display = 'block';
-                if (args.data.Type === 'EVENT') {
-                    bindEventData(args, container);
-                }
-                break;
-            case 'out_of_office':
-                teamMemberField.style.display = 'block';
-                cancelAppointmentField.style.display = 'block';
-                if (args.data.Type === 'OUT_OF_OFFICE') {
-                    bindOutOfOfficeData(args, container);
-                }
-                break;
-            default:
-                break;
-        }
-    }
-
-    function bindAppointmentData(args, container) {
-        // Set selected client if available
-        if (args.data.Client) {
-            const clientDropdown = container.querySelector('#Client');
-            const clientDropDownList = clientDropdown.ej2_instances[0];
-            clientDropDownList.value = args.data.Client;
-            clientDropDownList.dataBind();
-        }
-
-        // Set selected location if available
-        if (args.data.Location) {
-            const locationDropdown = container.querySelector('#Location');
-            const locationDropDownList = locationDropdown.ej2_instances[0];
-            locationDropDownList.value = args.data.Location;
-            locationDropDownList.dataBind();
-        }
-
-        // Check if the event is recurring and apply the recurrence rule
-        if (args.data.IsRecurring) {
-            const recurrenceEditor = container.querySelector('#RecurrenceEditor');
-            if (recurrenceEditor) {
-                const recurrenceEditorObj = recurrenceEditor.ej2_instances[0];
-                if (recurrenceEditorObj) {
-                    recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
-                    recurrenceEditorObj.dataBind();
-                    recurrenceEditorObj.recurrenceId = args.data.RecurrenceID;
-                }
-            }
-        }
-
-        // Bind IsAllDay checkbox
-        const isAllDayCheckbox = container.querySelector('#IsAllDay');
-        if (isAllDayCheckbox) {
-            const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
-            isAllDayInstance.checked = args.data.IsAllDay;
-            isAllDayInstance.dataBind();
-
-            updateDateTimePickers(container, args.data.IsAllDay);
-        }
-    }
-
-    function bindEventData(args, container) {
-        // Bind title for events
-        const subjectInput = container.querySelector('input[name="Subject"]');
-        if (subjectInput && !subjectInput.ej2_instances) {
-            new ej.inputs.TextBox({
-                placeholder: 'Event Name (Optional)',
-                floatLabelType: 'Auto',
-                value: args.data.Subject
-            }, subjectInput);
-        }
-
-        if (args.data.TeamMember) {
-            const teamMemberDropdown = container.querySelector('#TeamMember');
-            const teamMemberDropDownList = teamMemberDropdown.ej2_instances[0];
-            teamMemberDropDownList.value = args.data.TeamMember;
-            teamMemberDropDownList.dataBind();
-        }
-
-        // Set selected location if available
-        if (args.data.Location) {
-            const locationDropdown = container.querySelector('#Location');
-            const locationDropDownList = locationDropdown.ej2_instances[0];
-            locationDropDownList.value = args.data.Location;
-            locationDropDownList.dataBind();
-        }
-
-        // Check if the event is recurring and apply the recurrence rule
-        if (args.data.IsRecurring) {
-            const recurrenceEditor = container.querySelector('#RecurrenceEditor');
-            if (recurrenceEditor) {
-                const recurrenceEditorObj = recurrenceEditor.ej2_instances[0];
-                if (recurrenceEditorObj) {
-                    recurrenceEditorObj.setRecurrenceRule(args.data.RecurrenceRuleString);
-                    recurrenceEditorObj.dataBind();
-                    recurrenceEditorObj.recurrenceId = args.data.RecurrenceID;
-                }
-            }
-        }
-
-        // Bind IsAllDay checkbox
-        const isAllDayCheckbox = container.querySelector('#IsAllDay');
-        if (isAllDayCheckbox) {
-            const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
-            isAllDayInstance.checked = args.data.IsAllDay;
-            isAllDayInstance.dataBind();
-
-            updateDateTimePickers(container, args.data.IsAllDay);
-        }
-    }
-
-    function bindOutOfOfficeData(args, container) {
-
-        if (args.data.TeamMember) {
-            const teamMemberDropdown = container.querySelector('#TeamMember');
-            const teamMemberDropDownList = teamMemberDropdown.ej2_instances[0];
-            teamMemberDropDownList.value = args.data.TeamMember;
-            teamMemberDropDownList.dataBind();
-        }
-        const cancelAppointmentCheckbox = container.querySelector('#IsCancelAppointment');
-        if (cancelAppointmentCheckbox) {
-            const cancelAppointmentInstance = cancelAppointmentCheckbox.ej2_instances[0];
-            cancelAppointmentInstance.checked = args.data.IsCancelAppointment;
-            cancelAppointmentInstance.dataBind();
-        }
-
-        const notifyClientCheckbox = container.querySelector('#IsNotifyClient');
-        if (notifyClientCheckbox) {
-            const notifyClientInstance = notifyClientCheckbox.ej2_instances[0];
-            notifyClientInstance.checked = args.data.IsNotifyClient;
-            notifyClientInstance.dataBind();
-        }
-
-        // Bind IsAllDay checkbox
-        const isAllDayCheckbox = container.querySelector('#IsAllDay');
-        if (isAllDayCheckbox) {
-            const isAllDayInstance = isAllDayCheckbox.ej2_instances[0];
-            isAllDayInstance.checked = args.data.IsAllDay;
-            isAllDayInstance.dataBind();
-
-            updateDateTimePickers(container, args.data.IsAllDay);
-        }
-    }
-    // Updated client search initialization
-    function initializeClientSearch(container, clients) {
-        const clientSearch = container.querySelector('#Client');
-
-        const dropDownList = new ej.dropdowns.DropDownList({
-            dataSource: clients,
-            fields: { text: 'name', value: 'id' },
-            placeholder: 'Search Client',
-            allowFiltering: true,
-            popupHeight: '200px',
-            filtering: (e) => {
-                const query = new ej.data.Query().where('name', 'contains', e.text, true);
-                e.updateData(clients, query);
+            tab.classList.add('active');
+            
+            
+            // Show/hide and reinitialize appropriate sections
+            if (tabType === 'appointment') {
+                appointmentSection.style.display = 'block';
+                eventSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'none';
+                recurringSection.style.display = 'block';
+                
+                reInitializeAppointment(dateData);
+                reInitializeRecurringControl(dateData.StartTime);
+                reInitializePracticeServices();
+                
+            } else if (tabType === 'event') {
+                appointmentSection.style.display = 'none';
+                eventSection.style.display = 'block';
+                outOfOfficeSection.style.display = 'none';
+                recurringSection.style.display = 'block';
+                servicesSection.style.display = 'none';
+                
+                reInitializeEventComponents(dateData);
+                reInitializeRecurringControl(dateData.StartTime);
+                
+            } else { // Out of office
+                appointmentSection.style.display = 'none';
+                eventSection.style.display = 'none';
+                outOfOfficeSection.style.display = 'block';
+                recurringSection.style.display = 'none';
+                servicesSection.style.display = 'none';
+                
+                reInitializeOutOfOfficeComponents(dateData);
             }
         });
-
-        dropDownList.appendTo(clientSearch);
-    }
-    // Date/time pickers initialization function
-    function initializeDateTimePickers(container) {
-        const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
-        const endTimeInputs = container.querySelectorAll('input[name="EndTime"]');
-        const isAllDayInputs = container.querySelectorAll('input[name="IsAllDay"]');
-
-        // Initialize IsAllDay checkbox
-        isAllDayInputs.forEach(input => {
-            if (!input.classList.contains('e-checkbox')) {
-                new ej.buttons.CheckBox({
-                    checked: false,
-                    change: (e) => {
-                        updateDateTimePickers(container, e.checked);
-                    }
-                }, input);
-            }
-        });
-
-        // Initialize date/time pickers
-        function initializePickers(isAllDay = false) {
-            startTimeInputs.forEach(input => {
-                if (input.ej2_instances) {
-                    input.ej2_instances[0].destroy();
-                }
-
-                new ej.calendars.DateTimePicker({
-                    value: new Date(input.value) || new Date(),
-                    format: 'MM/dd/yyyy hh:mm a',
-                    change: function (args) {
-                        // Update end time with same date when start time changes
-                        const endInput = container.querySelector('input[name="EndTime"]');
-                        if (endInput && endInput.ej2_instances && endInput.ej2_instances[0]) {
-                            const endTime = endInput.ej2_instances[0].value;
-                            const newEndDate = new Date(args.value);
-                            newEndDate.setHours(endTime.getHours(), endTime.getMinutes());
-                            endInput.ej2_instances[0].value = newEndDate;
-                        }
-                    }
-                }, input);
-            });
-
-            endTimeInputs.forEach(input => {
-                if (input.ej2_instances) {
-                    input.ej2_instances[0].destroy();
-                }
-
-                new ej.calendars.DateTimePicker({
-                    value: new Date(input.value) || new Date(),
-                    format: 'hh:mm a',
-                    enabled: !isAllDay,
-                    depth: 'Hour',
-                    start: 'Hour',
-                    stepHour: 1,
-                    stepMinute: 15,
-                    dateDisabled: true, // Disable date selection
-                    change: function (args) {
-                        const startInput = container.querySelector('input[name="StartTime"]');
-                        if (startInput && startInput.ej2_instances && startInput.ej2_instances[0]) {
-                            const startDate = startInput.ej2_instances[0].value;
-                            const newDate = new Date(args.value);
-                            newDate.setFullYear(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-                            args.value = newDate;
-                        }
-                    }
-                }, input);
-            });
-        }
-
-        // Initial setup
-        const isAllDay = container.querySelector('input[name="IsAllDay"]').ej2_instances[0].checked;
-        initializePickers(isAllDay);
-    }
-
-    // Location dropdown initialization function
-    function initializeLocationDropdown(container, locations) {
-        const locationDropdown = container.querySelector('#Location');
-
-        const dropDownList = new ej.dropdowns.DropDownList({
-            dataSource: locations,
-            fields: { text: 'name', value: 'id' },
-            placeholder: 'Select Location',
-            allowFiltering: true,
-            popupHeight: '200px',
-            filtering: (e) => {
-                const query = new ej.data.Query().where('name', 'contains', e.text, true);
-                e.updateData(locations, query);
-            }
-        });
-
-        dropDownList.appendTo(locationDropdown);
-    }
-    // Utility function to get CSRF token
-    function getCsrfToken() {
-        const csrfCookie = document.cookie
-            .split(';')
-            .find(cookie => cookie.trim().startsWith('csrftoken='));
-        return csrfCookie ? csrfCookie.split('=')[1] : '';
-    }
-
-    // Function to update date/time pickers when AllDay is toggled
-    function updateDateTimePickers(container, isAllDay) {
-        const startTimeInputs = container.querySelectorAll('input[name="StartTime"]');
-        const endTimeInputs = container.querySelectorAll('input[name="EndTime"]');
-
-        startTimeInputs.forEach(input => {
-            if (input.ej2_instances) {
-                const currentDate = input.ej2_instances[0].value;
-                input.ej2_instances[0].destroy();
-
-                if (isAllDay) {
-                    new ej.calendars.DatePicker({
-                        value: currentDate,
-                        format: 'yyyy-MM-dd'
-                    }, input);
-                } else {
-                    new ej.calendars.DateTimePicker({
-                        value: currentDate,
-                        format: 'MM/dd/yyyy hh:mm a',
-                        change: function (args) {
-                            // Update end time date when start time changes
-                            const endInput = container.querySelector('input[name="EndTime"]');
-                            if (endInput && endInput.ej2_instances && endInput.ej2_instances[0]) {
-                                const endTime = endInput.ej2_instances[0].value;
-                                const newEndDate = new Date(args.value);
-                                newEndDate.setHours(endTime.getHours(), endTime.getMinutes());
-                                endInput.ej2_instances[0].value = newEndDate;
-                            }
-                        }
-                    }, input);
-                }
-            }
-        });
-
-        endTimeInputs.forEach(input => {
-            if (input.ej2_instances) {
-                const currentDate = input.ej2_instances[0].value;
-                input.ej2_instances[0].destroy();
-
-                if (isAllDay) {
-                    new ej.calendars.DatePicker({
-                        value: currentDate,
-                        format: 'yyyy-MM-dd',
-                        enabled: false
-                    }, input);
-                } else {
-                    new ej.calendars.DateTimePicker({
-                        value: currentDate,
-                        format: 'hh:mm a',
-                        step: 15,
-                        change: function (args) {
-                            // Get date from start time and apply to end time
-                            const startInput = container.querySelector('input[name="StartTime"]');
-                            if (startInput && startInput.ej2_instances && startInput.ej2_instances[0]) {
-                                const startDate = startInput.ej2_instances[0].value;
-                                const newDate = new Date(args.value);
-                                newDate.setFullYear(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-                                args.value = newDate;
-                            }
-                        }
-                    }, input);
-                }
-            }
-        });
-    }
-
-    function initializeInput(container) {
-        const subjectInput = container.querySelector('input[name="Subject"]');
-
-        if (subjectInput && !subjectInput.ej2_instances) {
-            new ej.inputs.TextBox({
-                placeholder: 'Event Name (Optional)',
-                floatLabelType: 'Auto'
-            }, subjectInput);
-        }
-    }
-
-    function initializeOutOfOfficeFields(container) {
-        const cancelAppointmentCheckbox = container.querySelector('#IsCancelAppointment');
-        if (cancelAppointmentCheckbox && !cancelAppointmentCheckbox.ej2_instances) {
-            new ej.buttons.CheckBox({
-                checked: false,
-            }, cancelAppointmentCheckbox);
-        }
-        const notifyClientCheckbox = container.querySelector('#IsNotifyClient');
-        if (notifyClientCheckbox && !notifyClientCheckbox.ej2_instances) {
-            new ej.buttons.CheckBox({
-                checked: false,
-            }, notifyClientCheckbox);
-        }
-    }
-
-    function initializeTeamMembersSearch(container, teamMembers) {
-        const teamMemberSearch = container.querySelector('#TeamMember');
-
-        const dropDownList = new ej.dropdowns.DropDownList({
-            dataSource: teamMembers,
-            fields: { text: 'name', value: 'id' },
-            placeholder: 'Search Team Member',
-            allowFiltering: true,
-            popupHeight: '200px',
-            filtering: (e) => {
-                const query = new ej.data.Query().where('name', 'contains', e.text, true);
-                e.updateData(teamMembers, query);
-            }
-        });
-
-        dropDownList.appendTo(teamMemberSearch);
-    }
-
-    // Function to validate appointment fields
-    function validateAppointment(eventData) {
-        const { StartTime, EndTime, Client, Location, IsAllDay } = eventData;
-
-        // Check if required fields are filled
-        if (!Client) {
-            alert('Client is required for appointments.');
-            return false;
-        }
-        if (!Location) {
-            alert('Location is required for appointments.');
-            return false;
-        }
-        if (!StartTime) {
-            alert('Start time is required.');
-            return false;
-        }
-
-        // If IsAllDay is false, check for EndTime
-        if (!IsAllDay && !EndTime) {
-            alert('End time is required when not an all-day event.');
-            return false;
-        }
-
-        // Ensure end time is after start time only if not all day
-        if (!IsAllDay) {
-            const startTime = new Date(StartTime);
-            const endTime = new Date(EndTime);
-            if (startTime >= endTime) {
-                alert('Start time must be less than end time.');
-                return false;
-            }
-        }
-
-        return true; // All validations passed
-    }
-
-    // Function to validate event fields
-    function validateEvent(eventData) {
-        const { StartTime, EndTime, TeamMember, Location, IsAllDay } = eventData;
-
-        if (!TeamMember) {
-            alert('Team member is required for events.');
-            return false;
-        }
-        if (!Location) {
-            alert('Location is required for events.');
-            return false;
-        }
-        if (!StartTime) {
-            alert('Start time is required.');
-            return false;
-        }
-
-        // If IsAllDay is false, check for EndTime
-        if (!IsAllDay && !EndTime) {
-            alert('End time is required when not an all-day event.');
-            return false;
-        }
-
-        // Ensure end time is after start time only if not all day
-        if (!IsAllDay) {
-            const startTime = new Date(StartTime);
-            const endTime = new Date(EndTime);
-            if (startTime >= endTime) {
-                alert('Start time must be less than end time.');
-                return false;
-            }
-        }
-
-        return true; // All validations passed
-    }
-
-    function validateOutOfOffice(eventData) {
-        const { StartTime, EndTime, TeamMember, IsAllDay } = eventData;
-
-        if (!TeamMember) {
-            alert('Team member is required for out of office.');
-            return false;
-        }
-        if (!StartTime) {
-            alert('Start time is required.');
-            return false;
-        }
-
-        // If IsAllDay is false, check for EndTime
-        if (!IsAllDay && !EndTime) {
-            alert('End time is required when not an all-day event.');
-            return false;
-        }
-
-        // Ensure end time is after start time only if not all day
-        if (!IsAllDay) {
-            const startTime = new Date(StartTime);
-            const endTime = new Date(EndTime);
-            if (startTime >= endTime) {
-                alert('Start time must be less than end time.');
-                return false;
-            }
-        }
-
-        return true; // All validations passed
-    }
+    });
+}
 </script>
