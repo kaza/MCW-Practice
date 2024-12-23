@@ -8,6 +8,10 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
     const isAllDay = document.getElementById('allDay').checked;
     const allDayStartDate = document.getElementById('allDayStartDate').value;
     const allDayEndDate = document.getElementById('allDayEndDate').value;
+    let appointmentTotal = document.getElementById('appointment-total').getAttribute('data-amount');
+    if (appointmentTotal) {
+        appointmentTotal = parseFloat(appointmentTotal.replace('$', ''));
+    }
 
     // Validate required fields
     let isValid = true;
@@ -65,7 +69,9 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
             EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
             IsAllDay: isAllDay,
             Client: selectedClient,
-            Location: selectedLocation
+            Location: selectedLocation,
+            Services: getSelectedServices(),
+            AppointmentTotal: appointmentTotal
         };
 
         // Handle recurring events
@@ -100,13 +106,16 @@ function initializeClientSearch(clients) {
             document.querySelector('.clinician-section').style.display = 'block';
 
             // Fetch clinicians for the selected client
+            showSpinner();
             fetch(`api/get_client_clinicians/${selectedClient.id}/`)
                 .then(response => response.json())
                 .then(clinicians => {
                     initializeClinicianDropdown(clinicians , selectedClient);
+                    hideSpinner();
                 })
                 .catch(error => {
                     console.error('Error fetching clinicians:', error);
+                    hideSpinner();
                 });
         },
         onDeselect: function () {
@@ -242,14 +251,17 @@ function initializeClinicianDropdown(clinicians , selectedClient) {
         const firstClinician = clinicians[0];
         clinicianSearch.selectItem(firstClinician);
         console.log('Automatically selected clinician:', firstClinician);
+        showSpinner();
         fetch(`api/get_clinician_services/${firstClinician.id}/${selectedClient.id}/`)
             .then(response => response.json())
             .then(result => {
                 if (result.status === 'success') {
                     InitializePracticeServices(result.data);
                     document.querySelector('.services-section').style.display = 'block';
+                    hideSpinner();
                 } else {
                     console.error('Error:', result.error);
+                    hideSpinner();
                 }
             })
             .catch(error => console.error('Error:', error));

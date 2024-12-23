@@ -149,9 +149,10 @@ class Event(models.Model):
     is_all_day = models.BooleanField(default=False)
     
     # Appointment specific fields
+    appointment_total = models.FloatField(null=True, blank=True)
     patient = models.ForeignKey('Patient', on_delete=models.CASCADE, null=True, blank=True)
     status = models.ForeignKey(AppointmentState, on_delete=models.CASCADE, null=True, blank=True)
-    service = models.ForeignKey(PracticeService, on_delete=models.PROTECT, null=True, blank=True)
+    services = models.ManyToManyField(PracticeService, through='EventService', related_name='events', blank=True)
     
     # Out of office specific fields
     cancel_appointments = models.BooleanField(default=False)
@@ -208,6 +209,20 @@ class Event(models.Model):
             models.Index(fields=['type']),
             models.Index(fields=['parent_event']),
             models.Index(fields=['is_recurring']),
+        ]
+
+class EventService(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    service = models.ForeignKey(PracticeService, on_delete=models.CASCADE)
+    fee = models.FloatField(null=True, blank=True)
+    modifiers = models.TextField(null=True, blank=True)
+        
+    class Meta:
+        db_table = 'Event_services'
+        unique_together = ('event', 'service')
+        indexes = [
+            models.Index(fields=['event']),
+            models.Index(fields=['service']),
         ]
 
 class Patient(models.Model):

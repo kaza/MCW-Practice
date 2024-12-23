@@ -203,6 +203,7 @@
 
       
         $(document).on('click', '#done-button', function () {
+            showSpinner();
             // Clear any existing error messages
             clearErrorMessages();
 
@@ -225,6 +226,8 @@
                 selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
                 createOutOfOffice(selectedTeamMember, scheduler);
             }
+            hideSpinner();
+            scheduler.closeEditor();
         });
         
         $(document).on('click', '#cancel-button', function () {

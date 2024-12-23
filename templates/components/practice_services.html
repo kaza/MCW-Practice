@@ -17,20 +17,26 @@
                 </div>
                 <div class="modifiers-fee-row">
                     <div class="modifier-buttons">
-                        <input type="text" class="modifier-input" placeholder="AA">
-                        <input type="text" class="modifier-input" placeholder="AA">
-                        <input type="text" class="modifier-input" placeholder="AA">
-                        <input type="text" class="modifier-input" placeholder="AA">
+                        <input type="text" class="modifier-input" placeholder="AA" style="text-transform: uppercase;">
+                        <input type="text" class="modifier-input" placeholder="AA" style="text-transform: uppercase;">
+                        <input type="text" class="modifier-input" placeholder="AA" style="text-transform: uppercase;">
+                        <input type="text" class="modifier-input" placeholder="AA" style="text-transform: uppercase;">
                     </div>
                     <div class="fee-section">
                         <span style="width: 30px;">Fee $</span>
-                        <input type="text" class="fee-input" readonly>
+                        <input type="text" class="fee-input">
                     </div>
                 </div>
             </div>
             <button type="button" class="service-link">+ Service</button>
         </div>
     </div>
+</div>
+
+<div class="billing-info"></div>
+    <hr>
+    <!-- <div id="billing-type"></div> -->
+    <div id="appointment-total"></div>
 </div>
 
 <style>
@@ -84,7 +90,9 @@
     text-align: center;
     background-color: white;
 }
-
+.uppercase-input {
+    text-transform: uppercase;
+}
 .fee-section {
     display: flex;
     align-items: center;
@@ -121,5 +129,51 @@
 
 .service-link:hover {
     text-decoration: underline;
+}
+.billing-info {
+    padding: 10px 0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.billing-info hr {
+    margin: 2px 0;
+    border: none;
+    border-top: 1px solid #dee2e6;
+}
+
+#billing-type, #appointment-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 4px 0;
+    color: #495057;
+}
+
+#billing-type::before {
+    content: "Billing Type:";
+}
+
+#billing-type::after {
+    content: "Self-pay";
+}
+
+#appointment-total::before {
+    content: "Appointment Total:";
+}
+
+#appointment-total::after {
+    content: attr(data-amount);
+}
+
+/* Hide the original text since we're using pseudo-elements */
+#billing-type, #appointment-total {
+    font-size: 0;
+}
+
+/* Restore font size for the pseudo-elements */
+#billing-type::before, #billing-type::after,
+#appointment-total::before, #appointment-total::after {
+    font-size: 12px;
 }
 </style>

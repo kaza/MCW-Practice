@@ -11,7 +11,7 @@ from dateutil import rrule
 from django.contrib.auth.models import User 
 import threading
 
-from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
+from apps.clinician_dashboard.models import Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
 from apps.accounts.models import Login  
 
 class SchedulerDataService:
@@ -369,12 +369,23 @@ class SchedulerDataService:
             if event_type == 'APPOINTMENT':
                 event = Event.objects.create(
                     **common_fields,
+                    appointment_total=data.get('eventData').get('AppointmentTotal'),
                     location_id=data.get('eventData').get('Location').get('id'),
                     patient_id=data.get('eventData').get('Client').get('id'),
                     cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
                     notify_clients=data.get('eventData').get('IsNotifyClient', False)
                 )
+                
+                # Create EventServices for each service
+                for service in data.get('eventData').get('Services'):
+                    EventService.objects.create(
+                        event=event,
+                        service_id=service.get('serviceId'),
+                        fee=service.get('fee'),
+                        modifiers=', '.join(service.get('modifiers'))
+                    )
             
+
             elif event_type == 'EVENT':
                 event = Event.objects.create(
                     **common_fields,

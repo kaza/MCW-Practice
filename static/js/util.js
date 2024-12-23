@@ -115,3 +115,17 @@ function syncViewData(isAllDay, elements) {
         calculateDuration(elements.startTimeInput, elements.endTimeInput, elements.durationInput);
     }
 }
+
+function showSpinner() {
+    const spinnerContainer = document.getElementById('spinner-container');
+    if (spinnerContainer) {
+        spinnerContainer.style.display = 'flex'; // Show the spinner
+    }
+}
+
+function hideSpinner() {
+    const spinnerContainer = document.getElementById('spinner-container');
+    if (spinnerContainer) {
+        spinnerContainer.style.display = 'none'; // Hide the spinner
+    }
+}
