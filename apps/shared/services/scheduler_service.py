@@ -11,7 +11,7 @@ from dateutil import rrule
 from django.contrib.auth.models import User 
 import threading
 
-from apps.clinician_dashboard.models import Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
+from apps.clinician_dashboard.models import AppointmentState, Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
 from apps.accounts.models import Login  
 
 class SchedulerDataService:
@@ -85,6 +85,21 @@ class SchedulerDataService:
             return []
 
         return [cls._convert_event_to_dict(event) for event in events]
+    
+    @classmethod
+    def get_event_data(cls, event_id: int) -> Dict[str, Any]:
+        """Get event data for a specific event by event ID, including associated services"""
+        try:
+            event = Event.objects.get(id=event_id)
+            event_data = cls._convert_event_to_dict(event)
+            event_services = EventService.objects.filter(event=event).values(
+                'service_id', 'fee', 'modifiers'
+            )
+            event_data['services'] = list(event_services)
+
+            return list(event_data)
+        except Event.DoesNotExist:
+            return {'error': 'Event not found'}
     
     @classmethod
     def _convert_event_to_dict(cls, event: Event) -> Dict[str, Any]:
@@ -337,6 +352,11 @@ class SchedulerDataService:
                 'patient_default_services': processed_default_services
             }
 
+    @classmethod
+    def get_appointment_states(cls) -> List[Dict[str, Any]]:
+        """Get all appointment states"""
+        return list(AppointmentState.objects.values('id', 'name'))
+    
     @classmethod
     def create_event(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new event with recurrence handling"""

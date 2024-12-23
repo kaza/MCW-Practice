@@ -70,7 +70,7 @@
                     const eventData = args.data[0] || args.data;
                     const action = args.requestType.replace('event', '').toLowerCase();
                     const resourceId = currentResourceId;
-                
+
                     document.getElementById('spinner-container').style.display = 'flex';
                     fetch(window.location.href, {
                         method: 'POST',
@@ -201,7 +201,7 @@
             scheduler.dataBind();
         });
 
-      
+
         $(document).on('click', '#done-button', function () {
             showSpinner();
             // Clear any existing error messages
@@ -229,7 +229,7 @@
             hideSpinner();
             scheduler.closeEditor();
         });
-        
+
         $(document).on('click', '#cancel-button', function () {
             scheduler.closeEditor();
         });
@@ -243,12 +243,12 @@
             initializeDateTimePicker(args.data);
             initializeLocationDropdown(locationData);
             initializeRecurringControl(args.data.StartTime);
-            
+
             // Initialize event components
             initializeEventDateTimePicker(args.data);
             initializeEventLocationDropdown(locationData);
             initializeEventTeamMemberDropdown(teamMemberData);
-            
+
             // Initialize out of office components
             initializeOutOfOfficeDateTimePicker(args.data);
             initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
@@ -256,63 +256,81 @@
             // Tab Navigation
             initializeTabNavigation(args.data);
 
-           
+            // If the event has an ID it means it is an existing event, fetch the event data
+            if (args.data.Id) {
+                showSpinner();
+                fetch(`api/get_event_data/${args.data.Id}/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+
+                    }).catch(error => {
+                        console.error('Error:', error);
+                    })
+                    .finally(() => {
+                        hideSpinner();
+                    });
+
+            }
         }
 
     });
 
     function initializeTabNavigation(dateData) {
-    const tabs = document.querySelectorAll('.tab-link');
-    const appointmentSection = document.querySelector('.appointment-section');
-    const outOfOfficeSection = document.querySelector('.out-of-office-section');
-    const eventSection = document.querySelector('.event-section');
-    const recurringSection = document.querySelector('#recurring-section');
-    const servicesSection = document.querySelector('.services-section');
+        const tabs = document.querySelectorAll('.tab-link');
+        const appointmentSection = document.querySelector('.appointment-section');
+        const outOfOfficeSection = document.querySelector('.out-of-office-section');
+        const eventSection = document.querySelector('.event-section');
+        const recurringSection = document.querySelector('#recurring-section');
+        const servicesSection = document.querySelector('.services-section');
 
-    tabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tabType = tab.textContent.toLowerCase();
-            
-            // Clear any existing error messages
-            clearErrorMessages();
-            
-            // Update active tab
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            
-            // Show/hide and reinitialize appropriate sections
-            if (tabType === 'appointment') {
-                appointmentSection.style.display = 'block';
-                eventSection.style.display = 'none';
-                outOfOfficeSection.style.display = 'none';
-                recurringSection.style.display = 'block';
-                
-                reInitializeAppointment(dateData);
-                reInitializeRecurringControl(dateData.StartTime);
-                reInitializePracticeServices();
-                
-            } else if (tabType === 'event') {
-                appointmentSection.style.display = 'none';
-                eventSection.style.display = 'block';
-                outOfOfficeSection.style.display = 'none';
-                recurringSection.style.display = 'block';
-                servicesSection.style.display = 'none';
-                
-                reInitializeEventComponents(dateData);
-                reInitializeRecurringControl(dateData.StartTime);
-                
-            } else { // Out of office
-                appointmentSection.style.display = 'none';
-                eventSection.style.display = 'none';
-                outOfOfficeSection.style.display = 'block';
-                recurringSection.style.display = 'none';
-                servicesSection.style.display = 'none';
-                
-                reInitializeOutOfOfficeComponents(dateData);
-            }
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tabType = tab.textContent.toLowerCase();
+
+                // Clear any existing error messages
+                clearErrorMessages();
+
+                // Update active tab
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+
+                // Show/hide and reinitialize appropriate sections
+                if (tabType === 'appointment') {
+                    appointmentSection.style.display = 'block';
+                    eventSection.style.display = 'none';
+                    outOfOfficeSection.style.display = 'none';
+                    recurringSection.style.display = 'block';
+
+                    reInitializeAppointment(dateData);
+                    reInitializeRecurringControl(dateData.StartTime);
+                    reInitializePracticeServices();
+
+                } else if (tabType === 'event') {
+                    appointmentSection.style.display = 'none';
+                    eventSection.style.display = 'block';
+                    outOfOfficeSection.style.display = 'none';
+                    recurringSection.style.display = 'block';
+                    servicesSection.style.display = 'none';
+
+                    reInitializeEventComponents(dateData);
+                    reInitializeRecurringControl(dateData.StartTime);
+
+                } else { // Out of office
+                    appointmentSection.style.display = 'none';
+                    eventSection.style.display = 'none';
+                    outOfOfficeSection.style.display = 'block';
+                    recurringSection.style.display = 'none';
+                    servicesSection.style.display = 'none';
+
+                    reInitializeOutOfOfficeComponents(dateData);
+                }
+            });
         });
-    });
-}
+    }
 </script>
