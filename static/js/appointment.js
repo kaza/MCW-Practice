@@ -130,12 +130,14 @@ function initializeClientSearch(clients) {
             document.querySelector('.clinician-section').style.display = 'block';
 
             // Fetch clinicians for the selected client
-            showSpinner();
-            fetch(`api/get_client_clinicians/${selectedClient.id}/`)
-                .then(response => response.json())
+            showSpinner();  
+            getClientClinicians(selectedClient.id)
                 .then(clinicians => {
-                    initializeClinicianDropdown(clinicians, selectedClient);
-                    hideSpinner();
+                    initializeClinicianDropdown(clinicians, selectedClient).then(() => {
+                        hideSpinner();
+                    }).catch(() => {
+                        hideSpinner();
+                    });
                 })
                 .catch(error => {
                     console.error('Error fetching clinicians:', error);
@@ -350,31 +352,44 @@ function initializeLocationDropdown(locations) {
 }
 
 function initializeClinicianDropdown(clinicians, selectedClient) {
-    clinicianSearch = new DynamicSearch({
-        containerId: 'clinicianSearchContainer',
-        items: clinicians,
-        onSelect: function (selectedClinician) {
+    return new Promise((resolve, reject) => {
+        clinicianSearch = new DynamicSearch({
+            containerId: 'clinicianSearchContainer',
+            items: clinicians,
+            onSelect: function (selectedClinician) {
+                // Handle selection if needed
+            }
+        });
+
+        if (clinicians.length > 0) {
+            const firstClinician = clinicians[0];
+            clinicianSearch.selectItem(firstClinician);
+            console.log('Automatically selected clinician:', firstClinician);
+            showSpinner();
+
+            fetch(`api/get_clinician_services/${firstClinician.id}/${selectedClient.id}/`)
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        InitializePracticeServices(result.data);
+                        document.querySelector('.services-section').style.display = 'block';
+                        hideSpinner();
+                        resolve(); // Resolve the promise after successful service initialization
+                    } else {
+                        console.error('Error:', result.error);
+                        hideSpinner();
+                        reject(new Error(result.error)); // Reject the promise on error
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    hideSpinner();
+                    reject(error); // Reject the promise on fetch error
+                });
+        } else {
+            resolve(); // Resolve immediately if no clinicians are available
         }
     });
-    if (clinicians.length > 0) {
-        const firstClinician = clinicians[0];
-        clinicianSearch.selectItem(firstClinician);
-        console.log('Automatically selected clinician:', firstClinician);
-        showSpinner();
-        fetch(`api/get_clinician_services/${firstClinician.id}/${selectedClient.id}/`)
-            .then(response => response.json())
-            .then(result => {
-                if (result.status === 'success') {
-                    InitializePracticeServices(result.data);
-                    document.querySelector('.services-section').style.display = 'block';
-                    hideSpinner();
-                } else {
-                    console.error('Error:', result.error);
-                    hideSpinner();
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    }
 }
 
 // Helper function to clear error messages
@@ -470,6 +485,24 @@ function loadEventData(eventId, container) {
                                 updateOptionStyle(stateSelect);
                             }
                         }
+
+                        // Fetch clinicians and initialize dropdown
+                        if (data.Clinician) {
+                            return getClientClinicians(data.Client.id)
+                                .then(clinicians => {
+                                    return initializeClinicianDropdown(clinicians, data.Client);
+                                })
+                                .then(() => {
+                                    document.querySelector('.clinician-section').style.display = 'block';
+                                    if (clinicianSearch) {
+                                        clinicianSearch.selectItemById(data.Clinician.id);
+                                    }
+                                });
+                        }
+
+                        if (data.Location) {
+                            locationSearch.selectItemById(data.Location.id);
+                        }
                     }
                 } else if (data.Type === 'EVENT') {
                     if (eventSection) eventSection.style.display = 'block';
@@ -487,5 +520,19 @@ function loadEventData(eventId, container) {
                 hideSpinner();
             });
     });
+}
+
+function getClientClinicians(clientId) {
+    return fetch(`api/get_client_clinicians/${clientId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .catch(error => {
+            console.error('Error fetching clinicians:', error);
+            throw error; // Rethrow the error for handling in the calling function
+        });
 }
 

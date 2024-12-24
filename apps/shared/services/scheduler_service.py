@@ -145,6 +145,7 @@ class SchedulerDataService:
                 'Status': event.status.name if event.status else None,
                 'Client': event.patient.id if event.patient else None,
                 'Location': event.location.id if event.location else None,
+                'Clinician': event.clinician.id if event.clinician else None,
             })
         elif event.type.name == EventType.EVENT:
             event_dict.update({
