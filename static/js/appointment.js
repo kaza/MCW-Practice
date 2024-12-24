@@ -455,11 +455,13 @@ function loadEventData(eventId, container) {
                 const appointmentSection = container.querySelector('.appointment-section');
                 const eventSection = container.querySelector('.event-section');
                 const outOfOfficeSection = container.querySelector('.out-of-office-section');
+                const deleteButton = container.querySelector('.btn-delete');
 
                 // Hide all sections first
                 if (appointmentSection) appointmentSection.style.display = 'none';
                 if (eventSection) eventSection.style.display = 'none';
                 if (outOfOfficeSection) outOfOfficeSection.style.display = 'none';
+                if (deleteButton) deleteButton.style.display = 'block';
 
                 // Show relevant section and bind data
                 if (data.Type === 'APPOINTMENT') {
@@ -488,6 +490,25 @@ function loadEventData(eventId, container) {
                                 })
                                 .then(() => {
                                     document.querySelector('.clinician-section').style.display = 'block';
+
+                                    const eventDate = new Date(data.StartTime);
+                                    const currentDate = new Date(); 
+
+                                    // Set both dates to midnight to ignore time
+                                    eventDate.setHours(0, 0, 0, 0);
+                                    currentDate.setHours(0, 0, 0, 0);
+
+                                    if (eventDate < currentDate) {
+                                        // Disable clinician dropdown if the event date is older
+                                        const clinicianInput = document.getElementById('clinicianSearchInput');
+                                        const clinicianArrow = document.getElementById('clinicianDropdownArrow');
+                                        if (clinicianInput) {
+                                            clinicianInput.disabled = true;
+                                        }
+                                        if (clinicianArrow) {
+                                            clinicianArrow.style.display = 'none';
+                                        }
+                                    }
                                     if (clinicianSearch) {
                                         clinicianSearch.selectItemById(data.Clinician.id);
 
@@ -495,21 +516,33 @@ function loadEventData(eventId, container) {
                                             locationSearch.selectItemById(data.Location.id);
                                         }
                                         
+                                        if(data.IsRecurring) {
+                                           
+                                        }
+                                        else {
+
+                                            document.getElementById('recurring-section').style.display = 'none';
+                                        }
                 
                                         buildSelectedServices(data.services);
                 
                                     }
+                                    resolve();
+                                }).catch(error => {
+                                    reject(error);
                                 });
                         }
+                        resolve();
 
                     }
+                    resolve();
                 } else if (data.Type === 'EVENT') {
                     if (eventSection) eventSection.style.display = 'block';
+                    resolve();
                 } else if (data.Type === 'OUT_OF_OFFICE') {
                     if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
+                    resolve();
                 }
-
-                resolve(); // Resolve after processing event data
             })
             .catch(error => {
                 console.error('Error fetching event data:', error);
