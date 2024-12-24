@@ -482,7 +482,6 @@ function loadEventData(eventId, container) {
                             const stateSelect = document.getElementById('appointment-state');
                             if (stateSelect) {
                                 stateSelect.value = data.Status.id;
-                                updateOptionStyle(stateSelect);
                             }
                         }
 
