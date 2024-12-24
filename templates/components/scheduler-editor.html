@@ -256,6 +256,7 @@
         </div>
         {% include 'components/recurring-control.html'%}
     </div>
+    {% include 'components/recurring-summary.html'%}
 
     <div class="services-section" style="display: none;">
         {% include 'components/practice_services.html' %}
@@ -264,7 +265,7 @@
     <!-- Action Buttons -->
     <div class="action-bar">
         <button class="btn-delete" id="delete-button" style="display: none;">
-            <img src="{% static 'images/delete.svg' %}" alt="Delete" width="20" height="20">
+            <img src="{% static 'images/delete.svg' %}" alt="Delete" width="20" height="20" style="height: 15px !important;">
         </button>
         <div class="action-buttons">
             <button class="btn-cancel" id="cancel-button">Cancel</button>
@@ -511,7 +512,7 @@
     .btn-delete {
         padding: 8px;
         border: none;
-        background: rgb(211, 205, 205);
+        background: #f2f2f2;
         cursor: pointer;
         display: flex;
         align-items: center;

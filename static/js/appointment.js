@@ -456,12 +456,15 @@ function loadEventData(eventId, container) {
                 const eventSection = container.querySelector('.event-section');
                 const outOfOfficeSection = container.querySelector('.out-of-office-section');
                 const deleteButton = container.querySelector('.btn-delete');
+                const recurringSection = container.querySelector('#recurring-section');
+                const recurringSummary = container.querySelector('.recurring-summary');
 
                 // Hide all sections first
                 if (appointmentSection) appointmentSection.style.display = 'none';
                 if (eventSection) eventSection.style.display = 'none';
                 if (outOfOfficeSection) outOfOfficeSection.style.display = 'none';
                 if (deleteButton) deleteButton.style.display = 'block';
+                if (recurringSection) recurringSection.style.display = 'none';
 
                 // Show relevant section and bind data
                 if (data.Type === 'APPOINTMENT') {
@@ -517,11 +520,11 @@ function loadEventData(eventId, container) {
                                         }
                                         
                                         if(data.IsRecurring) {
-                                           
-                                        }
-                                        else {
-
-                                            document.getElementById('recurring-section').style.display = 'none';
+                                            if (recurringSummary) {
+                                                recurringSummary.style.display = 'block';
+                                                window.recurringSummary.setDocumentElement(container);
+                                                window.recurringSummary.show(data.RecurrenceRuleString);
+                                            }
                                         }
                 
                                         buildSelectedServices(data.services);
