@@ -371,10 +371,15 @@ function initializeClinicianDropdown(clinicians, selectedClient) {
                 .then(response => response.json())
                 .then(result => {
                     if (result.status === 'success') {
-                        InitializePracticeServices(result.data);
-                        document.querySelector('.services-section').style.display = 'block';
-                        hideSpinner();
-                        resolve(); // Resolve the promise after successful service initialization
+                        InitializePracticeServices(result.data).then(message => {
+                            document.querySelector('.services-section').style.display = 'block';
+                            hideSpinner();
+                            resolve();
+                        })
+                        .catch(error => {
+                            hideSpinner();
+                            resolve();
+                        });  
                     } else {
                         console.error('Error:', result.error);
                         hideSpinner();
@@ -485,13 +490,18 @@ function loadEventData(eventId, container) {
                                     document.querySelector('.clinician-section').style.display = 'block';
                                     if (clinicianSearch) {
                                         clinicianSearch.selectItemById(data.Clinician.id);
+
+                                        if (data.Location) {
+                                            locationSearch.selectItemById(data.Location.id);
+                                        }
+                                        
+                
+                                        buildSelectedServices(data.services);
+                
                                     }
                                 });
                         }
 
-                        if (data.Location) {
-                            locationSearch.selectItemById(data.Location.id);
-                        }
                     }
                 } else if (data.Type === 'EVENT') {
                     if (eventSection) eventSection.style.display = 'block';
