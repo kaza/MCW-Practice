@@ -218,7 +218,7 @@ function initializeAppointmentState(states, selectedStateId = null) {
 }
 
 function updateOptionStyle(select) {
-    const selectedOption = select.options[select.selectedIndex];
+    const selectedOption = select.selectedOptions[0];
     const selectedValue = select.value.toLowerCase();
     const colors = stateColors[selectedValue] || { color: '', background: '' };
 
@@ -482,6 +482,7 @@ function loadEventData(eventId, container) {
                             const stateSelect = document.getElementById('appointment-state');
                             if (stateSelect) {
                                 stateSelect.value = data.Status.id;
+                                updateOptionStyle(stateSelect);
                             }
                         }
 
