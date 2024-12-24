@@ -435,27 +435,16 @@ function loadEventData(eventId, container) {
 
     return new Promise((resolve, reject) => {
         // Fetch appointment states
-        fetch('api/get_appointment_states/')
-            .then(response => response.json())
+        getAppointmentStates()
             .then(states => {
                 const stateSection = container.querySelector('.appointment-state-section');
                 if (stateSection) {
                     stateSection.style.display = 'block';
                     initializeAppointmentState(states);
                 }
+                // Fetch event data after appointment states are loaded
+                return getEventData(eventId);
             })
-            .catch(error => {
-                console.error('Error fetching appointment states:', error);
-                reject(error); // Reject on error
-            });
-
-        // Fetch event data
-        fetch(`api/get_event_data/${eventId}/`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-            .then(response => response.json())
             .then(data => {
                 // Show appropriate section based on event type
                 const appointmentSection = container.querySelector('.appointment-section');
@@ -534,5 +523,37 @@ function getClientClinicians(clientId) {
             console.error('Error fetching clinicians:', error);
             throw error; // Rethrow the error for handling in the calling function
         });
+}
+
+function getAppointmentStates() {
+    return new Promise((resolve, reject) => {
+        fetch('api/get_appointment_states/')
+            .then(response => response.json())
+            .then(states => {
+                resolve(states); 
+            })
+            .catch(error => {
+                console.error('Error fetching appointment states:', error);
+                reject(error); 
+            });
+    });
+}
+
+function getEventData(eventId) {
+    return new Promise((resolve, reject) => {
+        fetch(`api/get_event_data/${eventId}/`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                resolve(data); 
+            })
+            .catch(error => {
+                console.error('Error fetching event data:', error);
+                reject(error); 
+            });
+    });
 }
 
