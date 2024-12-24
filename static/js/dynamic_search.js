@@ -104,6 +104,13 @@ class DynamicSearch {
         this.onSelect(item);
     }
 
+    selectItemById(id) {
+        const item = this.items.find(item => item.id === id);
+        if (item) {
+            this.selectItem(item);
+        }
+    }
+
     handleKeyboard(e) {
         const items = this.dropdown.getElementsByClassName('dropdown-item');
         

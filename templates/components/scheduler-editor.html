@@ -1,8 +1,6 @@
 <!-- templates/appointments/create.html -->
 {% load static %}
 
-{% include 'components/dynamic_search.html' %}
-
 <div class="scheduler-container">
     <div class="scheduler-toolbar">
         <div id="scheduler-toolbar"></div>
@@ -47,7 +45,20 @@
             </div>
             <a href="#" class="create-link">+ Create client</a>
         </div>
-    
+
+         <!-- Add client details container -->
+         <div class="client-details-container" style="display: none;">
+            <div class="client-header">
+                    <div class="client-info">
+                    </div>
+                </div>
+                
+                <div class="appointment-state-section">
+                    <select id="appointment-state" class="state-select">
+                        <option>Show</option>
+                    </select>
+                </div>
+            </div>
         <!-- Appointment Details -->
         <div class="details-section">
             <div class="section-title">Appointment details</div>
@@ -398,7 +409,7 @@
         border-radius: 4px;
         font-size: 12px;
     }
-    
+
     .location-section {
         margin: 15px 0;
         font-size: 12px;
@@ -483,7 +494,7 @@
         color: #333;
     }
 
-    
+
     .action-buttons {
         display: flex;
         justify-content: flex-end;
@@ -554,4 +565,91 @@
         margin-bottom: 8px;
     }
 
+    /* Add styles for existing event view */
+    .client-details-container {
+        background: #fff;
+        border-radius: 4px;
+        margin-bottom: 25px;
+    }
+
+    .client-header {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .client-main-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .client-info {
+        flex-grow: 1;
+    }
+    .info-item {
+        margin-bottom: 5px ;
+    }
+
+    .client-name {
+        font-weight: 400;
+        font-size: 17px;
+        color: #2563eb;
+        margin-bottom: 18px;
+    }
+
+    .client-email {
+        font-size: 14px;
+        color: #444;
+    }
+
+    .home-tag {
+        font-size: .75rem;
+        margin-left: 8px;
+        color: #708693;
+    }
+
+    .caret-button {
+        background: none;
+        border: none;
+        padding: 2px;
+        cursor: pointer;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+    }
+
+    .caret-icon {
+        transition: transform 0.2s;
+    }
+
+    .caret-button.expanded .caret-icon {
+        transform: rotate(180deg);
+    }
+
+    .appointment-state-section {
+        width: 100%;
+    }
+
+    .state-select {
+        width: 52%;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        border: 0px !important;
+        height: 30px;
+        margin-top: 10px;
+    }
+
+    .state-select option {
+        background-color: white;
+        color: black;
+    }
+
+    .state-select option:checked {
+        color: inherit;
+        background-color: inherit;
+    }
 </style>

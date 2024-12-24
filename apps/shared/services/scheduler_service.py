@@ -11,7 +11,7 @@ from dateutil import rrule
 from django.contrib.auth.models import User 
 import threading
 
-from apps.clinician_dashboard.models import Clinician, Event, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
+from apps.clinician_dashboard.models import AppointmentState, Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
 from apps.accounts.models import Login  
 
 class SchedulerDataService:
@@ -87,6 +87,39 @@ class SchedulerDataService:
         return [cls._convert_event_to_dict(event) for event in events]
     
     @classmethod
+    def get_event_data(cls, event_id: int) -> Dict[str, Any]:
+        """Get event data for a specific event by event ID, including associated services and client information"""
+        try:
+            event = Event.objects.get(id=event_id)
+            event_data = cls._convert_event_to_dict(event)
+            
+            # Fetch associated services
+            event_services = EventService.objects.filter(event=event).values(
+                'service_id', 'fee', 'modifiers'
+            )
+            event_data['services'] = list(event_services)
+
+            # Fetch client information if the event is an appointment
+            if event.type.name == EventType.APPOINTMENT and event.patient:
+                event_data['Client'] = {
+                    'id': event.patient.id,
+                    'full_name': event.patient.get_full_name(),
+                    'email': event.patient.email,
+                    'phone': event.patient.phone,
+                }
+
+            # Fetch appointment state
+            if event.status:
+                event_data['Status'] = {
+                    'id': event.status.id,
+                    'name': event.status.name,
+                }
+
+            return event_data
+        except Event.DoesNotExist:
+            return {'error': 'Event not found'}
+    
+    @classmethod
     def _convert_event_to_dict(cls, event: Event) -> Dict[str, Any]:
         """Convert event model to dictionary format"""
         event_dict = {
@@ -112,6 +145,7 @@ class SchedulerDataService:
                 'Status': event.status.name if event.status else None,
                 'Client': event.patient.id if event.patient else None,
                 'Location': event.location.id if event.location else None,
+                'Clinician': event.clinician.id if event.clinician else None,
             })
         elif event.type.name == EventType.EVENT:
             event_dict.update({
@@ -338,6 +372,11 @@ class SchedulerDataService:
             }
 
     @classmethod
+    def get_appointment_states(cls) -> List[Dict[str, Any]]:
+        """Get all appointment states"""
+        return list(AppointmentState.objects.values('id', 'name'))
+    
+    @classmethod
     def create_event(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new event with recurrence handling"""
         event_type = data.get('eventData').get('eventType')
@@ -369,12 +408,23 @@ class SchedulerDataService:
             if event_type == 'APPOINTMENT':
                 event = Event.objects.create(
                     **common_fields,
+                    appointment_total=data.get('eventData').get('AppointmentTotal'),
                     location_id=data.get('eventData').get('Location').get('id'),
                     patient_id=data.get('eventData').get('Client').get('id'),
                     cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
                     notify_clients=data.get('eventData').get('IsNotifyClient', False)
                 )
+                
+                # Create EventServices for each service
+                for service in data.get('eventData').get('Services'):
+                    EventService.objects.create(
+                        event=event,
+                        service_id=service.get('serviceId'),
+                        fee=service.get('fee'),
+                        modifiers=', '.join(service.get('modifiers'))
+                    )
             
+
             elif event_type == 'EVENT':
                 event = Event.objects.create(
                     **common_fields,

@@ -37,7 +37,7 @@ function InitializePracticeServices(services) {
         // Add practice/clinician services
         servicesArray.forEach(service => {
             const option = document.createElement('option');
-            option.value = service.code;
+            option.value = service.id;
             option.dataset.fee = service.rate;
             option.textContent = `${service.description}`;
             practiceGroup.appendChild(option);
@@ -52,7 +52,7 @@ function InitializePracticeServices(services) {
             
             patientDefaults.forEach(defaultService => {
                 const option = document.createElement('option');
-                option.value = defaultService.code;
+                option.value = defaultService.id;
                 option.dataset.fee = defaultService.rate;
                 option.dataset.isDefault = 'true';
                 if (defaultService.is_primary) {
@@ -89,11 +89,42 @@ function InitializePracticeServices(services) {
         } else {
             feeInput.value = '';
         }
+        updateBillingAmount();
     }
 
     // Initialize all existing service selects
     serviceSelects.forEach(select => {
         populateSelect(select);
+    });
+
+    // Function to calculate total fee
+    function calculateTotalFee() {
+        const feeInputs = document.querySelectorAll('.fee-input');
+        let total = 0;
+
+        feeInputs.forEach(input => {
+            const fee = parseFloat(input.value) || 0; // Parse fee or default to 0
+            total += fee;
+        });
+
+        return total;
+    }
+
+    // Function to update billing amount
+    function updateBillingAmount() {
+        const total = calculateTotalFee();
+        const appointmentTotal = document.getElementById('appointment-total');
+        if (appointmentTotal) {
+            document.getElementById('appointment-total').setAttribute('data-amount', '$' + total.toFixed(2));
+        }
+    }
+
+    // Add event listeners to fee inputs
+    document.querySelectorAll('.fee-input').forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9.]/g, ''); // Ensure only numbers and decimal points
+            updateBillingAmount(); // Recalculate total fee
+        });
     });
 
     // Add service button click handler
@@ -113,12 +144,15 @@ function InitializePracticeServices(services) {
             // Repopulate the select to ensure proper event binding
             populateSelect(newSelect);
             newFeeInput.value = '';
-   
-            const deleteIcon = document.createElement('i'); 
-            deleteIcon.className = 'fas fa-trash'; 
-            deleteIcon.style.cursor = 'pointer'; 
+
+            // Create a delete icon
+            const deleteIcon = document.createElement('i');
+            deleteIcon.className = 'fas fa-trash';
+            deleteIcon.style.cursor = 'pointer';
+            deleteIcon.style.marginLeft = '10px';
             deleteIcon.onclick = function() {
                 newBlock.remove(); 
+                updateBillingAmount(); 
             };
 
             newBlock.querySelector('.modifiers-fee-row').appendChild(deleteIcon);
@@ -126,8 +160,16 @@ function InitializePracticeServices(services) {
             // Add the new block before the add button
             addServiceBtn.parentElement.insertBefore(newBlock, addServiceBtn);
 
-            // Update the fee input
             updateFee(newSelect);
+
+            // Update total when fee inputs change
+            newFeeInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9.]/g, ''); 
+                updateBillingAmount(); 
+            });
+            
+            // Update billing amount after adding a new service
+            updateBillingAmount();
         });
     }
 
@@ -158,3 +200,26 @@ function reInitializePracticeServices() {
         if (feeInput) feeInput.value = '';
     }
 }
+
+function getSelectedServices() {
+    const serviceBlocks = document.querySelectorAll('.service-block');
+    const services = [];
+    
+    serviceBlocks.forEach(block => {
+        const serviceSelect = block.querySelector('.service-select');
+        const feeInput = block.querySelector('.fee-input');
+        const modifiers = block.querySelectorAll('.modifier-input'); // Get all modifier inputs
+        const modifierValues = Array.from(modifiers).map(modifier => modifier.value).filter(value => value); // Filter out empty values
+
+        const service = {
+            serviceId: serviceSelect.value, 
+            code: serviceSelect.options[serviceSelect.selectedIndex].dataset.code,
+            fee: parseFloat(feeInput.value) || 0,
+            modifiers: modifierValues
+        };
+
+        services.push(service);
+    });
+    
+    return services;
+}   
