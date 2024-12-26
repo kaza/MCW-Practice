@@ -1,8 +1,9 @@
-from typing import List, Dict, Any
+from typing import Dict, Any, List, Optional, Union
 from datetime import datetime, timedelta
 from django.db.models import Q, Value, F, CharField
 from django.db.models.functions import Concat
 from django.conf import settings
+from django.forms import ValidationError
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from zoneinfo import ZoneInfo
@@ -10,6 +11,8 @@ import pytz
 from dateutil import rrule
 from django.contrib.auth.models import User 
 import threading
+from django.db import transaction
+from django.db.models import QuerySet
 
 from apps.clinician_dashboard.models import AppointmentState, Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
 from apps.accounts.models import Login  
@@ -130,11 +133,8 @@ class SchedulerDataService:
             'ResourceId': event.clinician_id,
             'RecurrenceRuleString': event.recurrence_rule if event.is_recurring else None,
             'IsRecurring': event.is_recurring,
+            'AppointmentTotal': event.appointment_total if event.type.name == EventType.APPOINTMENT else None,
             }
-    
-        # Add RecurrenceID if this is a child event
-        if event.parent_event:
-            event_dict['RecurrenceID'] = event.parent_event.id
             
         # Add type-specific fields
         if event.type.name == EventType.APPOINTMENT:
@@ -462,114 +462,303 @@ class SchedulerDataService:
             print(f"Error creating event: {str(e)}")
             raise
 
+
+    #region update events
+
+    class UpdateType:
+        SINGLE = 'single'
+        SERIES = 'series'
+        OCCURRENCE = 'occurrence'
+        
+        CHOICES = [
+            (SINGLE, 'Single'),
+            (SERIES, 'Series'),
+            (OCCURRENCE, 'Occurrence')
+        ]
+
     @classmethod
-    def update_event(cls, event_id: int, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Update an existing event and handle recurrence updates"""
-        event = Event.objects.get(id=event_id)
-        event_type = event_data.get('eventType')
-        recurrence_rule = event_data.get('RecurrenceRule')
-        edit_type = event_data.get('editType')  # Get the edit type from event_data
+    def _parse_datetime(cls, dt_value: Union[str, datetime]) -> datetime:
+        """Convert string datetime to datetime object if needed"""
+        if isinstance(dt_value, str):
+            return datetime.fromisoformat(dt_value.replace('Z', '+00:00'))
+        return dt_value
 
-        # Check if the event is a parent event
-        is_parent_event = event.parent_event is None
+    @classmethod
+    def _get_common_fields(cls, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract and validate common fields from event data"""
+        try:
+            return {
+                'type_id': EventType.objects.get(name=event_data.get('eventType')).id,
+                'start_datetime': cls._parse_datetime(event_data.get('StartTime')),
+                'end_datetime': cls._parse_datetime(event_data.get('EndTime')),
+                'is_all_day': event_data.get('IsAllDay', False),
+                'location_id': event_data.get('Location', {}).get('id'),
+                'cancel_appointments': event_data.get('IsCancelAppointment', False),
+                'notify_clients': event_data.get('IsNotifyClient', False)
+            }
+        except EventType.DoesNotExist:
+            raise ValidationError(f"Invalid event type: {event_data.get('eventType')}")
+        except Exception as e:
+            raise ValidationError(f"Error processing event data: {str(e)}")
 
-        if edit_type == 'series' or is_parent_event:
-            # If this is a series update or the event is a parent, delete existing child events first
-            Event.objects.filter(parent_event=event).delete()
+    @classmethod
+    def _update_event_services(cls, event: 'Event', services: List[Dict[str, Any]]) -> None:
+        """Update event services efficiently"""
+        with transaction.atomic():
+            current_services = set(EventService.objects.filter(event=event).values_list('service_id', flat=True))
+            new_services = {service.get('serviceId') for service in services}
+            
+            # Delete services that are no longer needed
+            services_to_delete = current_services - new_services
+            if services_to_delete:
+                EventService.objects.filter(event=event, service_id__in=services_to_delete).delete()
+            
+            # Update or create new services
+            for service in services:
+                EventService.objects.update_or_create(
+                    event=event,
+                    service_id=service.get('serviceId'),
+                    defaults={
+                        'fee': service.get('fee'),
+                        'modifiers': ', '.join(service.get('modifiers', []))
+                    }
+                )
 
-            # Update parent event
-            event.type_id=EventType.objects.get(name=event_type).id
-            event.start_datetime = event_data['StartTime']
-            event.end_datetime = event_data['EndTime']
-            event.is_all_day = event_data.get('IsAllDay', False)
-            event.location_id = event_data.get('Location')
-            event.cancel_appointments=event_data.get('IsCancelAppointment', False)
-            event.notify_clients=event_data.get('IsNotifyClient', False)
+    @classmethod
+    def _update_appointment_specific_fields(cls, event: 'Event', event_data: Dict[str, Any]) -> None:
+        """Update appointment-specific fields"""
+        event.appointment_total = event_data.get('AppointmentTotal')
+        if event_data.get('Services'):
+            cls._update_event_services(event, event_data.get('Services'))
+
+    @classmethod
+    def _update_base_event_fields(cls, event: 'Event', common_fields: Dict[str, Any], 
+                                event_data: Dict[str, Any]) -> None:
+        """Update base event fields with validation"""
+        for field, value in common_fields.items():
+            if value is not None:  # Only update non-None values
+                setattr(event, field, value)
+        
+        if event_data.get('eventType') == 'APPOINTMENT':
+            cls._update_appointment_specific_fields(event, event_data)
+
+    @classmethod
+    def _handle_series_update_timing(cls, events: QuerySet, time_diff: timedelta) -> None:
+        """Update timing for a series of events"""
+        for event in events:
+            event.start_datetime -= time_diff
+            event.end_datetime -= time_diff
+            event.save(update_fields=['start_datetime', 'end_datetime'])
+
+    @classmethod
+    def _update_series_child(cls, event: 'Event', common_fields: Dict[str, Any], 
+                           event_data: Dict[str, Any], recurrence_rule: str) -> None:
+        """Handle series update for a child event"""
+        with transaction.atomic():
+            # Get future events
+            future_events = Event.objects.filter(
+                parent_event=event.parent_event,
+                start_datetime__gt=event.start_datetime
+            ).select_for_update().order_by('start_datetime')
+            
+            # Calculate time difference
+            time_diff = event.start_datetime - common_fields['start_datetime']
+            
+            # Update current event as new parent
+            event.parent_event = None
+            event.is_recurring = True
+            event.recurrence_rule = recurrence_rule
+            cls._update_base_event_fields(event, common_fields, event_data)
+            event.save()
+            
+            # Update future events
+            for future_event in future_events.exclude(id=event.id):
+                future_event.start_datetime -= time_diff
+                future_event.end_datetime -= time_diff
+                cls._update_base_event_fields(future_event, 
+                    {k: v for k, v in common_fields.items() if k not in ['start_datetime', 'end_datetime']},
+                    event_data
+                )
+                future_event.parent_event = event
+                future_event.save()
+
+    @classmethod
+    def _update_series_parent(cls, event: 'Event', common_fields: Dict[str, Any], 
+                            event_data: Dict[str, Any], recurrence_rule: str) -> None:
+        """Handle series update for a parent event"""
+        with transaction.atomic():
+            series_events = Event.objects.filter(parent_event=event).select_for_update()
+            time_diff = event.start_datetime - common_fields['start_datetime']
+            
+            # Update parent
+            cls._update_base_event_fields(event, common_fields, event_data)
             event.is_recurring = bool(recurrence_rule)
             event.recurrence_rule = recurrence_rule
-
-            # Update specific fields based on event type
-            event_type = event_data.get('eventType')
-            if event_type == 'APPOINTMENT':
-                event.patient_id = event_data.get('Client')  
-                event.team_member_id = None
-                event.title = None
-            elif event_type == 'EVENT':
-                event.title = event_data.get('Subject', event.title)  
-                event.team_member_id = event_data.get('TeamMember') 
-                event.patient_id = None
-            elif event_type == 'OUT_OF_OFFICE':
-                event.team_member_id = event_data.get('TeamMember') 
-                event.patient_id = None
-                event.title = None
-                event.notify_clients = event_data.get('IsNotifyClient', False)
-                event.cancel_appointments = event_data.get('IsCancelAppointment', False)
-                event.is_recurring = False
-                event.recurrence_rule = None
-                recurrence_rule = None
-
-            print(f"Updating event: {event.id}, Patient ID: {event.patient_id}, Team Member ID: {event.team_member_id}, Location ID: {event.location_id}")
-
             event.save()
+            
+            # Update series events
+            for series_event in series_events:
+                series_event.start_datetime -= time_diff
+                series_event.end_datetime -= time_diff
+                cls._update_base_event_fields(series_event, 
+                    {k: v for k, v in common_fields.items() if k not in ['start_datetime', 'end_datetime']},
+                    event_data
+                )
+                series_event.save()
 
-            # Start a background thread to handle recurrence
-            if recurrence_rule:
-                threading.Thread(target=cls._handle_recurring_events, args=(event, recurrence_rule, event_data)).start()
-
-        elif edit_type == 'occurrence':
-            # This is a child event - only update this occurrence
-            event.type_id=EventType.objects.get(name=event_type).id
-            event.start_datetime = event_data['StartTime']
-            event.end_datetime = event_data['EndTime']
-            event.is_all_day = event_data.get('IsAllDay', False)
-            event.location_id = event_data.get('Location')
-
-            # Update specific fields based on event type
-            event_type = event_data.get('eventType')
-            if event_type == 'APPOINTMENT':
-                event.patient_id = event_data.get('Client') 
-                event.team_member_id = None
-                event.title = None
-            elif event_type == 'EVENT':
-                event.title = event_data.get('Subject', event.title) 
-                event.team_member_id = event_data.get('TeamMember') 
-                event.patient_id = None
-            elif event_type == 'OUT_OF_OFFICE':
-                event.team_member_id = event_data.get('TeamMember') 
-                event.patient_id = None
-                event.title = None
-                event.is_recurring = False
-                event.recurrence_rule = None
-
-            event.cancel_appointments=event_data.get('IsCancelAppointment', False)
-            event.notify_clients=event_data.get('IsNotifyClient', False)
-            event.save()
-
-        return cls._convert_event_to_dict(event)
-   
     @classmethod
-    def delete_event(cls, event_id: int) -> bool:
-        """Delete an event and its recurrences if it's a parent event"""
+    def _handle_occurrence_update(cls, event: 'Event', common_fields: Dict[str, Any], 
+                                event_data: Dict[str, Any]) -> None:
+        """Handle occurrence update for both parent and child events"""
+        with transaction.atomic():
+            if event.parent_event:
+                # Handle child event
+                event.parent_event = None
+                event.is_recurring = False
+                event.recurrence_rule = None
+                cls._update_base_event_fields(event, common_fields, event_data)
+                event.save()
+            else:
+                # Handle parent event
+                next_event = Event.objects.filter(
+                    parent_event=event,
+                    start_datetime__gt=event.start_datetime
+                ).select_for_update().order_by('start_datetime').first()
+                
+                if next_event:
+                    # Setup new parent
+                    next_event.parent_event = None
+                    next_event.is_recurring = True
+                    next_event.recurrence_rule = event.recurrence_rule
+                    next_event.save()
+                    
+                    # Update remaining events
+                    Event.objects.filter(
+                        parent_event=event,
+                        start_datetime__gt=next_event.start_datetime
+                    ).update(parent_event=next_event)
+                
+                # Update current event
+                event.is_recurring = False
+                event.recurrence_rule = None
+                cls._update_base_event_fields(event, common_fields, event_data)
+                event.save()
+
+    @classmethod
+    def update_event(cls, event_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Main method to update an event with specific edit type handling"""
+        try:
+            with transaction.atomic():
+                event = Event.objects.select_for_update().get(id=event_id)
+                event_data = data.get('eventData', {})
+                recurrence_rule = event_data.get('RecurrenceRule') or event.recurrence_rule
+                edit_type = event_data.get('editType')
+                
+                if not edit_type or edit_type not in dict(cls.UpdateType.CHOICES):
+                    raise ValidationError(f"Invalid edit type: {edit_type}")
+                
+                common_fields = cls._get_common_fields(event_data)
+                
+                if edit_type == cls.UpdateType.SERIES:
+                    if event.parent_event:
+                        cls._update_series_child(event, common_fields, event_data, recurrence_rule)
+                    else:
+                        cls._update_series_parent(event, common_fields, event_data, recurrence_rule)
+                
+                elif edit_type == cls.UpdateType.OCCURRENCE:
+                    cls._handle_occurrence_update(event, common_fields, event_data)
+                
+                elif edit_type == cls.UpdateType.SINGLE:
+                    cls._update_base_event_fields(event, common_fields, event_data)
+                    event.save()
+                
+                return cls._convert_event_to_dict(event)
+
+        except Event.DoesNotExist:
+            raise ValidationError(f"Event with id {event_id} does not exist")
+        except Exception as e:
+            print(f"Error updating event: {str(e)}")
+            raise
+
+    #endregion update events
+
+    #region delete events
+
+    @classmethod
+    def delete_event(cls, event_id: int, delete_type: str = 'single') -> None:
+        """
+        Delete an event with various delete types
+        delete_type options: 'single', 'series', 'occurrence'
+        """
         try:
             event = Event.objects.get(id=event_id)
-        
-            # If this is a parent event, delete all related events
-            if event.parent_event is None:
-                EventService.objects.filter(event_id=event_id).delete()
-                Event.objects.filter(
-                    Q(id=event_id) |  # parent event
-                    Q(parent_event_id=event_id)  # child events
+            
+            if delete_type == 'series':
+                if event.parent_event:
+                    # If this is a child event, get the parent first
+                    parent_event = event.parent_event
+                else:
+                    # This is already the parent event
+                    parent_event = event
+                    
+                # Delete all child events' services first
+                EventService.objects.filter(
+                    event__parent_event=parent_event
                 ).delete()
-            else:
-                # If this is a child event, only delete this occurrence
-                EventService.objects.filter(event_id=event_id).delete()
-                event.delete()
                 
-                return True
-        
+                # Delete all child events
+                Event.objects.filter(parent_event=parent_event).delete()
+                
+                # Delete parent event's services and the parent itself
+                EventService.objects.filter(event=parent_event).delete()
+                parent_event.delete()
+                
+            elif delete_type == 'occurrence':
+                # For occurrence, we need to handle both parent and child events
+                if event.parent_event:
+                    # This is a child event - simply delete it
+                    EventService.objects.filter(event=event).delete()
+                    event.delete()
+                else:
+                    # This is a parent event - need to reassign parent
+                    next_event = Event.objects.filter(
+                        parent_event=event,
+                        start_datetime__gt=event.start_datetime
+                    ).order_by('start_datetime').first()
+                    
+                    if next_event:
+                        # Make next event the new parent
+                        recurrence_rule = event.recurrence_rule
+                        next_event.parent_event = None
+                        next_event.is_recurring = True
+                        next_event.recurrence_rule = recurrence_rule
+                        next_event.save()
+                        
+                        # Update remaining events to point to new parent
+                        Event.objects.filter(
+                            parent_event=event,
+                            start_datetime__gt=next_event.start_datetime
+                        ).update(parent_event=next_event)
+                    
+                    # Delete the current event
+                    EventService.objects.filter(event=event).delete()
+                    event.delete()
+            
+            elif delete_type == 'single':
+                # Simple delete of single event and its services
+                EventService.objects.filter(event=event).delete()
+                event.delete()
+            
+            else:
+                raise ValueError(f"Invalid delete type: {delete_type}")
+                
         except Event.DoesNotExist:
-            return False
-
+            raise ValueError(f"Event with id {event_id} does not exist")
+        except Exception as e:
+            print(f"Error deleting event: {str(e)}")
+            raise
+   #endregion delete events
+    
     @classmethod
     def _handle_recurring_events(cls, event: Event, recurrence_rule: str, event_data: Dict[str, Any]):
         """Handle the creation of recurring events in a background thread"""
@@ -656,7 +845,7 @@ class SchedulerDataService:
             for occurrence_start in rule:
                 if occurrence_start != dtstart:
                     occurrence_end = occurrence_start + event_duration
-                    Event.objects.create(
+                    new_event = Event.objects.create(
                         type_id=event.type_id,
                         clinician_id=event.clinician_id,
                         start_datetime=occurrence_start,
@@ -671,10 +860,19 @@ class SchedulerDataService:
                         cancel_appointments=event.cancel_appointments,
                         notify_clients=event.notify_clients,
                         is_recurring=True,
-                        recurrence_rule=None,  
+                        recurrence_rule=event.recurrence_rule,  
                         parent_event=event,
-                        occurrence_date=occurrence_start.date()
+                        occurrence_date=occurrence_start.date(),
+                        appointment_total=event.appointment_total
                     )
+                    # Set the services for the newly created event
+                    for service in event_data.get('Services'):
+                        EventService.objects.create(
+                            event=new_event,
+                            service_id=service.get('serviceId'),
+                            fee=service.get('fee'),
+                            modifiers=', '.join(service.get('modifiers'))
+                        )
                     
         except Exception as e:
             print(f"Error details: {str(e)}")

@@ -6,6 +6,7 @@
 
 {% block content %}
 {% include 'components/scheduler-editor.html' %}
+{% include 'components/appointment-modal.html' %}
 {% endblock %}
 
 <script src="{% static 'js/recurring-control.js' %}"></script>
@@ -14,6 +15,7 @@
 <script src="{% static 'js/out-of-office.js' %}"></script>
 <script src="{% static 'js/practice_services.js' %}"></script>
 <script src="{% static 'js/recurring-summary.js' %}"></script>
+<script src="{% static 'js/appointment-modal.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
@@ -52,8 +54,7 @@
                 fields: {
                     id: 'Id',
                     resourceId: { name: 'ResourceId' }
-                },
-                enableRecurrenceValidation: true
+                }
             },
             editorTemplate: '#EventEditorTemplate',
             popupOpen: function (args) {
@@ -222,6 +223,7 @@
 
             // Determine which tab is active
             const activeTab = document.querySelector('.tab-link.active').textContent.toLowerCase();
+            const eventId = document.getElementById('event-id').value;
 
             let selectedClient, selectedLocation, selectedTeamMember;
 
@@ -229,18 +231,29 @@
             if (activeTab === 'appointment') {
                 selectedClient = clientSearch.getSelectedItem();
                 selectedLocation = locationSearch.getSelectedItem();
-                createAppointment(selectedClient, selectedLocation, scheduler);
+                if (eventId) {
+                    updateAppointment(selectedLocation, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                } else {
+                    createAppointment(selectedClient, selectedLocation, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                }
             } else if (activeTab === 'event') {
                 selectedLocation = eventLocationSearch.getSelectedItem();
                 selectedTeamMember = eventTeamMemberSearch.getSelectedItem();
                 const eventName = document.getElementById('event-name').value;
-                createEvent(selectedLocation, selectedTeamMember, scheduler);
+                eventId ? updateEvent(selectedLocation, selectedTeamMember, scheduler) : createEvent(selectedLocation, selectedTeamMember, scheduler);
             } else if (activeTab === 'out of office') {
                 selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
                 createOutOfOffice(selectedTeamMember, scheduler);
             }
             hideSpinner();
-            scheduler.closeEditor();
         });
 
         $(document).on('click', '#cancel-button', function () {
@@ -253,9 +266,9 @@
                 Id: eventId
             };
             const args = {
-            requestType: 'eventRemove',
-            data: eventData
-        };
+                requestType: 'eventRemove',
+                data: eventData
+            };
             scheduler.actionBegin(args);
         });
 
@@ -288,23 +301,23 @@
                         const searchSection = container.querySelector('.search-section');
                         const clientDetails = container.querySelector('.client-details-container');
                         const eventId = container.querySelector('#event-id');
-                        
+
                         if (tabNavigation) tabNavigation.style.display = 'none';
                         if (typeSelection) typeSelection.style.display = 'none';
                         if (searchSection) searchSection.style.display = 'none';
                         if (clientDetails) clientDetails.style.display = 'block';
                         if (eventId) eventId.value = args.data.Id;
-                        
+
                         loadEventData(args.data.Id, container)
-                            .then(() => resolve()) 
-                            .catch(error => reject(error)); 
+                            .then(() => resolve())
+                            .catch(error => reject(error));
                     } else {
                         // For new events, show tab navigation and initialize it
                         initializeTabNavigation(args.data);
-                        resolve(); 
+                        resolve();
                     }
                 } catch (error) {
-                    reject(error); 
+                    reject(error);
                 }
             });
         }
