@@ -94,11 +94,13 @@ function initializeRecurringControl(startDate) {
                 dowCheckbox.checked = true; 
                 dowCheckbox.dispatchEvent(new Event('change')); 
             }
+
+            updateMonthlyOptions(startDate);
         }
     }
 }
 
-function getRecurringValues() {
+function getRecurringValues(startDate) {
     if (!document.getElementById('recurring').checked) {
         return { isValid: true, data: null };
     }
@@ -107,8 +109,11 @@ function getRecurringValues() {
     const period = document.getElementById('recurring-frequency-period-select').value;
     const endType = document.getElementById('recurring-frequency-end-type').value;
     
+    
     // Get selected weekdays for weekly recurrence
-    const selectedDays = [];
+    let selectedDays = [];
+    let monthlyConfig = null;
+
     if (period === 'WEEKLY') {
         const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
         weekdays.forEach(day => {
@@ -121,6 +126,41 @@ function getRecurringValues() {
             return {
                 isValid: false,
                 error: 'Please select at least one day of the week for weekly recurrence'
+            };
+        }
+    } 
+    // Handle monthly selection
+    else if (period === 'MONTHLY') {
+        const monthlyOption = document.getElementById('month-select').value;
+        const startDateObj = new Date(startDate);
+        const dayOfMonth = startDateObj.getDate();
+        const dayOfWeek = startDateObj.getDay();
+        const weekday = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek];
+        const weekNum = Math.ceil(dayOfMonth / 7);
+        
+        if (monthlyOption === 'onDateOfMonth') {
+            monthlyConfig = {
+                type: 'dateOfMonth',
+                day: dayOfMonth
+            };
+        } else if (monthlyOption === 'onWeekDayOfMonth') {
+            monthlyConfig = {
+                type: 'weekDayOfMonth',
+                week: weekNum,
+                day: weekday
+            };
+        }
+        else if (monthlyOption === 'onLastWeekDayOfMonth') {
+            monthlyConfig = {
+                type: 'lastWeekDayOfMonth',
+                day: weekday
+            };
+        }
+
+        if (!monthlyConfig) {
+            return {
+                isValid: false,
+                error: 'Please select a valid monthly recurrence pattern'
             };
         }
     }
@@ -146,7 +186,8 @@ function getRecurringValues() {
             period,
             endType,
             endValue,
-            selectedDays: period === 'WEEKLY' ? selectedDays : null
+            selectedDays: period === 'WEEKLY' ? selectedDays : null,
+            monthlyConfig: period === 'MONTHLY' ? monthlyConfig : null
         }
     };
 }
@@ -165,6 +206,33 @@ function constructRRule(recurringData, startDate) {
         // Add BYDAY for weekly recurrence
         if (recurringData.period === 'WEEKLY' && recurringData.selectedDays?.length > 0) {
             rrule += `;BYDAY=${recurringData.selectedDays.join(',')}`;
+        }
+
+        // Add monthly recurrence pattern
+        if (recurringData.period === 'MONTHLY' && recurringData.monthlyConfig) {
+            const startDateObj = new Date(startDate);
+            
+            switch (recurringData.monthlyConfig.type) {
+                case 'dateOfMonth':
+                    // For "On day X" pattern
+                    const dayOfMonth = startDateObj.getDate();
+                    rrule += `;BYMONTHDAY=${dayOfMonth}`;
+                    break;
+
+                case 'weekDayOfMonth':
+                    // For "On the Nth weekday" pattern
+                    const dayOfWeek = startDateObj.getDay();
+                    const weekNum = Math.ceil(startDateObj.getDate() / 7);
+                    const weekday = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dayOfWeek];
+                    rrule += `;BYDAY=${weekday};BYSETPOS=${weekNum}`;
+                    break;
+
+                case 'lastWeekDayOfMonth':
+                    // For "On the last weekday" pattern
+                    const lastWeekday = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][startDateObj.getDay()];
+                    rrule += `;BYDAY=${lastWeekday};BYSETPOS=-1`;
+                    break;
+            }
         }
 
         // Add end condition
@@ -207,6 +275,21 @@ function reInitializeRecurringControl(startDate) {
         }
     });
     
+    // Reset monthly options
+    const monthContainer = document.getElementById('month-container');
+    const monthSelect = document.getElementById('month-select');
+    if (monthContainer) {
+        monthContainer.style.display = 'none';
+    }
+    if (monthSelect) {
+        // Reset to default options or clear options
+        monthSelect.innerHTML = '';
+        const defaultOption = document.createElement('option');
+        defaultOption.value = 'onDateOfMonth';
+        defaultOption.textContent = 'Select monthly option';
+        monthSelect.appendChild(defaultOption);
+    }
+    
     // Reset end type selections
     const endTypeSelect = document.getElementById('recurring-frequency-end-type');
     const endCountSelect = document.getElementById('recurring-frequency-end-count');
@@ -230,16 +313,82 @@ function reInitializeRecurringControl(startDate) {
         const endTypeSelect = document.getElementById('recurring-frequency-end-type');
         const endCountSelect = document.getElementById('recurring-frequency-end-count');
         const weekdaysContainer = document.querySelector('#weekdays-container');
-        const dowLabels = document.querySelectorAll('.dows-container label');
+        
+        // Reset all checkboxes
         dowLabels.forEach(label => {
             const checkbox = label.querySelector('input[type="checkbox"]');
             if (checkbox) checkbox.checked = false;
         });
+
+        // Reset all selects to first option
         frequencySelect.selectedIndex = 0;
         frequencyPeriodSelect.selectedIndex = 0;
         endTypeSelect.selectedIndex = 0;
         endCountSelect.selectedIndex = 0;   
-        weekdaysContainer.style.display = 'block';
-        weekdaysContainer.style.display = 'flex';
+
+        // Handle containers visibility
+        if (weekdaysContainer) {
+            weekdaysContainer.style.display = 'block';
+            weekdaysContainer.style.display = 'flex';
+        }
+        
+        // Show/hide containers based on frequency period
+        updateFrequencyVisibility(frequencyPeriodSelect.value);
+
+        // Update monthly options if it's monthly frequency
+        if (frequencyPeriodSelect.value === 'MONTHLY') {
+            updateMonthlyOptions(startDate);
+        }
+    }
+}
+
+function updateMonthlyOptions(selectedDate) {
+    const monthSelect = document.getElementById('month-select');
+    if (!monthSelect) return;
+
+    const date = new Date(selectedDate);
+    const dayOfMonth = date.getDate();
+    const dayOfWeek = date.getDay();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekNumber = Math.ceil(dayOfMonth / 7);
+    
+    // Function to get ordinal suffix
+    function getOrdinalSuffix(num) {
+        const j = num % 10;
+        const k = num % 100;
+        if (j == 1 && k != 11) return "st";
+        if (j == 2 && k != 12) return "nd";
+        if (j == 3 && k != 13) return "rd";
+        return "th";
+    }
+
+    // Function to check if it's the last occurrence of this weekday in the month
+    function isLastWeekdayOfMonth(date) {
+        const temp = new Date(date);
+        temp.setDate(date.getDate() + 7); 
+        return temp.getMonth() !== date.getMonth();
+    }
+
+    // Clear existing options
+    monthSelect.innerHTML = '';
+
+    // Add "On day X" option
+    const dayOption = document.createElement('option');
+    dayOption.value = 'onDateOfMonth';
+    dayOption.textContent = `On day ${dayOfMonth}`;
+    monthSelect.appendChild(dayOption);
+
+    // Add "On the Xth DayName" option
+    const weekdayOption = document.createElement('option');
+    weekdayOption.value = 'onWeekDayOfMonth';
+    weekdayOption.textContent = `On the ${weekNumber}${getOrdinalSuffix(weekNumber)} ${dayNames[dayOfWeek]}`;
+    monthSelect.appendChild(weekdayOption);
+
+    // Add "On the last DayName" option if it's the last occurrence
+    if (isLastWeekdayOfMonth(date)) {
+        const lastWeekdayOption = document.createElement('option');
+        lastWeekdayOption.value = 'onLastWeekDayOfMonth';
+        lastWeekdayOption.textContent = `On the last ${dayNames[dayOfWeek]}`;
+        monthSelect.appendChild(lastWeekdayOption);
     }
 }

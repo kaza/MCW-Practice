@@ -616,13 +616,35 @@ class SchedulerDataService:
                 second = int(until_str[12:14]) if len(until_str) > 12 else 59
                 rule_params['until'] = datetime(year, month, day, hour, minute, second, tzinfo=dtstart.tzinfo)
 
-            if 'BYDAY' in rule_dict:
+            # Handle weekly recurrence
+            if rule_dict['FREQ'] == 'WEEKLY' and 'BYDAY' in rule_dict:
                 weekday_map = {
                     'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
                     'TH': rrule.TH, 'FR': rrule.FR, 'SA': rrule.SA, 'SU': rrule.SU
                 }
                 byweekday = [weekday_map[day] for day in rule_dict['BYDAY'].split(',')]
                 rule_params['byweekday'] = byweekday
+
+            # Handle monthly recurrence
+            if rule_dict['FREQ'] == 'MONTHLY':
+                # Case 1: Specific day of month (BYMONTHDAY)
+                if 'BYMONTHDAY' in rule_dict:
+                    rule_params['bymonthday'] = int(rule_dict['BYMONTHDAY'])
+                
+                # Case 2: Nth weekday of month (BYDAY + BYSETPOS)
+                elif 'BYDAY' in rule_dict and 'BYSETPOS' in rule_dict:
+                    weekday_map = {
+                        'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
+                        'TH': rrule.TH, 'FR': rrule.FR, 'SA': rrule.SA, 'SU': rrule.SU
+                    }
+                    bysetpos = int(rule_dict['BYSETPOS'])
+                    weekday = weekday_map[rule_dict['BYDAY']]
+                    
+                    # Handle last weekday of month (BYSETPOS = -1)
+                    if bysetpos == -1:
+                        rule_params['byweekday'] = weekday(-1)
+                    else:
+                        rule_params['byweekday'] = weekday(bysetpos)
 
             # Create the rule
             rule = rrule.rrule(**rule_params)

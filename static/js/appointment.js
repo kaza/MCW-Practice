@@ -99,7 +99,7 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
 
         // Handle recurring events
         if (document.getElementById('recurring').checked) {
-            const recurringData = getRecurringValues();
+            const recurringData = getRecurringValues(startDate);
             if (!recurringData.isValid) {
                 showError('recurring-error', recurringData.error);
                 return;
