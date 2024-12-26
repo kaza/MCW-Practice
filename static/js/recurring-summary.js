@@ -125,6 +125,7 @@ class RecurringSummary {
         const byday = parts.find(p => p.startsWith('BYDAY='))?.split('=')[1];
         const bymonthday = parts.find(p => p.startsWith('BYMONTHDAY='))?.split('=')[1];
         const bysetpos = parts.find(p => p.startsWith('BYSETPOS='))?.split('=')[1];
+        const dtstart = parts.find(p => p.startsWith('DTSTART='))?.split('=')[1];
 
         // Set recurring checkbox
         const recurringCheckbox = document.getElementById('recurring');
@@ -151,7 +152,6 @@ class RecurringSummary {
                 }
             });
 
-
             // Then check only the days specified in BYDAY if present
             if (byday) {
                 const days = byday.split(',');
@@ -167,10 +167,20 @@ class RecurringSummary {
         else if (freq === 'MONTHLY') {
             const monthSelect = document.getElementById('month-select');
             if (monthSelect) {
+                const startDate = dtstart ? new Date(dtstart) : new Date();
+
+                // Update the options first
+                updateMonthlyOptions(startDate);
+
+                // Then set the appropriate value based on the rule
                 if (bymonthday) {
                     monthSelect.value = 'onDateOfMonth';
                 } else if (byday && bysetpos) {
-                    monthSelect.value = 'onWeekDayOfMonth';
+                    if (bysetpos === '-1') {
+                        monthSelect.value = 'onLastWeekDayOfMonth';
+                    } else {
+                        monthSelect.value = 'onWeekDayOfMonth';
+                    }
                 }
                 monthSelect.dispatchEvent(new Event('change'));
             }
