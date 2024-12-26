@@ -108,7 +108,9 @@ function getRecurringValues() {
     const endType = document.getElementById('recurring-frequency-end-type').value;
     
     // Get selected weekdays for weekly recurrence
-    const selectedDays = [];
+    let selectedDays = [];
+    let monthlyConfig = null;
+
     if (period === 'WEEKLY') {
         const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
         weekdays.forEach(day => {
@@ -121,6 +123,30 @@ function getRecurringValues() {
             return {
                 isValid: false,
                 error: 'Please select at least one day of the week for weekly recurrence'
+            };
+        }
+    } 
+    // Handle monthly selection
+    else if (period === 'MONTHLY') {
+        const monthlyOption = document.getElementById('month-select').value;
+        
+        if (monthlyOption === 'onDateOfMonth') {
+            monthlyConfig = {
+                type: 'dateOfMonth',
+                day: 17  
+            };
+        } else if (monthlyOption === 'onWeekDayOfMonth') {
+            monthlyConfig = {
+                type: 'weekDayOfMonth',
+                week: 3,  
+                day: 'TU'  
+            };
+        }
+
+        if (!monthlyConfig) {
+            return {
+                isValid: false,
+                error: 'Please select a valid monthly recurrence pattern'
             };
         }
     }
@@ -146,7 +172,8 @@ function getRecurringValues() {
             period,
             endType,
             endValue,
-            selectedDays: period === 'WEEKLY' ? selectedDays : null
+            selectedDays: period === 'WEEKLY' ? selectedDays : null,
+            monthlyConfig: period === 'MONTHLY' ? monthlyConfig : null
         }
     };
 }
@@ -157,7 +184,6 @@ function unCheckRecurringControl() {
     recurringCheckbox.checked = false;
     recurrenceEditor.style.display = 'none';
 }
-
 function constructRRule(recurringData, startDate) {
     try {
         let rrule = `FREQ=${recurringData.period};INTERVAL=${recurringData.frequency}`;
@@ -165,6 +191,19 @@ function constructRRule(recurringData, startDate) {
         // Add BYDAY for weekly recurrence
         if (recurringData.period === 'WEEKLY' && recurringData.selectedDays?.length > 0) {
             rrule += `;BYDAY=${recurringData.selectedDays.join(',')}`;
+        }
+
+        // Add monthly recurrence pattern
+        if (recurringData.period === 'MONTHLY' && recurringData.monthlyConfig) {
+            if (recurringData.monthlyConfig.type === 'dateOfMonth') {
+                // For "On day X" pattern, use BYMONTHDAY
+                rrule += `;BYMONTHDAY=${recurringData.monthlyConfig.day}`;
+            } else if (recurringData.monthlyConfig.type === 'weekDayOfMonth') {
+                // For "On the Nth weekday" pattern
+                const byDayValue = recurringData.monthlyConfig.day;
+                const bySetPos = recurringData.monthlyConfig.week;
+                rrule += `;BYDAY=${byDayValue};BYSETPOS=${bySetPos}`;
+            }
         }
 
         // Add end condition
@@ -187,7 +226,6 @@ function constructRRule(recurringData, startDate) {
         return null;
     }
 }
-
 function reInitializeRecurringControl(startDate) {
     // Reset checkbox
     const recurringCheckbox = document.getElementById('recurring');
