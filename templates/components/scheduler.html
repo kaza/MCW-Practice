@@ -13,6 +13,7 @@
 <script src="{% static 'js/event.js' %}"></script>
 <script src="{% static 'js/out-of-office.js' %}"></script>
 <script src="{% static 'js/practice_services.js' %}"></script>
+<script src="{% static 'js/recurring-summary.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
@@ -57,9 +58,16 @@
             editorTemplate: '#EventEditorTemplate',
             popupOpen: function (args) {
                 if (args.type === 'Editor') {
+                    // Initially hide the popup while data is loading
+                    if (args.element) {
+                        args.element.style.display = 'none';
+                    }
                     initializeEditorComponents(args)
                         .then(() => {
                             currentResourceId = args.data.ResourceId;
+                            if (args.element) {
+                                args.element.style.display = 'flex';
+                            }
                         })
                         .catch(() => {
                         });
@@ -74,7 +82,7 @@
                     const action = args.requestType.replace('event', '').toLowerCase();
                     const resourceId = currentResourceId;
 
-                    document.getElementById('spinner-container').style.display = 'flex';
+                    showSpinner();
                     fetch(window.location.href, {
                         method: 'POST',
                         headers: {
@@ -100,12 +108,14 @@
                                     .then(updatedData => {
                                         scheduler.eventSettings.dataSource = updatedData;
                                         scheduler.dataBind();
+                                        scheduler.closeEditor();
                                     })
                                     .catch(error => {
                                         console.error('Error loading updated events:', error);
+                                    }).finally(() => {
+                                        hideSpinner();
                                     });
                             }
-                            document.getElementById('spinner-container').style.display = 'none';
                         });
                 }
             },
@@ -237,6 +247,18 @@
             scheduler.closeEditor();
         });
 
+        $(document).on('click', '#delete-button', function () {
+            const eventId = document.getElementById('event-id').value;
+            const eventData = {
+                Id: eventId
+            };
+            const args = {
+            requestType: 'eventRemove',
+            data: eventData
+        };
+            scheduler.actionBegin(args);
+        });
+
         // Initialize editor components
         function initializeEditorComponents(args) {
             return new Promise((resolve, reject) => {
@@ -265,12 +287,13 @@
                         const typeSelection = container.querySelector('.type-selection');
                         const searchSection = container.querySelector('.search-section');
                         const clientDetails = container.querySelector('.client-details-container');
+                        const eventId = container.querySelector('#event-id');
                         
                         if (tabNavigation) tabNavigation.style.display = 'none';
                         if (typeSelection) typeSelection.style.display = 'none';
                         if (searchSection) searchSection.style.display = 'none';
                         if (clientDetails) clientDetails.style.display = 'block';
-
+                        if (eventId) eventId.value = args.data.Id;
                         
                         loadEventData(args.data.Id, container)
                             .then(() => resolve()) 

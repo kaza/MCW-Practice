@@ -64,7 +64,7 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             event_data = SchedulerDataService.update_event(event_id, data)
             response_data = {'status': 'success', 'event': event_data}
         elif action == 'remove':
-            event_id = data.get('Id')
+            event_id = data.get('eventData').get('Id')
             SchedulerDataService.delete_event(event_id)
             response_data = {'status': 'success', 'message': 'Event deleted'}
 

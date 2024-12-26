@@ -17,6 +17,8 @@
             <a href="#" class="tab-link">Event</a>
             <a href="#" class="tab-link">Out of office</a>
         </div>
+
+        <input type="hidden" id="event-id" value="">
     
         <!-- Appointment Type Selection -->
         <div class="appointment-section">
@@ -102,8 +104,8 @@
             <div class="clinician-section" style="display: none;">
                 <label>Clinician</label>
                 <div class="select-search-container" id="clinicianSearchContainer">
-                    <input type="text" placeholder="Search Clinician" class="search-input" data-search-id="">
-                    <span class="dropdown-arrow">▼</span>
+                    <input type="text" placeholder="Search Clinician" id="clinicianSearchInput" class="search-input" data-search-id="">
+                    <span class="dropdown-arrow" id="clinicianDropdownArrow">▼</span>
                     <div class="select-search-dropdown">
                         <!-- Dropdown items will be populated here -->
                     </div>
@@ -254,15 +256,21 @@
         </div>
         {% include 'components/recurring-control.html'%}
     </div>
+    {% include 'components/recurring-summary.html'%}
 
     <div class="services-section" style="display: none;">
         {% include 'components/practice_services.html' %}
     </div>
 
     <!-- Action Buttons -->
-    <div class="action-buttons">
-        <button class="btn-cancel" id="cancel-button">Cancel</button>
-        <button class="btn-done" id="done-button">Done</button>
+    <div class="action-bar">
+        <button class="btn-delete" id="delete-button" style="display: none;">
+            <img src="{% static 'images/delete.svg' %}" alt="Delete" width="20" height="20" style="height: 15px !important;">
+        </button>
+        <div class="action-buttons">
+            <button class="btn-cancel" id="cancel-button">Cancel</button>
+            <button class="btn-done" id="done-button">Done</button>
+        </div>
     </div>
     </div>
 </script>
@@ -494,12 +502,38 @@
         color: #333;
     }
 
+    .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+    }
+
+    .btn-delete {
+        padding: 8px;
+        border: none;
+        background: #f2f2f2;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 18px;
+        height: 34px;
+    }
+
+    .btn-delete img {
+        opacity: 0.6;
+        transition: opacity 0.2s;
+    }
+
+    .btn-delete:hover img {
+        opacity: 0.8;
+    }
 
     .action-buttons {
         display: flex;
-        justify-content: flex-end;
         gap: 10px;
-        margin-top: 10px;
+        margin-left: auto;
     }
 
     .btn-cancel {
@@ -589,8 +623,9 @@
     .client-info {
         flex-grow: 1;
     }
+
     .info-item {
-        margin-bottom: 5px ;
+        margin-bottom: 5px;
     }
 
     .client-name {

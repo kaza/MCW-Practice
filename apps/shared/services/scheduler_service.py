@@ -555,12 +555,14 @@ class SchedulerDataService:
         
             # If this is a parent event, delete all related events
             if event.parent_event is None:
+                EventService.objects.filter(event_id=event_id).delete()
                 Event.objects.filter(
                     Q(id=event_id) |  # parent event
                     Q(parent_event_id=event_id)  # child events
                 ).delete()
             else:
                 # If this is a child event, only delete this occurrence
+                EventService.objects.filter(event_id=event_id).delete()
                 event.delete()
                 
                 return True
