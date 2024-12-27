@@ -174,11 +174,12 @@
             // Determine which tab is active
             const activeTab = document.querySelector('.tab-link.active').textContent.toLowerCase();
             const eventId = document.getElementById('event-id').value;
+            const eventType = document.getElementById('event-type').value;
 
             let selectedClient, selectedLocation, selectedTeamMember;
 
             // Get selected client and location based on the active tab
-            if (activeTab === 'appointment') {
+            if (eventId ? eventType === 'APPOINTMENT' : activeTab === 'appointment') {
                 selectedClient = clientSearch.getSelectedItem();
                 selectedLocation = locationSearch.getSelectedItem();
                 if (eventId) {
@@ -194,11 +195,24 @@
                         scheduler.closeEditor();
                     })
                 }
-            } else if (activeTab === 'event') {
+            } else if (eventId ? eventType === 'EVENT' : activeTab === 'event') {
                 selectedLocation = eventLocationSearch.getSelectedItem();
                 selectedTeamMember = eventTeamMemberSearch.getSelectedItem();
                 const eventName = document.getElementById('event-name').value;
-                eventId ? updateEvent(selectedLocation, selectedTeamMember, scheduler) : createEvent(selectedLocation, selectedTeamMember, scheduler);
+                if (eventId) {
+                    updateEvent(selectedLocation, selectedTeamMember, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                }
+                else {
+                    createEvent(selectedLocation, selectedTeamMember, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                }
             } else if (activeTab === 'out of office') {
                 selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
                 createOutOfOffice(selectedTeamMember, scheduler);
@@ -212,11 +226,18 @@
 
         $(document).on('click', '#delete-button', function () {
             showSpinner();
-              // Determine which tab is active
-            const activeTab = document.querySelector('.tab-link.active').textContent.toLowerCase();
+            // Determine which tab is active
             const eventId = document.getElementById('event-id').value;
-            if(activeTab === 'appointment'){
+            const eventType = document.getElementById('event-type').value;
+            if (eventType === 'APPOINTMENT') {
                 deleteAppointment(scheduler).then(() => {
+                    scheduler.closeEditor();
+                }).catch(() => {
+                    scheduler.closeEditor();
+                });
+            }
+            else if (eventType === 'EVENT') {
+                deleteEvent(scheduler).then(() => {
                     scheduler.closeEditor();
                 }).catch(() => {
                     scheduler.closeEditor();
@@ -254,12 +275,14 @@
                         const searchSection = container.querySelector('.search-section');
                         const clientDetails = container.querySelector('.client-details-container');
                         const eventId = container.querySelector('#event-id');
+                        const eventType = container.querySelector('#event-type');
 
                         if (tabNavigation) tabNavigation.style.display = 'none';
                         if (typeSelection) typeSelection.style.display = 'none';
                         if (searchSection) searchSection.style.display = 'none';
                         if (clientDetails) clientDetails.style.display = 'block';
                         if (eventId) eventId.value = args.data.Id;
+                        if (eventType) eventType.value = args.data.Type;
 
                         loadEventData(args.data.Id, container)
                             .then(() => resolve())

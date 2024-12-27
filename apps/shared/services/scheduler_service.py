@@ -95,12 +95,6 @@ class SchedulerDataService:
         try:
             event = Event.objects.get(id=event_id)
             event_data = cls._convert_event_to_dict(event)
-            
-            # Fetch associated services
-            event_services = EventService.objects.filter(event=event).values(
-                'service_id', 'fee', 'modifiers'
-            )
-            event_data['services'] = list(event_services)
 
             # Fetch client information if the event is an appointment
             if event.type.name == EventType.APPOINTMENT and event.patient:
@@ -110,13 +104,18 @@ class SchedulerDataService:
                     'email': event.patient.email,
                     'phone': event.patient.phone,
                 }
+                # Fetch associated services
+                event_services = EventService.objects.filter(event=event).values(
+                    'service_id', 'fee', 'modifiers'
+                )
+                event_data['services'] = list(event_services)
 
-            # Fetch appointment state
-            if event.status:
-                event_data['Status'] = {
-                    'id': event.status.id,
-                    'name': event.status.name,
-                }
+                # Fetch appointment state
+                if event.status:
+                    event_data['Status'] = {
+                        'id': event.status.id,
+                        'name': event.status.name,
+                    }
 
             return event_data
         except Event.DoesNotExist:
@@ -502,7 +501,7 @@ class SchedulerDataService:
             raise ValidationError(f"Error processing event data: {str(e)}")
 
     @classmethod
-    def _update_event_services(cls, event: 'Event', services: List[Dict[str, Any]]) -> None:
+    def i_update_event_services(cls, event: 'Event', services: List[Dict[str, Any]]) -> None:
         """Update event services efficiently"""
         with transaction.atomic():
             current_services = set(EventService.objects.filter(event=event).values_list('service_id', flat=True))
@@ -530,6 +529,13 @@ class SchedulerDataService:
         event.appointment_total = event_data.get('AppointmentTotal')
         if event_data.get('Services'):
             cls._update_event_services(event, event_data.get('Services'))
+    
+    @classmethod
+    def _update_event_specific_fields(cls, event: 'Event', event_data: Dict[str, Any]) -> None:
+        """Update event-specific fields"""
+        event.title = event_data.get('Subject')
+        event.team_member_id = event_data.get('TeamMember').get('id')
+       
 
     @classmethod
     def _update_base_event_fields(cls, event: 'Event', common_fields: Dict[str, Any], 
@@ -541,6 +547,8 @@ class SchedulerDataService:
         
         if event_data.get('eventType') == 'APPOINTMENT':
             cls._update_appointment_specific_fields(event, event_data)
+        if event_data.get('eventType') == 'EVENT':
+            cls._update_event_specific_fields(event, event_data)
 
     @classmethod
     def _handle_series_update_timing(cls, events: QuerySet, time_diff: timedelta) -> None:
@@ -726,17 +734,44 @@ class SchedulerDataService:
 
     @staticmethod
     def _delete_event_and_services(event: Event) -> None:
-        """Delete an event and its associated services"""
-        EventService.objects.filter(event=event).delete()
+        """
+        Delete a single event and its associated services if it's an appointment.
+        
+        Args:
+            event: Event instance to delete
+        """
+        if event.type_id == EventType.objects.get(name=EventType.APPOINTMENT).id:
+            EventService.objects.filter(event=event).delete()
         event.delete()
 
     @classmethod
     def _delete_events_and_services(cls, events: QuerySet) -> None:
-        """Delete multiple events and their associated services"""
-        event_ids = events.values_list('id', flat=True)
-        EventService.objects.filter(event__in=event_ids).delete()
+        """
+        Delete multiple events and their associated services based on event type.
+        
+        Args:
+            events: QuerySet of events to delete
+        """
+        if not events.exists():
+            return
+            
+        event_ids = list(events.values_list('id', flat=True))
+        
+        # Get the ID of the APPOINTMENT type
+        appointment_type_id = EventType.objects.get(name=EventType.APPOINTMENT).id
+        
+        # Get unique event type IDs in a single query
+        event_type_ids = set(events.values_list('type_id', flat=True).distinct())
+        
+        # If all events are appointments, delete their services
+        if event_type_ids == {appointment_type_id}:
+            EventService.objects.filter(event__in=event_ids).delete()
+        # If mixed event types, only delete services for appointment events
+        elif appointment_type_id in event_type_ids:
+            appointment_ids = events.filter(type_id=appointment_type_id).values_list('id', flat=True)
+            EventService.objects.filter(event__in=appointment_ids).delete()
+        
         events.delete()
-
     @classmethod
     def _delete_single_event(cls, event: Event) -> None:
         """Delete a single event and its services"""
@@ -883,8 +918,9 @@ class SchedulerDataService:
                         appointment_total=event.appointment_total
                     )
                     # Set the services for the newly created event
-                    for service in event_data.get('Services'):
-                        EventService.objects.create(
+                    if(event_data.get('eventType') == 'APPOINTMENT'):
+                        for service in event_data.get('Services'):
+                            EventService.objects.create(
                             event=new_event,
                             service_id=service.get('serviceId'),
                             fee=service.get('fee'),
