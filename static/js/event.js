@@ -117,6 +117,7 @@ function initializeEventDateTimePicker(dateData) {
 
         // Regular view time changes
         elements.startTimeInput?.addEventListener('change', () => {
+            elements.endTimeInput.value = updateEndTimeBasedOnDuration(elements.dateInput, elements.startTimeInput, elements.durationInput);
             calculateDuration(elements.startTimeInput, elements.endTimeInput, elements.durationInput);
         });
         elements.endTimeInput?.addEventListener('change', () => {
@@ -131,7 +132,6 @@ function initializeEventDateTimePicker(dateData) {
             calculateNumberOfDays(elements.allDayStartDate, elements.allDayEndDate, elements.numberOfDays);
         });
     }
-
     // Initialize with data
     function initializeWithData() {
         try {

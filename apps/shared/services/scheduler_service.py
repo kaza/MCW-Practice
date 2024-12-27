@@ -684,80 +684,97 @@ class SchedulerDataService:
 
     #region delete events
 
+    VALID_DELETE_TYPES = {'series', 'all', 'occurrence', 'single'}
+
     @classmethod
-    def delete_event(cls, event_id: int, delete_type: str = 'single') -> None:
+    def delete_event(cls, event_id: int, delete_type: str) -> None:
         """
-        Delete an event with various delete types
-        delete_type options: 'single', 'series', 'occurrence'
+        Delete an event and its related data based on the specified delete type.
+        
+        Args:
+            event_id: The ID of the event to delete
+            delete_type: Type of deletion ('series', 'all', 'occurrence', 'single')
+            
+        Raises:
+            EventDeletionError: If event doesn't exist or deletion fails
+            ValueError: If delete_type is invalid
         """
+        if delete_type not in cls.VALID_DELETE_TYPES:
+            raise ValueError(f"Invalid delete type: {delete_type}. Must be one of {cls.VALID_DELETE_TYPES}")
+
         try:
-            event = Event.objects.get(id=event_id)
-            
-            if delete_type == 'series':
-                if event.parent_event:
-                    # If this is a child event, get the parent first
-                    parent_event = event.parent_event
-                else:
-                    # This is already the parent event
-                    parent_event = event
+            with transaction.atomic():
+                event = cls._get_event(event_id)
+                
+                if delete_type in ('occurrence', 'single'):
+                    cls._delete_single_event(event)
+                elif delete_type == 'series':
+                    cls._delete_series(event)
+                else:  # delete_type == 'all'
+                    cls._delete_all(event)
                     
-                # Delete all child events' services first
-                EventService.objects.filter(
-                    event__parent_event=parent_event
-                ).delete()
-                
-                # Delete all child events
-                Event.objects.filter(parent_event=parent_event).delete()
-                
-                # Delete parent event's services and the parent itself
-                EventService.objects.filter(event=parent_event).delete()
-                parent_event.delete()
-                
-            elif delete_type == 'occurrence':
-                # For occurrence, we need to handle both parent and child events
-                if event.parent_event:
-                    # This is a child event - simply delete it
-                    EventService.objects.filter(event=event).delete()
-                    event.delete()
-                else:
-                    # This is a parent event - need to reassign parent
-                    next_event = Event.objects.filter(
-                        parent_event=event,
-                        start_datetime__gt=event.start_datetime
-                    ).order_by('start_datetime').first()
-                    
-                    if next_event:
-                        # Make next event the new parent
-                        recurrence_rule = event.recurrence_rule
-                        next_event.parent_event = None
-                        next_event.is_recurring = True
-                        next_event.recurrence_rule = recurrence_rule
-                        next_event.save()
-                        
-                        # Update remaining events to point to new parent
-                        Event.objects.filter(
-                            parent_event=event,
-                            start_datetime__gt=next_event.start_datetime
-                        ).update(parent_event=next_event)
-                    
-                    # Delete the current event
-                    EventService.objects.filter(event=event).delete()
-                    event.delete()
-            
-            elif delete_type == 'single':
-                # Simple delete of single event and its services
-                EventService.objects.filter(event=event).delete()
-                event.delete()
-            
-            else:
-                raise ValueError(f"Invalid delete type: {delete_type}")
-                
         except Event.DoesNotExist:
             raise ValueError(f"Event with id {event_id} does not exist")
         except Exception as e:
-            print(f"Error deleting event: {str(e)}")
-            raise
-   #endregion delete events
+            print(f"Failed to delete event {event_id}: {str(e)}")
+            raise ValueError(f"Failed to delete event: {str(e)}")
+
+    @staticmethod
+    def _get_event(event_id: int) -> Event:
+        """Retrieve event by ID"""
+        return Event.objects.get(id=event_id)
+
+    @staticmethod
+    def _delete_event_and_services(event: Event) -> None:
+        """Delete an event and its associated services"""
+        EventService.objects.filter(event=event).delete()
+        event.delete()
+
+    @classmethod
+    def _delete_events_and_services(cls, events: QuerySet) -> None:
+        """Delete multiple events and their associated services"""
+        event_ids = events.values_list('id', flat=True)
+        EventService.objects.filter(event__in=event_ids).delete()
+        events.delete()
+
+    @classmethod
+    def _delete_single_event(cls, event: Event) -> None:
+        """Delete a single event and its services"""
+        cls._delete_event_and_services(event)
+
+    @classmethod
+    def _delete_series(cls, event: Event) -> None:
+        """Delete current event and all future events in the series"""
+        parent_event = event.parent_event or event
+        
+        # Delete future events
+        future_events = Event.objects.filter(
+            parent_event=parent_event,
+            start_datetime__gt=event.start_datetime
+        )
+        cls._delete_events_and_services(future_events)
+        
+        # Delete the current event
+        cls._delete_event_and_services(event)
+
+    @classmethod
+    def _delete_all(cls, event: Event) -> None:
+        """Delete all events in the series including the parent"""
+        if event.parent_event:
+            parent_event = event.parent_event
+            # Delete all child events
+            child_events = Event.objects.filter(parent_event=parent_event)
+            cls._delete_events_and_services(child_events)
+            # Delete the parent
+            cls._delete_event_and_services(parent_event)
+        else:
+            # Delete all child events
+            child_events = Event.objects.filter(parent_event=event)
+            cls._delete_events_and_services(child_events)
+            # Delete the parent event
+            cls._delete_event_and_services(event)
+
+    #endregion delete events
     
     @classmethod
     def _handle_recurring_events(cls, event: Event, recurrence_rule: str, event_data: Dict[str, Any]):

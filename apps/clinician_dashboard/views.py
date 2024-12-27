@@ -62,12 +62,13 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             event_data = SchedulerDataService.create_event(data)
             response_data = {'status': 'success', 'event': event_data}
         elif action == 'change':
-            event_id = data.get('Id')
+            event_id = data.get('eventData').get('eventId')
             event_data = SchedulerDataService.update_event(event_id, data)
             response_data = {'status': 'success', 'event': event_data}
         elif action == 'remove':
-            event_id = data.get('Id')
-            SchedulerDataService.delete_event(event_id)
+            event_id = data.get('eventData').get('Id')
+            edit_type = data.get('eventData').get('editType')
+            SchedulerDataService.delete_event(event_id, edit_type)
             response_data = {'status': 'success', 'message': 'Event deleted'}
 
         return JsonResponse(response_data)

@@ -75,6 +75,17 @@ function calculateDuration(startTimeInput, endTimeInput, durationInput) {
     }
 }
 
+function updateEndTimeBasedOnDuration(dateInput, startTimeInput, durationInput) {
+    const startTime = startTimeInput.value;
+    const duration = durationInput.value;
+    if (startTime && duration) {
+        const startDateTime = new Date(`${dateInput.value}T${startTime}`);
+        const durationInMinutes = parseInt(duration, 10);
+        const endDateTime = new Date(startDateTime.getTime() + durationInMinutes * 60000); 
+        return formatTimeToHHMM(endDateTime);
+    }
+}
+
 function calculateNumberOfDays(allDayStartDate, allDayEndDate, numberOfDaysInput) {
     if (allDayStartDate?.value && allDayEndDate?.value) {
         const start = new Date(allDayStartDate.value);

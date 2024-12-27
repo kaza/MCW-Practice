@@ -144,6 +144,53 @@ function updateAppointment(selectedLocation, scheduler) {
     });
 }
 
+function deleteAppointment(scheduler) {
+    return new Promise((resolve, reject) => {
+        const eventId = document.getElementById('event-id').value;
+        const isRecurring = document.getElementById('is-recurring').value;
+        let eventData = {};
+
+        if (isRecurring === 'true') {
+            const appointmentModal = new AppointmentModal();
+            appointmentModal.show({
+                title: 'Delete appointment?',
+                message: 'This appointment is part of a series. What would you like to delete?',
+                options: [
+                    { value: 'single', text: 'This appointment only' },
+                    { value: 'series', text: 'This and all future appointments' },
+                    { value: 'all', text: 'All of the series, including past appointments' }
+                ],
+                onSave: (selectedValue) => {
+                    if (selectedValue === 'single') {
+                        eventData.editType = 'occurrence';
+                    } else if (selectedValue === 'series') {
+                        eventData.editType = 'series';
+                    } else {
+                        eventData.editType = 'all';
+                    }
+
+                    eventData.Id = eventId;
+                    const args = {
+                        requestType: 'eventRemove',
+                        data: eventData
+                    };
+                    scheduler.actionBegin(args);
+                    resolve();
+                }
+            });
+        } else {
+            eventData.editType = 'single';
+            eventData.Id = eventId;
+            const args = {
+                requestType: 'eventRemove',
+                data: eventData
+            };
+            scheduler.actionBegin(args);
+            resolve();
+        }
+    });
+}
+
 function validateAppointment(selectedLocation, isUpdateAppointment = false) {
 
     // Get all the necessary values
@@ -357,6 +404,7 @@ function initializeDateTimePicker(dateData) {
 
         // Regular view time changes
         elements.startTimeInput?.addEventListener('change', () => {
+            elements.endTimeInput.value = updateEndTimeBasedOnDuration(elements.dateInput, elements.startTimeInput, elements.durationInput);
             calculateDuration(elements.startTimeInput, elements.endTimeInput, elements.durationInput);
         });
         elements.endTimeInput?.addEventListener('change', () => {
