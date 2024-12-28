@@ -695,6 +695,13 @@ function loadEventData(eventId, container) {
                     resolve();
                 } else if (data.Type === 'OUT_OF_OFFICE') {
                     if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
+                    bindOutOffOfficeData(data, container).then(() => {
+                        resolve();
+                    }).catch((error) => {
+                        console.error('Error binding out of office data:', error);
+                        reject(error);
+                    });
+
                     resolve();
                 }
             })

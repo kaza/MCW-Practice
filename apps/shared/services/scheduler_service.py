@@ -774,8 +774,30 @@ class SchedulerDataService:
         events.delete()
     @classmethod
     def _delete_single_event(cls, event: Event) -> None:
-        """Delete a single event and its services"""
-        cls._delete_event_and_services(event)
+        """Delete a single event and its services, handling parent events appropriately"""
+        if event.parent_event is None:
+            # This is a parent event
+            next_event = Event.objects.filter(
+                parent_event=event,
+                start_datetime__gt=event.start_datetime
+            ).order_by('start_datetime').first()
+
+            if next_event:
+                # Make the next event the new parent
+                next_event.parent_event = None
+                next_event.save()
+
+                # Update remaining events to point to the new parent
+                Event.objects.filter(
+                    parent_event=event,
+                    start_datetime__gt=next_event.start_datetime
+                ).update(parent_event=next_event)
+
+            # Delete the current parent event's services and the parent itself
+            cls._delete_event_and_services(event)
+        else:
+            # This is a child event - simply delete it
+            cls._delete_event_and_services(event)
 
     @classmethod
     def _delete_series(cls, event: Event) -> None:
