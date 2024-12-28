@@ -6,6 +6,7 @@
 
 {% block content %}
 {% include 'components/scheduler-editor.html' %}
+{% include 'components/appointment-modal.html' %}
 {% endblock %}
 
 <script src="{% static 'js/recurring-control.js' %}"></script>
@@ -14,6 +15,7 @@
 <script src="{% static 'js/out-of-office.js' %}"></script>
 <script src="{% static 'js/practice_services.js' %}"></script>
 <script src="{% static 'js/recurring-summary.js' %}"></script>
+<script src="{% static 'js/appointment-modal.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const resourceData = JSON.parse('{{ clinicians|safe }}');
@@ -52,8 +54,7 @@
                 fields: {
                     id: 'Id',
                     resourceId: { name: 'ResourceId' }
-                },
-                enableRecurrenceValidation: true
+                }
             },
             editorTemplate: '#EventEditorTemplate',
             popupOpen: function (args) {
@@ -99,23 +100,11 @@
                         .then(data => {
                             if (data.status === 'success') {
                                 // Refresh the calendar data after successful creation
-                                fetch(window.location.href, {
-                                    headers: {
-                                        'X-Requested-With': 'XMLHttpRequest'
-                                    }
-                                })
-                                    .then(response => response.json())
-                                    .then(updatedData => {
-                                        scheduler.eventSettings.dataSource = updatedData;
-                                        scheduler.dataBind();
-                                        scheduler.closeEditor();
-                                    })
-                                    .catch(error => {
-                                        console.error('Error loading updated events:', error);
-                                    }).finally(() => {
-                                        hideSpinner();
-                                    });
+                                fetchAndUpdateEvents();
                             }
+                        })
+                        .finally(() => {
+                            hideSpinner();
                         });
                 }
             },
@@ -129,83 +118,45 @@
             allowDragAndDrop: window.innerWidth >= 768
         });
 
+        // Central function to fetch and update events
+        async function fetchAndUpdateEvents(selectedDate = scheduler.selectedDate, selectedView = scheduler.currentView) {
+            try {
+                const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
+                const response = await fetch(
+                    `${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
+                    {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    }
+                );
+                const data = await response.json();
+                scheduler.eventSettings.dataSource = data;
+                scheduler.dataBind();
+                scheduler.closeEditor(); // Close editor if open
+            } catch (error) {
+                console.error('Error loading events:', error);
+            }
+        }
+
         scheduler.appendTo('#scheduler');
 
         // Load initial events
-        const currentDate = scheduler.selectedDate;
-        const selectedView = scheduler.currentView;
-
-        const { startDate, endDate } = getStartAndEndDates(currentDate, selectedView);
-
-        // Fetch events for the selected date range
-        fetch(`${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-            .then(response => response.json())
-            .then(data => {
-                scheduler.eventSettings.dataSource = data;
-                scheduler.dataBind();
-            })
-            .catch(error => {
-                console.error('Error loading events:', error);
-            });
+        fetchAndUpdateEvents();
 
         // Update navigationClick method
         scheduler.navigationClick = function (args) {
-            const selectedView = scheduler.currentView;
-            const selectedDate = scheduler.selectedDate;
-
-            const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
-
-            // Fetch events for the selected date range
-            fetch(`${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    scheduler.eventSettings.dataSource = data;
-                    scheduler.dataBind();
-                })
-                .catch(error => {
-                    console.error('Error loading events:', error);
-                });
+            fetchAndUpdateEvents();
         };
 
         // Update navigating method
         scheduler.navigating = function (args) {
             if (args.action === 'date' || args.action === 'view') {
                 const selectedDate = args.currentDate || scheduler.selectedDate;
-                let selectedView;
-
-                // Determine the view based on the action
-                if (args.action === 'view') {
-                    selectedView = args.currentView;
-                } else {
-                    selectedView = scheduler.currentView;
-                }
-
-                const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
-
-                fetch(`${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        scheduler.eventSettings.dataSource = data;
-                        scheduler.dataBind();
-                    })
-                    .catch(error => {
-                        console.error('Error loading events:', error);
-                    });
+                const selectedView = args.action === 'view' ? args.currentView : scheduler.currentView;
+                fetchAndUpdateEvents(selectedDate, selectedView);
             }
         };
-
         // Handle window resize
         window.addEventListener('resize', function () {
             scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
@@ -222,25 +173,51 @@
 
             // Determine which tab is active
             const activeTab = document.querySelector('.tab-link.active').textContent.toLowerCase();
+            const eventId = document.getElementById('event-id').value;
+            const eventType = document.getElementById('event-type').value;
 
             let selectedClient, selectedLocation, selectedTeamMember;
 
             // Get selected client and location based on the active tab
-            if (activeTab === 'appointment') {
+            if (eventId ? eventType === 'APPOINTMENT' : activeTab === 'appointment') {
                 selectedClient = clientSearch.getSelectedItem();
                 selectedLocation = locationSearch.getSelectedItem();
-                createAppointment(selectedClient, selectedLocation, scheduler);
-            } else if (activeTab === 'event') {
+                if (eventId) {
+                    updateAppointment(selectedLocation, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                } else {
+                    createAppointment(selectedClient, selectedLocation, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                }
+            } else if (eventId ? eventType === 'EVENT' : activeTab === 'event') {
                 selectedLocation = eventLocationSearch.getSelectedItem();
                 selectedTeamMember = eventTeamMemberSearch.getSelectedItem();
                 const eventName = document.getElementById('event-name').value;
-                createEvent(selectedLocation, selectedTeamMember, scheduler);
+                if (eventId) {
+                    updateEvent(selectedLocation, selectedTeamMember, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                }
+                else {
+                    createEvent(selectedLocation, selectedTeamMember, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                }
             } else if (activeTab === 'out of office') {
                 selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
                 createOutOfOffice(selectedTeamMember, scheduler);
             }
             hideSpinner();
-            scheduler.closeEditor();
         });
 
         $(document).on('click', '#cancel-button', function () {
@@ -248,15 +225,25 @@
         });
 
         $(document).on('click', '#delete-button', function () {
+            showSpinner();
+            // Determine which tab is active
             const eventId = document.getElementById('event-id').value;
-            const eventData = {
-                Id: eventId
-            };
-            const args = {
-            requestType: 'eventRemove',
-            data: eventData
-        };
-            scheduler.actionBegin(args);
+            const eventType = document.getElementById('event-type').value;
+            if (eventType === 'APPOINTMENT') {
+                deleteAppointment(scheduler).then(() => {
+                    scheduler.closeEditor();
+                }).catch(() => {
+                    scheduler.closeEditor();
+                });
+            }
+            else if (eventType === 'EVENT') {
+                deleteEvent(scheduler).then(() => {
+                    scheduler.closeEditor();
+                }).catch(() => {
+                    scheduler.closeEditor();
+                });
+            }
+            hideSpinner();
         });
 
         // Initialize editor components
@@ -288,23 +275,25 @@
                         const searchSection = container.querySelector('.search-section');
                         const clientDetails = container.querySelector('.client-details-container');
                         const eventId = container.querySelector('#event-id');
-                        
+                        const eventType = container.querySelector('#event-type');
+
                         if (tabNavigation) tabNavigation.style.display = 'none';
                         if (typeSelection) typeSelection.style.display = 'none';
                         if (searchSection) searchSection.style.display = 'none';
                         if (clientDetails) clientDetails.style.display = 'block';
                         if (eventId) eventId.value = args.data.Id;
-                        
+                        if (eventType) eventType.value = args.data.Type;
+
                         loadEventData(args.data.Id, container)
-                            .then(() => resolve()) 
-                            .catch(error => reject(error)); 
+                            .then(() => resolve())
+                            .catch(error => reject(error));
                     } else {
                         // For new events, show tab navigation and initialize it
                         initializeTabNavigation(args.data);
-                        resolve(); 
+                        resolve();
                     }
                 } catch (error) {
-                    reject(error); 
+                    reject(error);
                 }
             });
         }

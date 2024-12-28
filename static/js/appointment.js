@@ -24,6 +24,175 @@ const stateColors = {
     }
 };
 function createAppointment(selectedClient, selectedLocation, scheduler) {
+    return new Promise((resolve, reject) => {
+        const validationResult = validateAppointment(selectedClient, selectedLocation);
+
+        // If all validations pass, proceed with creating the event
+        if (validationResult.isValid) {
+            const eventData = {
+                eventType: 'APPOINTMENT',
+                StartTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.startTime}`) : new Date(`${validationResult.allDayStartDate}T00:00:00`),
+                EndTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.endTime}`) : new Date(`${validationResult.allDayEndDate}T23:59:59`),
+                IsAllDay: validationResult.isAllDay,
+                Client: selectedClient,
+                Location: selectedLocation,
+                Services: getSelectedServices(),
+                AppointmentTotal: validationResult.appointmentTotal
+            };
+
+            // Handle recurring events
+            if (document.getElementById('recurring').checked) {
+                const recurringData = getRecurringValues(validationResult.startDate);
+                if (!recurringData.isValid) {
+                    showError('recurring-error', recurringData.error);
+                    reject(new Error(recurringData.error));
+                    return;
+                }
+
+                // Convert recurring data to RRULE format
+                const rrule = constructRRule(recurringData.data, eventData.StartTime);
+                if (rrule) {
+                    eventData.RecurrenceRule = rrule;
+                }
+            }
+
+            const args = {
+                requestType: 'eventCreate',
+                data: eventData
+            };
+            scheduler.actionBegin(args);
+            resolve(eventData);
+        } else {
+            reject(new Error('Validation failed'));
+        }
+    });
+}
+
+function updateAppointment(selectedLocation, scheduler) {
+    return new Promise((resolve, reject) => {
+        const validationResult = validateAppointment(selectedLocation, true);
+
+        if (validationResult.isValid) {
+            const stateId = document.getElementById('appointment-state').value;
+            const eventData = {
+                eventId: document.getElementById('event-id').value,
+                StateId: stateId,
+                eventType: 'APPOINTMENT',
+                StartTime: validationResult.isAllDay ? new Date(`${validationResult.allDayStartDate}T00:00:00`) : new Date(`${validationResult.startDate}T${validationResult.startTime}`),
+                EndTime: validationResult.isAllDay ? new Date(`${validationResult.allDayEndDate}T23:59:59`) : new Date(`${validationResult.startDate}T${validationResult.endTime}`),
+                IsAllDay: validationResult.isAllDay,
+                Location: selectedLocation,
+                Services: getSelectedServices(),
+                AppointmentTotal: validationResult.appointmentTotal
+            };
+
+            // Handle recurring events
+            const isRecurring = document.getElementById('is-recurring').value;
+            if (isRecurring === 'true') {
+                const appointmentModal = new AppointmentModal();
+                appointmentModal.show({
+                    title: 'Edit appointment?',
+                    message: 'This appointment is part of a series. What would you like to edit?',
+                    options: [
+                        { value: 'single', text: 'This appointment only' },
+                        { value: 'series', text: 'This and all future appointments' }
+                    ],
+                    onSave: (selectedValue) => {
+                        // Handle the save action
+                        if (selectedValue === 'single') {
+                            eventData.editType = 'occurrence';
+
+                        } else {
+                            eventData.editType = 'series';
+                            // Handle recurring events
+                            if (document.getElementById('recurring').checked) {
+                                const recurringData = getRecurringValues(validationResult.startDate);
+                                if (!recurringData.isValid) {
+                                    showError('recurring-error', recurringData.error);
+                                    reject(new Error(recurringData.error));
+                                    return;
+                                }
+
+                                // Convert recurring data to RRULE format
+                                const rrule = constructRRule(recurringData.data, eventData.StartTime);
+                                if (rrule) {
+                                    eventData.RecurrenceRule = rrule;
+                                }
+                            }
+                        }
+
+                        const args = {
+                            requestType: 'eventChange',
+                            data: eventData
+                        };
+                        scheduler.actionBegin(args);
+                        resolve(eventData);
+                    }
+                });
+            } else {
+                eventData.editType = 'single';
+                const args = {
+                    requestType: 'eventChange',
+                    data: eventData
+                };
+                scheduler.actionBegin(args);
+                resolve(eventData);
+            }
+        } else {
+            reject(new Error('Validation failed'));
+        }
+    });
+}
+
+function deleteAppointment(scheduler) {
+    return new Promise((resolve, reject) => {
+        const eventId = document.getElementById('event-id').value;
+        const isRecurring = document.getElementById('is-recurring').value;
+        let eventData = {};
+
+        if (isRecurring === 'true') {
+            const appointmentModal = new AppointmentModal();
+            appointmentModal.show({
+                title: 'Delete appointment?',
+                message: 'This appointment is part of a series. What would you like to delete?',
+                options: [
+                    { value: 'single', text: 'This appointment only' },
+                    { value: 'series', text: 'This and all future appointments' },
+                    { value: 'all', text: 'All of the series, including past appointments' }
+                ],
+                onSave: (selectedValue) => {
+                    if (selectedValue === 'single') {
+                        eventData.editType = 'occurrence';
+                    } else if (selectedValue === 'series') {
+                        eventData.editType = 'series';
+                    } else {
+                        eventData.editType = 'all';
+                    }
+
+                    eventData.Id = eventId;
+                    const args = {
+                        requestType: 'eventRemove',
+                        data: eventData
+                    };
+                    scheduler.actionBegin(args);
+                    resolve();
+                }
+            });
+        } else {
+            eventData.editType = 'single';
+            eventData.Id = eventId;
+            const args = {
+                requestType: 'eventRemove',
+                data: eventData
+            };
+            scheduler.actionBegin(args);
+            resolve();
+        }
+    });
+}
+
+function validateAppointment(selectedLocation, isUpdateAppointment = false) {
+
     // Get all the necessary values
     const startDate = document.getElementById('startDate').value;
     const startTime = document.getElementById('startTime').value;
@@ -40,7 +209,7 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
     let isValid = true;
 
     // Client validation
-    if (!selectedClient) {
+    if (!isUpdateAppointment && !selectedClient) {
         showError('client-error', 'Please select a client');
         isValid = false;
     }
@@ -84,40 +253,8 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
         }
     }
 
-    // If all validations pass, proceed with creating the event
-    if (isValid) {
-        const eventData = {
-            eventType: 'APPOINTMENT',
-            StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
-            EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
-            IsAllDay: isAllDay,
-            Client: selectedClient,
-            Location: selectedLocation,
-            Services: getSelectedServices(),
-            AppointmentTotal: appointmentTotal
-        };
+    return { isValid, isAllDay, startDate, startTime, endTime, allDayStartDate, allDayEndDate, appointmentTotal };
 
-        // Handle recurring events
-        if (document.getElementById('recurring').checked) {
-            const recurringData = getRecurringValues(startDate);
-            if (!recurringData.isValid) {
-                showError('recurring-error', recurringData.error);
-                return;
-            }
-
-            // Convert recurring data to RRULE format
-            const rrule = constructRRule(recurringData.data, eventData.StartTime);
-            if (rrule) {
-                eventData.RecurrenceRule = rrule;
-            }
-        }
-
-        const args = {
-            requestType: 'eventCreate',
-            data: eventData
-        };
-        scheduler.actionBegin(args);
-    }
 }
 
 function initializeClientSearch(clients) {
@@ -130,7 +267,7 @@ function initializeClientSearch(clients) {
             document.querySelector('.clinician-section').style.display = 'block';
 
             // Fetch clinicians for the selected client
-            showSpinner();  
+            showSpinner();
             getClientClinicians(selectedClient.id)
                 .then(clinicians => {
                     initializeClinicianDropdown(clinicians, selectedClient).then(() => {
@@ -267,6 +404,7 @@ function initializeDateTimePicker(dateData) {
 
         // Regular view time changes
         elements.startTimeInput?.addEventListener('change', () => {
+            elements.endTimeInput.value = updateEndTimeBasedOnDuration(elements.dateInput, elements.startTimeInput, elements.durationInput);
             calculateDuration(elements.startTimeInput, elements.endTimeInput, elements.durationInput);
         });
         elements.endTimeInput?.addEventListener('change', () => {
@@ -376,10 +514,10 @@ function initializeClinicianDropdown(clinicians, selectedClient) {
                             hideSpinner();
                             resolve();
                         })
-                        .catch(error => {
-                            hideSpinner();
-                            resolve();
-                        });  
+                            .catch(error => {
+                                hideSpinner();
+                                resolve();
+                            });
                     } else {
                         console.error('Error:', result.error);
                         hideSpinner();
@@ -439,17 +577,8 @@ function loadEventData(eventId, container) {
     showSpinner();
 
     return new Promise((resolve, reject) => {
-        // Fetch appointment states
-        getAppointmentStates()
-            .then(states => {
-                const stateSection = container.querySelector('.appointment-state-section');
-                if (stateSection) {
-                    stateSection.style.display = 'block';
-                    initializeAppointmentState(states);
-                }
-                // Fetch event data after appointment states are loaded
-                return getEventData(eventId);
-            })
+        // Fetch event data first
+        getEventData(eventId)
             .then(data => {
                 // Show appropriate section based on event type
                 const appointmentSection = container.querySelector('.appointment-section');
@@ -458,6 +587,7 @@ function loadEventData(eventId, container) {
                 const deleteButton = container.querySelector('.btn-delete');
                 const recurringSection = container.querySelector('#recurring-section');
                 const recurringSummary = container.querySelector('.recurring-summary');
+                const isRecurring = container.querySelector('#is-recurring');
 
                 // Hide all sections first
                 if (appointmentSection) appointmentSection.style.display = 'none';
@@ -485,62 +615,83 @@ function loadEventData(eventId, container) {
                             }
                         }
 
-                        // Fetch clinicians and initialize dropdown
-                        if (data.Clinician) {
-                            return getClientClinicians(data.Client.id)
-                                .then(clinicians => {
-                                    return initializeClinicianDropdown(clinicians, data.Client);
-                                })
-                                .then(() => {
-                                    document.querySelector('.clinician-section').style.display = 'block';
+                        // Fetch appointment states after loading event data
+                        return getAppointmentStates()
+                            .then(states => {
+                                const stateSection = container.querySelector('.appointment-state-section');
+                                if (stateSection) {
+                                    stateSection.style.display = 'block';
+                                    initializeAppointmentState(states);
+                                }
+                            })
+                            .then(() => {
+                                // Fetch clinicians and initialize dropdown
+                                if (data.Clinician) {
+                                    return getClientClinicians(data.Client.id)
+                                        .then(clinicians => {
+                                            return initializeClinicianDropdown(clinicians, data.Client);
+                                        })
+                                        .then(() => {
+                                            document.querySelector('.clinician-section').style.display = 'block';
 
-                                    const eventDate = new Date(data.StartTime);
-                                    const currentDate = new Date(); 
+                                            const eventDate = new Date(data.StartTime);
+                                            const currentDate = new Date();
 
-                                    // Set both dates to midnight to ignore time
-                                    eventDate.setHours(0, 0, 0, 0);
-                                    currentDate.setHours(0, 0, 0, 0);
+                                            // Set both dates to midnight to ignore time
+                                            eventDate.setHours(0, 0, 0, 0);
+                                            currentDate.setHours(0, 0, 0, 0);
 
-                                    if (eventDate < currentDate) {
-                                        // Disable clinician dropdown if the event date is older
-                                        const clinicianInput = document.getElementById('clinicianSearchInput');
-                                        const clinicianArrow = document.getElementById('clinicianDropdownArrow');
-                                        if (clinicianInput) {
-                                            clinicianInput.disabled = true;
-                                        }
-                                        if (clinicianArrow) {
-                                            clinicianArrow.style.display = 'none';
-                                        }
-                                    }
-                                    if (clinicianSearch) {
-                                        clinicianSearch.selectItemById(data.Clinician.id);
-
-                                        if (data.Location) {
-                                            locationSearch.selectItemById(data.Location.id);
-                                        }
-                                        
-                                        if(data.IsRecurring) {
-                                            if (recurringSummary) {
-                                                recurringSummary.style.display = 'block';
-                                                window.recurringSummary.setDocumentElement(container);
-                                                window.recurringSummary.show(data.RecurrenceRuleString);
+                                            if (eventDate < currentDate) {
+                                                // Disable clinician dropdown if the event date is older
+                                                const clinicianInput = document.getElementById('clinicianSearchInput');
+                                                const clinicianArrow = document.getElementById('clinicianDropdownArrow');
+                                                if (clinicianInput) {
+                                                    clinicianInput.disabled = true;
+                                                }
+                                                if (clinicianArrow) {
+                                                    clinicianArrow.style.display = 'none';
+                                                }
                                             }
-                                        }
-                
-                                        buildSelectedServices(data.services);
-                
-                                    }
-                                    resolve();
-                                }).catch(error => {
-                                    reject(error);
-                                });
-                        }
-                        resolve();
 
+                                            if (clinicianSearch) {
+                                                clinicianSearch.selectItemById(data.Clinician.id);
+
+                                                if (data.Location) {
+                                                    locationSearch.selectItemById(data.Location);
+                                                }
+
+                                                if (data.IsRecurring) {
+                                                    isRecurring.value = 'true';
+                                                    if (recurringSummary) {
+                                                        recurringSummary.style.display = 'block';
+                                                        window.recurringSummary.setDocumentElement(container);
+                                                        window.recurringSummary.show(data.RecurrenceRuleString);
+                                                    }
+                                                }
+
+                                                buildSelectedServices(data.services);
+
+                                                const appointmentTotal = document.getElementById('appointment-total');
+                                                if (appointmentTotal) {
+                                                    document.getElementById('appointment-total').setAttribute('data-amount', '$' + data.AppointmentTotal.toFixed(2));
+                                                }
+                                            }
+                                            resolve(); 
+                                        });
+                                }
+                                resolve(); 
+                            });
                     }
                     resolve();
                 } else if (data.Type === 'EVENT') {
                     if (eventSection) eventSection.style.display = 'block';
+                    bindEventData(data, container).then(() => {
+                        resolve();
+                    }).catch((error) => {
+                        console.error('Error binding event data:', error);
+                        reject(error);
+                    });
+
                     resolve();
                 } else if (data.Type === 'OUT_OF_OFFICE') {
                     if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
@@ -576,11 +727,11 @@ function getAppointmentStates() {
         fetch('api/get_appointment_states/')
             .then(response => response.json())
             .then(states => {
-                resolve(states); 
+                resolve(states);
             })
             .catch(error => {
                 console.error('Error fetching appointment states:', error);
-                reject(error); 
+                reject(error);
             });
     });
 }
@@ -594,11 +745,11 @@ function getEventData(eventId) {
         })
             .then(response => response.json())
             .then(data => {
-                resolve(data); 
+                resolve(data);
             })
             .catch(error => {
                 console.error('Error fetching event data:', error);
-                reject(error); 
+                reject(error);
             });
     });
 }

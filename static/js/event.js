@@ -1,6 +1,173 @@
 let eventLocationSearch;
 let eventTeamMemberSearch;  
-function createEvent(selectedLocation , selectedTeamMember, scheduler) {
+function createEvent(selectedLocation, selectedTeamMember, scheduler) {
+    return new Promise((resolve, reject) => {
+        
+        const validationResult = validateEventData(selectedLocation, selectedTeamMember);
+
+        // If all validations pass, proceed with creating the event
+        if (validationResult.isValid) {
+            const eventData = {
+                eventType: 'EVENT',
+                Subject: validationResult.eventName,
+                StartTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.startTime}`) : new Date(`${validationResult.allDayStartDate}T00:00:00`),
+                EndTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.endTime}`) : new Date(`${validationResult.allDayEndDate}T23:59:59`),
+                IsAllDay: validationResult.isAllDay,
+                Location: selectedLocation,
+                TeamMember: selectedTeamMember
+            };
+
+            // Handle recurring events
+            if (document.getElementById('recurring').checked) {
+                const recurringData = getRecurringValues(validationResult.startDate);
+                if (!recurringData.isValid) {
+                    showError('recurring-error', recurringData.error);
+                    reject(new Error(recurringData.error));
+                    return;
+                }
+
+                // Convert recurring data to RRULE format
+                const rrule = constructRRule(recurringData.data, eventData.StartTime);
+                if (rrule) {
+                    eventData.RecurrenceRule = rrule;
+                }
+            }
+
+            const args = {
+                requestType: 'eventCreate',
+                data: eventData
+            };
+            scheduler.actionBegin(args);
+            resolve();
+        } else {
+            reject(new Error('Validation failed'));
+        }
+    });
+}
+
+function updateEvent(selectedLocation, selectedTeamMember, scheduler) {
+    return new Promise((resolve, reject) => {
+        const validationResult = validateEventData(selectedLocation, selectedTeamMember);
+        if (validationResult.isValid) {
+            const eventData = {
+                eventId: document.getElementById('event-id').value,
+                eventType: 'EVENT',
+                Subject: validationResult.eventName,
+                StartTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.startTime}`) : new Date(`${validationResult.allDayStartDate}T00:00:00`),
+                EndTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.endTime}`) : new Date(`${validationResult.allDayEndDate}T23:59:59`),
+                IsAllDay: validationResult.isAllDay,
+                Location: selectedLocation,
+                TeamMember: selectedTeamMember
+            };
+
+            // Handle recurring events
+            const isRecurring = document.getElementById('is-recurring').value;
+            if (isRecurring === 'true') {
+                const appointmentModal = new AppointmentModal();
+                appointmentModal.show({
+                    title: 'Edit event?',
+                    message: 'This event is part of a series. What would you like to edit?',
+                    options: [
+                        { value: 'single', text: 'This event only' },
+                        { value: 'series', text: 'This and all future events' }
+                    ],
+                    onSave: (selectedValue) => {
+                        // Handle the save action
+                        if (selectedValue === 'single') {
+                            eventData.editType = 'occurrence';
+
+                        } else {
+                            eventData.editType = 'series';
+                            // Handle recurring events
+                            if (document.getElementById('recurring').checked) {
+                                const recurringData = getRecurringValues(validationResult.startDate);
+                                if (!recurringData.isValid) {
+                                    showError('recurring-error', recurringData.error);
+                                    reject(new Error(recurringData.error));
+                                    return;
+                                }
+
+                                // Convert recurring data to RRULE format
+                                const rrule = constructRRule(recurringData.data, eventData.StartTime);
+                                if (rrule) {
+                                    eventData.RecurrenceRule = rrule;
+                                }
+                            }
+                        }
+
+                        const args = {
+                            requestType: 'eventChange',
+                            data: eventData
+                        };
+                        scheduler.actionBegin(args);
+                        resolve(eventData);
+                    }
+                });
+            } else {
+                eventData.editType = 'single';
+                const args = {
+                    requestType: 'eventChange',
+                    data: eventData
+                };
+                scheduler.actionBegin(args);
+                resolve(eventData);
+            }
+        }
+        else {
+            reject(new Error('Validation failed'));
+        }
+    });
+}
+
+function deleteEvent(scheduler) {
+    return new Promise((resolve, reject) => {
+        const eventId = document.getElementById('event-id').value;
+        const isRecurring = document.getElementById('is-recurring').value;
+        let eventData = {};
+
+        if (isRecurring === 'true') {
+            const appointmentModal = new AppointmentModal();
+            appointmentModal.show({
+                title: 'Delete event?',
+                message: 'This event is part of a series. What would you like to delete?',
+                options: [
+                    { value: 'single', text: 'This event only' },
+                    { value: 'series', text: 'This and all future events' },
+                    { value: 'all', text: 'All of the series, including past events' }
+                ],
+                onSave: (selectedValue) => {
+                    if (selectedValue === 'single') {
+                        eventData.editType = 'occurrence';
+                    } else if (selectedValue === 'series') {
+                        eventData.editType = 'series';
+                    } else {
+                        eventData.editType = 'all';
+                    }
+
+                    eventData.Id = eventId;
+                    const args = {
+                        requestType: 'eventRemove',
+                        data: eventData
+                    };
+                    scheduler.actionBegin(args);
+                    resolve();
+                }
+            });
+        } else {
+            eventData.editType = 'single';
+            eventData.Id = eventId;
+            const args = {
+                requestType: 'eventRemove',
+                data: eventData
+            };
+            scheduler.actionBegin(args);
+            resolve();
+        }
+    });
+}
+
+function validateEventData(selectedLocation, selectedTeamMember) {
+
     // Get all the necessary values
     const eventName = document.getElementById('event-name').value;
     const startDate = document.getElementById('event-startDate').value;
@@ -44,8 +211,7 @@ function createEvent(selectedLocation , selectedTeamMember, scheduler) {
                 isValid = false;
             }
         }
-    }
-    else {
+    } else {
         if (!allDayStartDate || !allDayEndDate) {
             showError('event-allDayStartDate-error', 'Please select a date range');
             isValid = false;
@@ -56,39 +222,7 @@ function createEvent(selectedLocation , selectedTeamMember, scheduler) {
         }
     }
 
-    // If all validations pass, proceed with creating the event
-    if (isValid) {
-        const eventData = {
-            eventType: 'EVENT',
-            Subject: eventName,
-            StartTime: !isAllDay ? new Date(`${startDate}T${startTime}`) : new Date(`${allDayStartDate}T00:00:00`),
-            EndTime: !isAllDay ? new Date(`${startDate}T${endTime}`) : new Date(`${allDayEndDate}T23:59:59`),
-            IsAllDay: isAllDay,
-            Location: selectedLocation,
-            TeamMember: selectedTeamMember
-        };
-
-        // Handle recurring events
-        if (document.getElementById('recurring').checked) {
-            const recurringData = getRecurringValues(startDate);
-            if (!recurringData.isValid) {
-                showError('recurring-error', recurringData.error);
-                return;
-            }
-
-            // Convert recurring data to RRULE format
-            const rrule = constructRRule(recurringData.data, eventData.StartTime);
-            if (rrule) {
-                eventData.RecurrenceRule = rrule;
-            }
-        }
-
-        const args = {
-            requestType: 'eventCreate',
-            data: eventData
-        };
-        scheduler.actionBegin(args);
-    }
+    return {isValid, eventName, startDate, startTime, endTime, isAllDay, allDayStartDate, allDayEndDate};
 }
 
 function initializeEventDateTimePicker(dateData) {
@@ -117,6 +251,7 @@ function initializeEventDateTimePicker(dateData) {
 
         // Regular view time changes
         elements.startTimeInput?.addEventListener('change', () => {
+            elements.endTimeInput.value = updateEndTimeBasedOnDuration(elements.dateInput, elements.startTimeInput, elements.durationInput);
             calculateDuration(elements.startTimeInput, elements.endTimeInput, elements.durationInput);
         });
         elements.endTimeInput?.addEventListener('change', () => {
@@ -131,7 +266,6 @@ function initializeEventDateTimePicker(dateData) {
             calculateNumberOfDays(elements.allDayStartDate, elements.allDayEndDate, elements.numberOfDays);
         });
     }
-
     // Initialize with data
     function initializeWithData() {
         try {
@@ -226,4 +360,34 @@ function reInitializeEventComponents(dateData) {
         initializeEventTeamMemberDropdown(eventTeamMemberSearch.items);
     }
     initializeEventDateTimePicker(dateData);
+}
+
+
+function bindEventData(data, container) {
+    return new Promise((resolve, reject) => {
+        const recurringSummary = container.querySelector('.recurring-summary');
+        const isRecurring = container.querySelector('#is-recurring');
+
+        try {
+            if (data.TeamMember && eventTeamMemberSearch) {
+                eventTeamMemberSearch.selectItemById(data.TeamMember);
+            }
+            if (data.Location && eventLocationSearch) {
+                eventLocationSearch.selectItemById(data.Location);
+            }
+            if (data.IsRecurring) {
+                isRecurring.value = true;
+                if (recurringSummary) {
+                    recurringSummary.style.display = 'block';
+                    window.recurringSummary.setDocumentElement(container);
+                    window.recurringSummary.show(data.RecurrenceRuleString);
+                }
+            }
+
+            resolve();
+        } catch (error) {
+            console.error('Error binding event data:', error);
+            reject(error);
+        }
+    });
 }
