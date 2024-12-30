@@ -23,7 +23,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+    'crispy_forms',
+    'crispy_tailwind',
+    'tinymce',
     
     # Local apps
     'apps.accounts',
@@ -42,7 +44,17 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+TINYMCE_DEFAULT_CONFIG = {
+    'height': 200,
+    'menubar': False,
+    'toolbar': 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist',
+    'plugins': 'lists',
+}
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' 
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+CRISPY_TEMPLATE_PACK = "tailwind"
 
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
