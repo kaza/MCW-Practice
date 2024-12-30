@@ -32,24 +32,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-# Whitenoise settings for production
-WHITENOISE_COMPRESSION_ENABLED = True
-WHITENOISE_BROTLI_ENABLED = True
-WHITENOISE_USE_FINDERS = False
-WHITENOISE_MANIFEST_STRICT = False
-
-# Session and cache settings for production
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'TIMEOUT': 300,
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000
-        }
-    }
-}
-
 # Replace CORS_ALLOW_ALL_ORIGINS with specific origins
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
