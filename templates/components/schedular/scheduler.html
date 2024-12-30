@@ -5,8 +5,8 @@
 </div>
 
 {% block content %}
-{% include 'components/scheduler-editor.html' %}
-{% include 'components/appointment-modal.html' %}
+{% include 'components/schedular/scheduler-editor.html' %}
+{% include 'components/schedular/appointment-modal.html' %}
 {% endblock %}
 
 <script src="{% static 'js/recurring-control.js' %}"></script>
@@ -338,6 +338,7 @@
                     outOfOfficeSection.style.display = 'none';
                     recurringSection.style.display = 'block';
                     servicesSection.style.display = 'none';
+
 
                     reInitializeEventComponents(dateData);
                     reInitializeRecurringControl(dateData.StartTime);

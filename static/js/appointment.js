@@ -368,8 +368,10 @@ function updateOptionStyle(select) {
     // Style only the selected option
     select.style.color = colors.color;
     select.style.backgroundColor = colors.background;
-    selectedOption.style.color = colors.color;
-    selectedOption.style.backgroundColor = colors.background;
+    if (selectedOption) {
+        selectedOption.style.color = colors.color;
+        selectedOption.style.backgroundColor = colors.background;
+    }
 }
 
 
@@ -588,6 +590,7 @@ function loadEventData(eventId, container) {
                 const recurringSection = container.querySelector('#recurring-section');
                 const recurringSummary = container.querySelector('.recurring-summary');
                 const isRecurring = container.querySelector('#is-recurring');
+                const lastEventsSection = container.querySelector('.last-events-section');
 
                 // Hide all sections first
                 if (appointmentSection) appointmentSection.style.display = 'none';
@@ -595,24 +598,17 @@ function loadEventData(eventId, container) {
                 if (outOfOfficeSection) outOfOfficeSection.style.display = 'none';
                 if (deleteButton) deleteButton.style.display = 'block';
                 if (recurringSection) recurringSection.style.display = 'none';
+                if (lastEventsSection) lastEventsSection.style.display = 'none';
 
                 // Show relevant section and bind data
                 if (data.Type === 'APPOINTMENT') {
                     if (appointmentSection) {
                         appointmentSection.style.display = 'block';
+                        if (lastEventsSection) lastEventsSection.style.display = 'flex';
 
                         // Show client details if client exists
                         if (data.Client) {
                             updateClientDetails(data.Client);
-                        }
-
-                        // Initialize and set appointment state
-                        if (data.Status) {
-                            const stateSelect = document.getElementById('appointment-state');
-                            if (stateSelect) {
-                                stateSelect.value = data.Status.id;
-                                updateOptionStyle(stateSelect);
-                            }
                         }
 
                         // Fetch appointment states after loading event data
@@ -625,6 +621,14 @@ function loadEventData(eventId, container) {
                                 }
                             })
                             .then(() => {
+                                // Initialize and set appointment state
+                                if (data.Status) {
+                                    const stateSelect = document.getElementById('appointment-state');
+                                    if (stateSelect) {
+                                        stateSelect.value = data.Status.id;
+                                        updateOptionStyle(stateSelect);
+                                    }
+                                }
                                 // Fetch clinicians and initialize dropdown
                                 if (data.Clinician) {
                                     return getClientClinicians(data.Client.id)
@@ -671,20 +675,24 @@ function loadEventData(eventId, container) {
 
                                                 buildSelectedServices(data.services);
 
+                                                BindNotes(data.last_events, container);
+
                                                 const appointmentTotal = document.getElementById('appointment-total');
                                                 if (appointmentTotal) {
                                                     document.getElementById('appointment-total').setAttribute('data-amount', '$' + data.AppointmentTotal.toFixed(2));
                                                 }
                                             }
-                                            resolve(); 
+
+                                            resolve();
                                         });
                                 }
-                                resolve(); 
+                                resolve();
                             });
                     }
                     resolve();
                 } else if (data.Type === 'EVENT') {
                     if (eventSection) eventSection.style.display = 'block';
+                    if (lastEventsSection) lastEventsSection.style.display = 'none';
                     bindEventData(data, container).then(() => {
                         resolve();
                     }).catch((error) => {
@@ -695,6 +703,7 @@ function loadEventData(eventId, container) {
                     resolve();
                 } else if (data.Type === 'OUT_OF_OFFICE') {
                     if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
+                    if (lastEventsSection) lastEventsSection.style.display = 'none';
                     bindOutOffOfficeData(data, container).then(() => {
                         resolve();
                     }).catch((error) => {
@@ -759,5 +768,25 @@ function getEventData(eventId) {
                 reject(error);
             });
     });
+}
+
+function BindNotes(lastEvents, container) {
+    const lastEventsSection = container.querySelector('.last-events-list');
+    if (lastEventsSection) {
+        lastEventsSection.innerHTML = ''; 
+        lastEvents.forEach(event => {
+            const eventItem = document.createElement('span');
+            eventItem.className = 'last-event-item';
+            eventItem.textContent = event.date; 
+            eventItem.setAttribute('data-id', event.id);
+            lastEventsSection.appendChild(eventItem);
+            lastEventsSection.appendChild(document.createTextNode(' | ')); 
+        });
+        // Remove the last separator
+        if (lastEventsSection.lastChild) {
+            lastEventsSection.removeChild(lastEventsSection.lastChild);
+        }
+    }
+
 }
 

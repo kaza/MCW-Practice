@@ -13,7 +13,8 @@ from django.contrib.auth.models import User
 import threading
 from django.db import transaction
 from django.db.models import QuerySet
-
+from django.db.models import F
+from django.db.models.functions import ExtractYear, ExtractMonth, ExtractDay
 from apps.clinician_dashboard.models import AppointmentState, Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
 from apps.accounts.models import Login  
 
@@ -116,6 +117,21 @@ class SchedulerDataService:
                         'id': event.status.id,
                         'name': event.status.name,
                     }
+
+                # Fetch last 2 events for the same clinician and patient
+                last_events = Event.objects.filter(
+                clinician=event.clinician,
+                patient=event.patient,
+                start_datetime__lt=event.start_datetime 
+                ).exclude(id=event_id).order_by('-start_datetime')[:2] 
+
+                event_data['last_events'] = [
+                    {
+                        'id': event.id, 
+                        'date': event.start_datetime.date().strftime('%m/%d/%Y')
+                    } 
+                    for event in last_events
+                ]
 
             return event_data
         except Event.DoesNotExist:
