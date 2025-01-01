@@ -1,41 +1,27 @@
+import json
+from django.views import View
+from django.views.generic import TemplateView
+from django.http import JsonResponse
+from django.shortcuts import render
+from apps.shared.services.event_notes_service import EventNotesService
 
-
-
-from django.urls import reverse_lazy
-from apps.admin_dashboard.forms import DynamicNoteForm
-from apps.clinician_dashboard.models import EventNote, NoteTemplate
-from django.views.generic.edit import FormView
-from django.contrib import messages
-
-
-
-class NoteFormView(FormView):
-    template_name = 'admin_dashboard/components/event_notes_form.html'
-    form_class = DynamicNoteForm
+class NoteFormView(TemplateView):
+    template_name = 'components/event_notes.html'
     
-    def get_success_url(self):
-        return reverse_lazy('event_detail', kwargs={'pk': self.kwargs['event_id']})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        event_id = kwargs.get('event_id')
+        context['event_id'] = event_id
+        return context
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        template = NoteTemplate.objects.get(id=self.kwargs['template_id'])
-        kwargs['template_data'] = template.template_data
-        return kwargs
+class GetEventNotesDataView(View):
+    def get(self, request, event_id):
+        data = EventNotesService.get_event_details(event_id)
+        return render(request, 'admin_dashboard/event_notes.html', {'note': data}) 
 
-    def form_valid(self, form):
-        # Process and save the form data
-        note_data = {
-            key.replace('question_', ''): value 
-            for key, value in form.cleaned_data.items()
-        }
-        
-        EventNote.objects.create(
-            event_id=self.kwargs['event_id'],
-            template_id=self.kwargs['template_id'],
-            note_data=note_data,
-            created_by=self.request.user
-        )
-        
-        messages.success(self.request, 'Note saved successfully!')
-        return super().form_valid(form)
-
+class SaveEventNoteView(View):
+    def post(self, request, event_id):
+        data = json.loads(request.body)
+        clinician_id = request.user.id  
+        result = EventNotesService.save_event_note(event_id, data, clinician_id)
+        return JsonResponse(result)

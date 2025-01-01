@@ -1,4 +1,3 @@
-
 from django.views import View
 from django.http import JsonResponse
 from apps.shared.services.scheduler_service import SchedulerDataService
@@ -67,6 +66,11 @@ class GetClinicianServicesView(View):
 class GetEventDataView(View):
     def get(self, request, event_id):
         event_data = SchedulerDataService.get_event_data(event_id)
+        
+        # Add user type to the response
+        user_type = request.user.user_type if request.user.is_authenticated else ''
+        event_data['userType'] = user_type 
+        
         return JsonResponse(event_data, safe=False)
             
 class GetAppointmentStatesView(View):

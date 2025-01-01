@@ -1,0 +1,32 @@
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/event_notes.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/event_notes/details_panel.js' %}"></script>
+<script src="{% static 'js/recurring-summary.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    {% include 'components/event_notes/header.html' %}
+    
+    <div class="content-wrapper">
+        <div class="notes-section">
+            <div class="notes-container">
+                <div class="progress-note-card">
+                    <!-- {% include 'components/event_notes/notes_section.html' %} -->
+                </div>
+                <div class="psychotherapy-note">
+                   
+                </div>
+            </div>
+        </div>
+        <div class="details-panel">
+            {% include 'components/event_notes/details_panel.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}

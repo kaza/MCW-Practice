@@ -41,6 +41,11 @@ class RecurringSummary {
         };
     }
 
+    hideEditButton() {
+        if (!this.editButton) return;
+        this.editButton.style.display = 'none';
+    }
+
     formatRecurrenceRule(rrule) {
         const parts = rrule.split(';');
 
