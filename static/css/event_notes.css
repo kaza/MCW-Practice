@@ -56,8 +56,9 @@
 .template-select {
     border: 1px solid #e5e7eb;
     border-radius: 4px;
-    padding: 8px;
+    padding: 5px;
     width: 300px;
+    height: 40px;
 }
 
 .load-last-note {
@@ -388,4 +389,12 @@
 span.badge.show{
     color: #0a6038;
     background-color: #e7f9f1;
+}
+
+.field-question{
+    font-size: .875rem;
+    color: #333;
+    font-weight: 400;
+    margin-bottom: 4px;
+    width: auto;
 }

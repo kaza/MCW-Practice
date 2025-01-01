@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 from django.db.models import Q
 import json 
+from django.http import JsonResponse
 
 from apps.clinician_dashboard.models import Event, EventNote, EventType, NoteTemplate, EventService, Patient, Clinician, Location, AppointmentState
 from apps.shared.services.scheduler_service import SchedulerDataService
@@ -49,9 +50,18 @@ class EventNotesService:
         templates = NoteTemplate.objects.filter(
             is_active=True,
             type_id=type_id
-        ).values('id', 'name', 'template_data')
+        ).values('id', 'name')
         
         return list(templates)
+
+    @classmethod
+    def get_note_template_data(cls, template_id: int) -> Dict[str, Any]:
+        """Get note template data as JSON"""
+        try:
+            template = NoteTemplate.objects.get(id=template_id)
+            return template.template_data
+        except NoteTemplate.DoesNotExist:
+            return {'error': 'Template not found'} 
     
     @classmethod
     def get_event_notes(cls, event_id: int) -> List[Dict[str, Any]]:
@@ -165,4 +175,52 @@ class EventNotesService:
         ).count()
         
         return future_appointments_count
+        
+    @classmethod
+    def save_note_template(cls, template_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Save a new note template or update existing one
+        
+        Args:
+            template_data: Dictionary containing:
+                - name: Template name
+                - type_id: Template type ID
+                - template_data: JSON structure of the template
+                - id: Optional - If updating existing template
+        """
+        try:
+            template_id = template_data.get('id')
+            
+            if template_id:
+                # Update existing template
+                template = NoteTemplate.objects.get(id=template_id)
+                template.name = template_data['name']
+                template.template_data = template_data['template_data']
+                template.type_id = template_data['type_id']
+                template.save()
+            else:
+                # Create new template
+                template = NoteTemplate.objects.create(
+                    name=template_data['name'],
+                    template_data=template_data['template_data'],
+                    type_id=template_data['type_id'],
+                    is_active=True
+                )
+            
+            return {
+                'success': True,
+                'template_id': template.id,
+                'message': 'Template saved successfully'
+            }
+            
+        except NoteTemplate.DoesNotExist:
+            return {
+                'success': False,
+                'error': 'Template not found'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error saving template: {str(e)}'
+            }
         

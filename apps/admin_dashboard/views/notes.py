@@ -18,6 +18,11 @@ class GetEventNotesDataView(View):
     def get(self, request, event_id):
         data = EventNotesService.get_event_details(event_id)
         return render(request, 'admin_dashboard/event_notes.html', {'note': data}) 
+    
+class GetNoteTemplateDataView(View):
+    def get(self, request, event_id, template_id):
+        data = EventNotesService.get_note_template_data(template_id)
+        return JsonResponse({'template_data': data}, safe=False)
 
 class SaveEventNoteView(View):
     def post(self, request, event_id):

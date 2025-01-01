@@ -1,114 +1,64 @@
-class NotesSection {
-    constructor(eventId) {
-        this.eventId = eventId;
-        this.currentTemplate = null;
-        this.init();
-    }
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('templateSelect').addEventListener('change', function () {
+        getNoteTemplateData(this.value);
+    });
+});
 
-    async init() {
-        await this.loadEventData();
-        this.loadNoteTemplates();
-        this.bindEvents();
-    }
+function getNoteTemplateData(templateId) {
+    showSpinner();
+    tinymce.remove();
+    fetch(`api/notes/${templateId}/`)
+        .then(response => response.json())
+        .then(data => {
 
-    async loadEventData() {
-        try {
-            const response = await fetch(`/admin/api/notes/${this.eventId}/`);
-            const data = await response.json();
-            this.eventData = data;
-            this.updateUI(data);
-        } catch (error) {
-            console.error('Error loading event data:', error);
-        }
-    }
+            const formContainer = document.getElementById('dynamicFormFields');
+            formContainer.innerHTML = '';
 
-    async saveNote() {
-        const noteData = {
-            template_id: this.currentTemplate.id,
-            note_data: {
-                content: document.getElementById('note-content').innerHTML
+            // Build form based on the selected template data
+            if (data) {
+                data.template_data.forEach((field, index) => {
+                    if (field.questionType === "FREE_TEXT") {
+                        // Create rich text editor section
+                        const section = document.createElement('div');
+                        section.className = 'mb-4';
+                        const editorId = `editor_${field.id}_${index}`;
+                        section.innerHTML = `
+                            <div class="field-question">${field.question}</div>
+                            <textarea id="${editorId}" name="field_${field.id}"></textarea>
+                        `;
+                        formContainer.appendChild(section);
+                        initializeTinyMCE(`#${editorId}`);
+                    } else if (field.questionType === "TEXT_FIELDS" && field.intakeAnswers.length > 0) {
+                        // Create multiple text field section
+                        const section = document.createElement('div');
+                        section.className = 'mb-4';
+                        section.innerHTML = `
+                        <div class="field-question">${field.question}</div>
+                        ${field.intakeAnswers.map(answer => `
+                            <div class="mb-3">
+                                <label class="field-question">${answer.text}</label>
+                                <input type="text" name="field_${field.id}_${answer.id}" 
+                                       class="w-full border rounded p-2">
+                            </div>
+                        `).join('')}
+                    `;
+                        formContainer.appendChild(section);
+                    }
+                });
             }
-        };
+        })
+        .catch(error => console.error('Error:', error))
+        .finally(() => hideSpinner());
+}
 
-        try {
-            const response = await fetch(`/admin/api/notes/${this.eventId}/save/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': this.getCsrfToken()
-                },
-                body: JSON.stringify(noteData)
-            });
-
-            const result = await response.json();
-            if (result.error) {
-                console.error('Error saving note:', result.error);
-            } else {
-                // Refresh the notes list
-                this.loadEventData();
-            }
-        } catch (error) {
-            console.error('Error saving note:', error);
-        }
-    }
-
-    getCsrfToken() {
-        return document.querySelector('[name=csrfmiddlewaretoken]').value;
-    }
-
-    async loadNoteTemplates() {
-        try {
-            const response = await fetch('/api/note-templates/?type=1');
-            const templates = await response.json();
-            this.populateTemplateDropdown(templates);
-        } catch (error) {
-            console.error('Error loading note templates:', error);
-        }
-    }
-
-    populateTemplateDropdown(templates) {
-        const dropdown = document.getElementById('note-template-select');
-        if (!dropdown) return;
-
-        templates.forEach(template => {
-            const option = document.createElement('option');
-            option.value = template.id;
-            option.textContent = template.name;
-            dropdown.appendChild(option);
-        });
-    }
-
-    bindEvents() {
-        const templateSelect = document.getElementById('note-template-select');
-        const saveButton = document.getElementById('save-note-btn');
-
-        if (templateSelect) {
-            templateSelect.addEventListener('change', (e) => this.handleTemplateChange(e));
-        }
-
-        if (saveButton) {
-            saveButton.addEventListener('click', () => this.saveNote());
-        }
-    }
-
-    async handleTemplateChange(event) {
-        const templateId = event.target.value;
-        if (!templateId) return;
-
-        try {
-            const response = await fetch(`/api/note-templates/${templateId}/`);
-            const template = await response.json();
-            this.renderTemplateForm(template);
-        } catch (error) {
-            console.error('Error loading template:', error);
-        }
-    }
-
-    renderTemplateForm(template) {
-        this.currentTemplate = template;
-    }
-
-    updateUI(data) {
-
-    }
+function initializeTinyMCE(selector) {
+    tinymce.init({
+        selector: selector,
+        height: 180,
+        menubar: false,
+        toolbar: 'undo redo | formatselect | ' +
+            'bold italic backcolor | alignleft aligncenter ' +
+            'alignright alignjustify | bullist numlist outdent indent | ' +
+            'removeformat | help'
+    });
 }
