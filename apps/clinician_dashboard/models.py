@@ -279,3 +279,50 @@ class PatientDefaultService(models.Model):
             models.Index(fields=['patient']),
             models.Index(fields=['service']),
         ]
+
+class NoteTemplateType(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(null=True, blank=True)
+    sort_order = models.IntegerField(default=0) 
+
+    class Meta:
+        db_table = 'Note_template_type'
+
+    def __str__(self):
+        return self.name
+
+class NoteTemplate(models.Model):
+    name = models.CharField(max_length=255)
+    template_data = models.JSONField()  
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    type = models.ForeignKey(NoteTemplateType, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = 'NoteTemplate'
+        indexes = [
+            models.Index(fields=['is_active']),
+        ]
+
+    def __str__(self):
+        return self.name
+
+class EventNote(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='event_notes')
+    template = models.ForeignKey(NoteTemplate, on_delete=models.PROTECT)
+    note_data = models.JSONField()  
+    created_by = models.ForeignKey('Clinician', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'EventNote'
+        indexes = [
+            models.Index(fields=['event']),
+            models.Index(fields=['created_by']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f'Note for {self.event} - {self.created_at}'

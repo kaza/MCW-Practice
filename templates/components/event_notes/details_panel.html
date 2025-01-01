@@ -1,0 +1,122 @@
+<div class="details-panel">
+    <div class="tab-navigation">
+        <button class="tab-button active">Appointment Info</button>
+        <button class="tab-button">Treatment progress</button>
+    </div>
+
+    <div class="details-section">
+        <h3>Details</h3>
+        <div class="detail-item">
+            <i class="far fa-calendar"></i>
+            {{ note.start_date|date:"F j, Y" }}
+            {% if note.status == 'Show' %}
+            <span class="badge show">Show</span>
+            {% endif %}
+
+        </div>
+        <div class="detail-item">
+            <i class="far fa-clock"></i>
+            {{ note.start_date|date:"h:i A" }} - {{ note.end_date|date:"h:i A" }}
+        </div>
+        <div class="detail-item">
+            <i class="far fa-user"></i>
+            {{ note.clinician_name }}
+        </div>
+        <div class="detail-item location">
+            <i class="fas fa-map-marker-alt"></i>
+            {{ note.location }}
+        </div>
+
+        <div class="detail-item" id="recurring-summary" style="display: none;">
+            {% include 'components/schedular/recurring-summary.html'%}
+        </div>
+
+        <div class="calendar-info">
+            <!-- <a href="#" class="calendar-link">
+                <i class="far fa-calendar"></i>
+                Open in calendar
+            </a> -->
+        </div>
+
+        <div class="services-section">
+            <h3>Services</h3>
+            <div class="services-list">
+            </div>
+
+        </div>
+
+        <div class="billing-section">
+            <h3>Billing</h3>
+            <div class="price-info">
+                <span>Appointment total</span>
+                <span>{{ note.appointment_total }}</span>
+            </div>
+        </div>
+
+        <!-- templates/components/event_notes/appointment_nav.html -->
+        <div class="appointment-nav">
+            <div class="billing-link">
+                <!-- <a href="#" class="open-billing">
+                    <i class="far fa-file-alt"></i>
+                    Open billing
+                </a> -->
+            </div>
+
+            {% if note.appointments_left > 2 %}
+            <div class="appointments-header">
+                <span class="title">Appointments</span>
+                <span class="count"> ({{note.appointments_left}} appointments left)</span>
+            </div>
+            {% endif %}
+
+            <div class="appointment-navigation">
+                {% if note.previous_appointment.is_previous %}
+                <div class="nav-item">
+                    <div class="label">Previous
+                        {% if note.next_appointment.status == 'Show' %}
+                        <span class="badge show">Show</span>
+                        {% endif %}
+                    </div>
+                    <div class="date">{{note.previous_appointment.start_date|date:"F j, Y"}}</div>
+                    <div class="time">{{note.previous_appointment.start_date|date:"h:i A"}} - {{note.previous_appointment.end_date|date:"h:i A"}}</div>
+                </div>
+                {% else %}
+                <div class="nav-item" style="background-color: #f8f9fa; align-content: center;">
+                    <div class="message label">No previous appointments</div>
+                </div>
+                {% endif %}
+
+
+                {% if note.next_appointment.is_next %}
+                <div class="nav-item">
+                    <div class="label">Next
+                        {% if note.next_appointment.status == 'Show' %}
+                        <span class="badge show">Show</span>
+                        {% endif %}
+                    </div>
+                    <div class="date">{{note.next_appointment.start_date|date:"F j, Y"}}
+                    </div>
+                    <div class="time">{{note.next_appointment.start_date|date:"h:i A"}} -
+                        {{note.next_appointment.end_date|date:"h:i A"}}</div>
+                </div>
+                {% else %}
+                <div class="nav-item" style="background-color: #f8f9fa; align-content: center;">
+                    <div class="message label">No more appointments scheduled</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const noteData = {
+            is_recurring: '{{note.is_recurring}}',
+            recurring_string: '{{note.recurring_string}}',
+            event_services: JSON.parse('{{note.event_services | safe}}')
+        }
+        const container = document.querySelector('.details-panel');
+        bindRecurringSummary(noteData, container);
+        bindEventServices(noteData.event_services);
+    });
+</script>

@@ -582,6 +582,9 @@ function loadEventData(eventId, container) {
         // Fetch event data first
         getEventData(eventId)
             .then(data => {
+
+                const userType = data.userType; 
+
                 // Show appropriate section based on event type
                 const appointmentSection = container.querySelector('.appointment-section');
                 const eventSection = container.querySelector('.event-section');
@@ -675,7 +678,7 @@ function loadEventData(eventId, container) {
 
                                                 buildSelectedServices(data.services);
 
-                                                BindNotes(data.last_events, container);
+                                                BindNotes(data.last_events, container, userType);
 
                                                 const appointmentTotal = document.getElementById('appointment-total');
                                                 if (appointmentTotal) {
@@ -770,23 +773,48 @@ function getEventData(eventId) {
     });
 }
 
-function BindNotes(lastEvents, container) {
+function BindNotes(lastEvents, container, userType) {
     const lastEventsSection = container.querySelector('.last-events-list');
     if (lastEventsSection) {
-        lastEventsSection.innerHTML = ''; 
+        lastEventsSection.innerHTML = '';
+
+        // Sort lastEvents by event.id in ascending order
+        lastEvents.sort((a, b) => a.id - b.id);
+
         lastEvents.forEach(event => {
             const eventItem = document.createElement('span');
             eventItem.className = 'last-event-item';
             eventItem.textContent = event.date; 
             eventItem.setAttribute('data-id', event.id);
+            
+            // Determine the URL based on user type
+            let noteUrl;
+            if (userType === 'ADMIN') {
+                noteUrl = `/admin-dashboard/notes/${event.id}/`; 
+            } else if (userType === 'CLINICIAN') {
+                noteUrl = `/clinician-dashboard/notes/${event.id}/`; 
+            } else {
+                noteUrl = '#'; 
+            }
+
+            // Add click handler for the event item
+            eventItem.addEventListener('click', () => {
+                if (noteUrl !== '#') {
+                    window.location.href = noteUrl; 
+                }
+            });
+            eventItem.style.cursor = 'pointer'; 
+            
             lastEventsSection.appendChild(eventItem);
             lastEventsSection.appendChild(document.createTextNode(' | ')); 
         });
+        
         // Remove the last separator
         if (lastEventsSection.lastChild) {
             lastEventsSection.removeChild(lastEventsSection.lastChild);
         }
     }
-
 }
+
+
 

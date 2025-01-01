@@ -1,0 +1,391 @@
+/* Header Styles */
+.client-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.client-name {
+    color: #0d6efd;
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.client-email {
+    color: #6c757d;
+    font-size: 14px;
+    margin-top: 2px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.action-buttons button {
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.action-buttons .btn-diagnosis {
+    background-color: #0d6efd;
+    color: white;
+}
+
+/* Notes Section Styles */
+
+.progress-note-header {
+    font-size: 18px;
+    font-weight: 500;
+    color: #212529;
+    margin-bottom: 15px;
+}
+
+.note-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.template-select {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 8px;
+    width: 300px;
+}
+
+.load-last-note {
+    color: #6c757d;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-toolbar {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    background-color: #fff;
+    margin-bottom: 10px;
+}
+
+.editor-toolbar button {
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    margin-right: 8px;
+    color: #495057;
+}
+
+.note-content {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    width: 100%;
+    min-height: 200px;
+    resize: vertical;
+}
+
+.btn-save {
+    background-color: #0d6efd;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 4px;
+    float: right;
+}
+
+/* Psychotherapy Note Section */
+.psychotherapy-note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.note-info {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.btn-add-note {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+/* Details Panel Styles */
+.details-panel {
+    flex: 0 0 30%;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-left: none;
+    border-top: none;
+    background-color: #fff;
+}
+
+.tab-navigation {
+    display: flex;
+    border-bottom: 1px solid #dee2e6;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    padding: 8px 16px;
+    color: #495057;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: .875rem;
+}
+
+.tab-button.active {
+    color: #0d6efd;
+    border-bottom: 2px solid #0d6efd;
+    font-size: .875rem;
+}
+
+.details-section h3 {
+    font-size: 16px;
+    font-weight: 500;
+    color: #212529;
+    margin-bottom: 12px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    color: #495057;
+    font-size: .875rem;
+}
+
+.detail-item i {
+    margin-right: 8px;
+    color: #6c757d;
+}
+
+.detail-item.location {
+    color: #0d6efd;
+}
+
+.services-section, .billing-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.price-info {
+    display: flex;
+    justify-content: space-between;
+    color: #495057;
+    font-size: .875rem;
+}
+
+.calendar-link {
+    color: #0d6efd;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+/* Utility Classes */
+.text-primary {
+    color: #0d6efd;
+}
+
+.text-secondary {
+    color: #6c757d;
+}
+
+.mt-2 {
+    margin-top: 8px;
+}
+
+.mb-2 {
+    margin-bottom: 8px;
+}
+
+.mb-4 {
+    margin-bottom: 16px;
+}
+
+
+.main-container {
+    max-width: 100%;
+    margin: 0 auto;
+    background-color: #fff;
+}
+
+.content-wrapper {
+    display: flex;
+    min-height: calc(100vh - 70px); 
+}
+
+/* Notes Section Styles */
+.notes-section {
+    flex: 0 0 70%; /* This makes it take exactly 70% width */
+    max-width: 70%;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    background-color: #fff;
+}
+
+.notes-container {
+    padding: 20px;
+    background-color: #fff;
+    height: 100%;
+}
+
+.progress-note-card {
+    border-radius: 4px;
+    margin-bottom: 20px;
+    background-color: #fff;
+}
+
+.psychotherapy-note {
+    background-color: #f8f9fa;
+    padding: 15px;
+    margin-top: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .content-wrapper {
+        flex-direction: column;
+    }
+    
+    .notes-section,
+    .details-panel {
+        flex: 0 0 100%;
+        max-width: 100%;
+        border-left: 1px solid #e5e7eb;
+    }
+    
+    .details-panel {
+        border-top: 1px solid #e5e7eb;
+    }
+}
+
+/* Add to your existing CSS file */
+
+.appointment-nav {
+    border-top: 1px solid #e5e7eb;
+    margin-top: 15px;
+}
+
+.billing-link {
+    margin-bottom: 15px;
+}
+
+.billing-link a {
+    color: #0d6efd;
+    text-decoration: none;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.billing-link i {
+    font-size: 14px;
+}
+
+.appointments-header {
+    margin-bottom: 12px;
+}
+
+.appointments-header .title {
+    font-size: 14px;
+    color: #212529;
+    font-weight: 500;
+}
+
+.appointments-header .count {
+    font-size: 14px;
+    color: #6c757d;
+    margin-left: 4px;
+}
+
+.appointment-navigation {
+    display: flex;
+    gap: 12px;
+}
+
+.nav-item {
+    flex: 1;
+    background-color: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 12px;
+    position: relative;
+}
+
+.nav-item .label {
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.nav-item .date {
+    font-size: 13px;
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.nav-item .time {
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 8px;
+}
+
+.nav-item .show-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: #198754;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.nav-item .show-btn:hover {
+    text-decoration: underline;
+}
+
+/* Add responsive styles */
+@media (max-width: 768px) {
+    .appointment-navigation {
+        flex-direction: column;
+    }
+    
+    .nav-item {
+        width: 100%;
+    }
+}
+
+.nav-item .message {
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: .688rem;
+    display: inline-flex;
+    padding: 0 8px;
+    border-radius: 32px;
+    font-weight: 600;
+    line-height: 16px;
+    white-space: nowrap;
+    color: #fff;
+}
+
+span.badge.show{
+    color: #0a6038;
+    background-color: #e7f9f1;
+}
