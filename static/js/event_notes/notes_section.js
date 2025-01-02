@@ -1,7 +1,12 @@
 document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('templateSelect').addEventListener('change', function () {
+    const templateSelect = document.getElementById('templateSelect');
+    templateSelect.addEventListener('change', function () {
         getNoteTemplateData(this.value);
     });
+    if (templateSelect.options.length > 0) {
+        templateSelect.selectedIndex = 0; 
+        getNoteTemplateData(templateSelect.value);
+    }
 });
 
 function getNoteTemplateData(templateId) {

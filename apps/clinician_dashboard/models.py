@@ -298,6 +298,7 @@ class NoteTemplate(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     type = models.ForeignKey(NoteTemplateType, on_delete=models.SET_NULL, null=True, blank=True)
+    sort_order = models.IntegerField(default=0) 
 
     class Meta:
         db_table = 'NoteTemplate'
