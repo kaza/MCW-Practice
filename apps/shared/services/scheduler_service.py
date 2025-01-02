@@ -517,7 +517,7 @@ class SchedulerDataService:
             raise ValidationError(f"Error processing event data: {str(e)}")
 
     @classmethod
-    def i_update_event_services(cls, event: 'Event', services: List[Dict[str, Any]]) -> None:
+    def update_event_services(cls, event: 'Event', services: List[Dict[str, Any]]) -> None:
         """Update event services efficiently"""
         with transaction.atomic():
             current_services = set(EventService.objects.filter(event=event).values_list('service_id', flat=True))
@@ -544,7 +544,7 @@ class SchedulerDataService:
         """Update appointment-specific fields"""
         event.appointment_total = event_data.get('AppointmentTotal')
         if event_data.get('Services'):
-            cls._update_event_services(event, event_data.get('Services'))
+            cls.update_event_services(event, event_data.get('Services'))
     
     @classmethod
     def _update_event_specific_fields(cls, event: 'Event', event_data: Dict[str, Any]) -> None:
