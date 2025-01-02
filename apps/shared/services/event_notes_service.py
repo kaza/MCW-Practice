@@ -11,6 +11,7 @@ class EventNotesService:
     def get_event_details(cls, event_id: int) -> Dict[str, Any]:
         """Get comprehensive event details including notes history"""
         try:
+            cls.save_note()
             event = Event.objects.select_related('clinician', 'location', 'status', 'patient').get(id=event_id)
             
             # Prepare the event details
@@ -224,3 +225,14 @@ class EventNotesService:
                 'error': f'Error saving template: {str(e)}'
             }
         
+
+    @classmethod
+    def save_note(cls):
+        template_data = {
+            'name': 'Discharge Summary Note',
+            'type_id': 1,
+            'template_data': [
+            
+            ]
+        }
+        cls.save_note_template(template_data)

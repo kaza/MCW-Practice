@@ -398,3 +398,45 @@ span.badge.show{
     margin-bottom: 4px;
     width: auto;
 }
+
+.radio-group, .checkbox-group {
+    padding: 8px 0;
+}
+
+.radio-group label, .checkbox-group label {
+    cursor: pointer;
+    font-size: .875rem;
+}
+
+input[type="radio"], input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.flex {
+    display: flex;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.text-gray-700 {
+    color: #374151;
+}
+
+.text-gray-900 {
+    color: #111827;
+}
+
+.text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+}
+
+.required-mark {
+    color: #dc3545;
+    margin-right: 4px;
+    font-weight: bold;
+}
