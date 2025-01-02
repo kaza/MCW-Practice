@@ -1,25 +1,21 @@
+{% load crispy_forms_tags %}
+
 <div class="notes-container">
     <h2 class="progress-note-header">Progress Note</h2>
     <div class="note-controls">
-        <select class="template-select">
-            <option>Simple Progress Note</option>
-            {% for template in note_templates %}
+        <select class="template-select" id="templateSelect">
+            <option value="0">Simple Progress Note</option>
+            {% for template in note.note_templates %}
                 <option value="{{ template.id }}">{{ template.name }}</option>
             {% endfor %}
         </select>
-        <button class="load-last-note">Load last note</button>
+        <!-- <button class="load-last-note">Load last note</button> -->
     </div>
-    <div class="editor-toolbar">
-        <button><i class="fas fa-bold"></i></button>
-        <button><i class="fas fa-italic"></i></button>
-        <button><i class="fas fa-strikethrough"></i></button>
-        <button><i class="fas fa-list-ul"></i></button>
-        <button><i class="fas fa-list-ol"></i></button>
-        <button><i class="fas fa-link"></i></button>
-        <button><i class="fas fa-undo"></i></button>
-        <button><i class="fas fa-redo"></i></button>
-        <button><i class="fas fa-image"></i></button>
-    </div>
-    <textarea class="note-content" placeholder="Begin typing here..."></textarea>
-    <button class="btn-save">Save</button>
+
+    <form id="noteForm" class="note-form">
+        <div id="dynamicFormFields">
+            <!-- Dynamic form fields will be inserted here -->
+        </div>
+        <button type="submit" class="btn-save">Save</button>
+    </form>
 </div>
