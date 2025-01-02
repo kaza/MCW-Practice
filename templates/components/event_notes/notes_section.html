@@ -4,7 +4,6 @@
     <h2 class="progress-note-header">Progress Note</h2>
     <div class="note-controls">
         <select class="template-select" id="templateSelect">
-            <option value="0">Simple Progress Note</option>
             {% for template in note.note_templates %}
                 <option value="{{ template.id }}">{{ template.name }}</option>
             {% endfor %}
