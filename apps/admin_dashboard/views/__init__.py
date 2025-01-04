@@ -1,6 +1,6 @@
 from .dashboard import DashboardView
 from .search import ClientSearchView, LocationSearchView, ClinicianSearchView
-from .notes import GetEventNotesDataView, SaveEventNoteView, GetNoteTemplateDataView
+from .notes import GetEventDetailsDataView, SaveEventNoteView, GetNoteTemplateDataView, GetEventNotesDataView
 from .appointment import (
     GetClientCliniciansView,
     GetClinicianServicesView,
@@ -18,7 +18,8 @@ __all__ = [
     'GetClinicianServicesView',
     'GetEventDataView',
     'GetAppointmentStatesView',
-    'GetEventNotesDataView',
+    'GetEventDetailsDataView',
     'SaveEventNoteView',
-    'GetNoteTemplateDataView'
+    'GetNoteTemplateDataView',
+    'GetEventNotesDataView'
 ]

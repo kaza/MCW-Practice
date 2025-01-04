@@ -1,13 +1,81 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const templateSelect = document.getElementById('templateSelect');
-    templateSelect.addEventListener('change', function () {
-        getNoteTemplateData(this.value);
-    });
-    if (templateSelect.options.length > 0) {
-        templateSelect.selectedIndex = 0; 
-        getNoteTemplateData(templateSelect.value);
-    }
+
+    getEventNotes().then(data => {
+        console.log(data);
+
+        const templateSelect = document.getElementById('templateSelect');
+        if (templateSelect) {
+            // Clear existing options
+            templateSelect.innerHTML = '';
+
+            // Populate the select options from the fetched data
+            data.note.templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = template.name;
+                templateSelect.appendChild(option);
+            });
+
+            const noteFormContainer = document.getElementById('note-template-container');
+            const noteHistoryContainer = document.getElementById('note-container');
+
+            // Check if note exists and set initial display
+            const note = data.note.notes;
+            if (note) {
+                noteFormContainer.style.display = 'none';
+                noteHistoryContainer.style.display = 'block';
+                showNotes(note);
+            } else {
+                noteFormContainer.style.display = 'block';
+                noteHistoryContainer.style.display = 'none';
+                // Load initial template if available
+                if (templateSelect.options.length > 0) {
+                    templateSelect.selectedIndex = 0;
+                    getNoteTemplateData(templateSelect.value);
+                }
+            }
+
+            // Template Select Change
+            templateSelect.addEventListener('change', function () {
+                getNoteTemplateData(this.value);
+            });
+
+            // Save Note Button
+            document.getElementById('saveNoteButton').addEventListener('click', function (e) {
+                e.preventDefault();
+                saveNote().then((note) => {
+                    noteFormContainer.style.display = 'none';
+                    noteHistoryContainer.style.display = 'block';
+                    showNotes(note);
+                });
+            });
+
+        }
+    })
+        .catch(error => {
+            console.error('Error fetching event notes:', error);
+        });
 });
+
+function getEventNotes() {
+    return new Promise((resolve, reject) => {
+        fetch(`api/notes/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(data);
+                resolve(data); // Resolve the promise with the fetched data
+            })
+            .catch(error => {
+                console.error('Error fetching event notes:', error);
+                reject(error); // Reject the promise with the error
+            });
+    });
+}
 
 function getNoteTemplateData(templateId) {
     showSpinner();
@@ -16,24 +84,352 @@ function getNoteTemplateData(templateId) {
         .then(response => response.json())
         .then(data => {
             const formContainer = document.getElementById('dynamicFormFields');
-            formContainer.innerHTML = '';
+            populateFormFields(data.template_data, formContainer);
+        })
+        .catch(error => console.error('Error:', error))
+        .finally(() => hideSpinner());
+}
 
-            if (data) {
-                data.template_data.forEach((field, index) => {
+function initializeTinyMCE(selector) {
+    tinymce.init({
+        selector: selector,
+        branding: false,
+        resize: false,
+        statusbar: false,
+        height: 150,
+        menubar: false,
+        plugins: 'lists link',
+        placeholder: 'Begin typing here...',
+        toolbar: 'bold italic strikethrough bullist numlist | link hr | undo redo',
+        content_style: `
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                font-size: 16px;
+                line-height: 1.5;
+            }
+            .mce-content-body[data-mce-placeholder]:not(.mce-visualblocks)::before{
+                color: #bbb;
+                font-size: .875rem;
+            }
+        `,
+        skin: 'oxide',
+        icons: 'thin',
+        setup: function (editor) {
+            editor.on('focus', function (e) {
+                editor.getContainer().style.boxShadow = 'none';
+            });
+
+            editor.on('init', function () {
+                console.log('Editor initialized:', editor.id); 
+            });
+        }
+    });
+}
+
+function saveNote() {
+    const templateId = document.getElementById('templateSelect').value;
+    let formattedData = [];
+
+    const form = document.querySelector('#noteForm');
+
+    // Process TinyMCE editors (FREE_TEXT)
+    form.querySelectorAll('textarea[id^="editor_"]').forEach(textArea => {
+        const [_, questionId] = textArea.id.split('_');
+        const editor = tinymce.get(textArea.id);
+        if (editor) {
+            formattedData.push({
+                questionId: parseInt(questionId),
+                questionType: 'FREE_TEXT',
+                freeTextAnswer: editor.getContent(),
+                formattedFreeTextAnswer: editor.getContent() + '\n'
+            });
+        }
+    });
+
+    // Process TEXT_FIELDS
+    form.querySelectorAll('input[type="text"]').forEach(input => {
+        const [_, questionId, answerId] = input.name.split('_');
+        let questionObj = formattedData.find(q => q.questionId === parseInt(questionId));
+
+        if (!questionObj) {
+            questionObj = {
+                questionId: parseInt(questionId),
+                questionType: 'TEXT_FIELDS',
+                answers: []
+            };
+            formattedData.push(questionObj);
+        }
+
+        const label = input.closest('.mb-3')?.querySelector('label');
+        questionObj.answers.push({
+            answer_id: answerId,
+            text: input.value || null,
+            answer_text: label ? label.textContent.trim() : ''
+        });
+    });
+
+    // Process SINGLE_SELECT
+    form.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+        const questionId = radio.name.replace('field_', '');
+        formattedData.push({
+            questionId: parseInt(questionId),
+            questionType: 'SINGLE_SELECT',
+            answers: [{
+                answer_id: radio.value,
+                text: radio.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
+            }]
+        });
+    });
+
+    // Process MULTI_SELECT
+    const checkboxGroups = new Map();
+    form.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+        const questionId = checkbox.name.replace('field_', '');
+
+        if (!checkboxGroups.has(questionId)) {
+            checkboxGroups.set(questionId, []);
+        }
+
+        checkboxGroups.get(questionId).push({
+            answer_id: checkbox.value,
+            text: checkbox.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
+        });
+    });
+
+    // Add checkbox groups to formatted data
+    checkboxGroups.forEach((answers, questionId) => {
+        formattedData.push({
+            questionId: parseInt(questionId),
+            questionType: 'MULTI_SELECT',
+            answers: answers
+        });
+    });
+
+    // Sort the formatted data by questionId
+    formattedData.sort((a, b) => a.questionId - b.questionId);
+
+    // Send data to server
+    fetch(`api/notes/save/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+            template_id: templateId,
+            note_data: formattedData
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error saving note: ' + data.error);
+            } else {
+                alert('Note saved successfully!');
+                // Optionally refresh the page or update the UI
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving note. Please try again.');
+        });
+}
+
+function showNotes(note) {
+    const noteContainer = document.getElementById('note-container');
+
+    if (note) {
+        noteContainer.innerHTML = '';
+        const noteDiv = document.createElement('div');
+        noteDiv.className = 'note-content';
+
+        // Add edit button
+        const editButton = document.createElement('button');
+        editButton.className = 'edit-note-btn btn-primary ml-2';
+        editButton.textContent = 'Edit';
+        editButton.onclick = function () {
+            showEditForm(note.note_data, note.template_data);
+        };
+
+        // Add header with metadata
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'note-header flex justify-between items-center mb-4';
+        headerDiv.innerHTML = `
+            <div>
+                <h3 class="font-bold">${note.template_name}</h3>
+                <span class="text-sm text-gray-600">Created: ${note.created_at}</span>
+            </div>
+        `;
+        headerDiv.appendChild(editButton);
+        noteDiv.appendChild(headerDiv);
+
+        showNote(note.note_data, note.template_data, noteDiv);
+
+        noteContainer.appendChild(noteDiv);
+    }
+}
+
+function showEditForm(noteData, templateData) {
+    const noteFormContainer = document.getElementById('note-template-container');
+    const noteHistoryContainer = document.getElementById('note-container');
+    const templateSelect = document.getElementById('templateSelect');
+    const formContainer = document.getElementById('dynamicFormFields');
+
+    // Find and select the correct template in dropdown
+    Array.from(templateSelect.options).forEach(option => {
+        if (option.text === noteData.template_name) {
+            templateSelect.value = option.value;
+        }
+    });
+
+    noteFormContainer.style.display = 'block';
+    noteHistoryContainer.style.display = 'none';
+
+    populateFormFields(templateData, formContainer).then(() => {
+        bindNoteDataToForm(noteData);
+    });
+}
+    
+function bindNoteDataToForm(noteData) {
+    noteData.forEach((question, index) => {
+        switch (question.questionType) {
+            case 'FREE_TEXT':
+                const editor = tinymce.get(`editor_${question.questionId}_${index}`);
+                if (editor) {
+                    editor.setContent(question.freeTextAnswer || '');
+                }
+                break;
+
+            case 'TEXT_FIELDS':
+                if (question.answers) {
+                    question.answers.forEach(answer => {
+                        const input = document.querySelector(`[name="field_${question.questionId}_${answer.answer_id}"]`);
+                        if (input) {
+                            input.value = answer.text || '';
+                        }
+                    });
+                }
+                break;
+
+            case 'SINGLE_SELECT':
+                if (question.answers && question.answers.length > 0) {
+                    const radio = document.querySelector(`[name="field_${question.questionId}"][value="${question.answers[0].answer_id}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+                break;
+
+            case 'MULTI_SELECT':
+                if (question.answers) {
+                    question.answers.forEach(answer => {
+                        const checkbox = document.querySelector(`[name="field_${question.questionId}"][value="${answer.answer_id}"]`);
+                        if (checkbox) {
+                            checkbox.checked = true;
+                        }
+                    });
+                }
+                break;
+        }
+    });
+}
+
+function showNote(noteData, templateData, container) {
+    // Create a container for the note content
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'note-content-details';
+
+    // Process each question in the note data
+    noteData.forEach(questionData => {
+        const templateQuestion = templateData.find(q => q.id === questionData.questionId);
+        if (!templateQuestion) return;
+
+        const section = document.createElement('div');
+        section.className = 'mb-4';
+
+        switch (questionData.questionType) {
+            case 'FREE_TEXT':
+                if (questionData.freeTextAnswer) {
+                    section.innerHTML = `
+                        <div class="font-medium mb-1">${templateQuestion.question}</div>
+                        <div class="whitespace-pre-wrap">${questionData.freeTextAnswer}</div>
+                    `;
+                }
+                break;
+
+            case 'TEXT_FIELDS':
+                if (questionData.answers && questionData.answers.length > 0) {
+                    let content = `<div class="font-medium mb-1">${templateQuestion.question}</div>`;
+                    questionData.answers.forEach(answer => {
+                        const templateAnswer = templateQuestion.intakeAnswers.find(a => a.id === parseInt(answer.answer_id));
+                        if (templateAnswer && answer.text) {
+                            content += `<div class="mb-1">${templateAnswer.text} ${answer.text}</div>`;
+                        }
+                    });
+                    section.innerHTML = content;
+                }
+                break;
+
+            case 'MULTI_SELECT':
+                if (questionData.answers && questionData.answers.length > 0) {
+                    let content = `<div class="font-medium mb-1">${templateQuestion.question}</div><ul class="list-disc pl-5">`;
+                    questionData.answers.forEach(answer => {
+                        const templateAnswer = templateQuestion.intakeAnswers.find(a => a.id === parseInt(answer.answer_id));
+                        if (templateAnswer) {
+                            content += `<li>${templateAnswer.text}</li>`;
+                        }
+                    });
+                    content += '</ul>';
+                    section.innerHTML = content;
+                }
+                break;
+
+            case 'SINGLE_SELECT':
+                if (questionData.answers && questionData.answers.length > 0) {
+                    const templateAnswer = templateQuestion.intakeAnswers.find(
+                        a => a.id === parseInt(questionData.answers[0].answer_id)
+                    );
+                    if (templateAnswer) {
+                        section.innerHTML = `
+                            <div class="font-medium mb-1">${templateQuestion.question}</div>
+                            <div>${templateAnswer.text}</div>
+                        `;
+                    }
+                }
+                break;
+        }
+
+        if (section.innerHTML) {
+            contentDiv.appendChild(section);
+        }
+    });
+
+    container.appendChild(contentDiv);
+}
+
+function populateFormFields(templateData, formContainer) {
+    return new Promise((resolve, reject) => {
+        try {
+            formContainer.innerHTML = ''; // Clear existing content
+
+            if (templateData) {
+                templateData.forEach((field, index) => {
                     const section = document.createElement('div');
                     section.className = 'mb-4';
 
                     // Create required marker if field is required
                     const requiredMark = field.required ? '<span class="required-mark">*</span>' : '';
 
-                    switch(field.questionType) {
+                    switch (field.questionType) {
                         case "FREE_TEXT":
                             const editorId = `editor_${field.id}_${index}`;
                             section.innerHTML = `
-                                <div class="field-question">
+                                <div class="field-question mb-2">
                                     ${requiredMark} ${field.question}
                                 </div>
-                                <textarea id="${editorId}" name="field_${field.id}"></textarea>
+                                <div class="editor-wrapper">
+                                    <textarea id="${editorId}" name="field_${field.id}"></textarea>
+                                </div>
                             `;
                             formContainer.appendChild(section);
                             initializeTinyMCE(`#${editorId}`);
@@ -120,19 +516,11 @@ function getNoteTemplateData(templateId) {
                     }
                 });
             }
-        })
-        .catch(error => console.error('Error:', error))
-        .finally(() => hideSpinner());
-}
 
-function initializeTinyMCE(selector) {
-    tinymce.init({
-        selector: selector,
-        height: 180,
-        menubar: false,
-        toolbar: 'undo redo | formatselect | ' +
-            'bold italic backcolor | alignleft aligncenter ' +
-            'alignright alignjustify | bullist numlist outdent indent | ' +
-            'removeformat | help'
+            resolve(); // Resolve the promise after populating the fields
+        } catch (error) {
+            reject(error); // Reject the promise if an error occurs
+        }
     });
 }
+

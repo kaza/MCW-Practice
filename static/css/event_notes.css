@@ -440,3 +440,43 @@ input[type="radio"], input[type="checkbox"] {
     margin-right: 4px;
     font-weight: bold;
 }
+
+.tox-toolbar__primary {
+    background: none !important;
+    border: none !important;
+    padding: 5px !important;
+}
+
+.tox-tinymce {
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+}
+
+.tox .tox-toolbar-overlord {
+    background: none !important;
+}
+
+.tox .tox-tbtn {
+    width: 32px !important;
+    height: 32px !important;
+    margin: 0 2px !important;
+    border-radius: 4px !important;
+    color: #666 !important;
+}
+
+.tox .tox-tbtn:hover {
+    background-color: #f0f0f0 !important;
+}
+
+.tox .tox-tbtn--enabled {
+    background-color: #e8e8e8 !important;
+}
+
+.tox .tox-edit-area {
+    border: none !important;
+}
+
+.tox .tox-tbtn svg{
+    fill: #707070 !important;
+}

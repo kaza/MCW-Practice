@@ -2,19 +2,21 @@
 
 <div class="notes-container">
     <h2 class="progress-note-header">Progress Note</h2>
-    <div class="note-controls">
-        <select class="template-select" id="templateSelect">
-            {% for template in note.note_templates %}
-                <option value="{{ template.id }}">{{ template.name }}</option>
-            {% endfor %}
-        </select>
-        <!-- <button class="load-last-note">Load last note</button> -->
-    </div>
-
-    <form id="noteForm" class="note-form">
-        <div id="dynamicFormFields">
-            <!-- Dynamic form fields will be inserted here -->
+    <div id="note-template-container">
+        <div class="note-controls">
+            <select class="template-select" id="templateSelect">
+            </select>
         </div>
-        <button type="submit" class="btn-save">Save</button>
-    </form>
+
+        <form id="noteForm" class="note-form">
+            {% csrf_token %}
+            <div id="dynamicFormFields">
+                <!-- Dynamic form fields will be inserted here -->
+            </div>
+            <button type="submit" id="saveNoteButton" class="btn-save">Save</button>
+        </form>
+    </div>
+    <div id="note-container">
+        <!-- Notes will be displayed here -->
+    </div>
 </div>

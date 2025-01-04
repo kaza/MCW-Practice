@@ -31,18 +31,32 @@ class EventNotesService:
                 'appointments_left': cls.get_appointments_left(event)
             }
 
-            # Get note templates
-            templates = cls.get_note_templates()
-            event_data['note_templates'] = templates
+            # # Get note templates
+            # templates = cls.get_note_templates()
+            # event_data['note_templates'] = templates
             
-            # Get event notes
-            notes = cls.get_event_notes(event_id)
-            event_data['notes'] = notes
+            # # Get event notes
+            # notes = cls.get_event_progress_note(event_id)
+            # event_data['notes'] = notes
             
             return event_data
 
         except Event.DoesNotExist:
             return {'error': 'Event not found'}
+
+    @classmethod
+    def get_event_notes(cls, event_id: int) -> Dict[str, Any]:
+        """Get notes for an event"""
+        # Get note templates
+        templates = cls.get_note_templates()
+        # Get event notes
+        notes = cls.get_event_progress_note(event_id)
+
+        return {
+            'templates': templates,
+            'notes': notes
+        }
+
 
     @classmethod
     def get_note_templates(cls, type_id: int = 1) -> List[Dict[str, Any]]:
@@ -64,28 +78,31 @@ class EventNotesService:
             return {'error': 'Template not found'} 
     
     @classmethod
-    def get_event_notes(cls, event_id: int) -> List[Dict[str, Any]]:
-        """Get notes for a specific event"""
-        notes = EventNote.objects.filter(
-            event_id=event_id
-        ).select_related(
-            'template',
-            'created_by'
-        ).order_by('-created_at')
+    def get_event_progress_note(cls, event_id: int) -> Dict[str, Any]:
+        """Get the progress note for a specific event"""
+        try:
+            note = EventNote.objects.filter(
+                event_id=event_id
+            ).select_related(
+                'template'
+            ).order_by('-created_at').first() 
+            
+            if note:
+                return {
+                    'id': note.id,
+                    'template_name': note.template.name,
+                    'template_data': note.template.template_data,
+                    'note_data': note.note_data,
+                    'created_at': note.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                }
+            else:
+                return {'error': 'No progress note found for this event.'}
         
-        return [
-            {
-                'id': note.id,
-                'template_name': note.template.name,
-                'note_data': note.note_data,
-                'created_by': f"{note.created_by.first_name} {note.created_by.last_name}",
-                'created_at': note.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            for note in notes
-        ]
+        except Exception as e:
+            return {'error': str(e)}
     
     @classmethod
-    def save_event_note(cls, event_id: int, data: Dict[str, Any], clinician_id: int) -> Dict[str, Any]:
+    def save_event_note(cls, event_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Save a new note for an event"""
         try:
             event = Event.objects.get(id=event_id)
@@ -94,15 +111,13 @@ class EventNotesService:
             note = EventNote.objects.create(
                 event=event,
                 template=template,
-                note_data=data['note_data'],
-                created_by_id=clinician_id
+                note_data=data['note_data']
             )
             
             return {
                 'id': note.id,
                 'template_name': template.name,
                 'note_data': note.note_data,
-                'created_by': f"{note.created_by.first_name} {note.created_by.last_name}",
                 'created_at': note.created_at.strftime('%Y-%m-%d %H:%M:%S')
             }
             

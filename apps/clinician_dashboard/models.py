@@ -313,7 +313,7 @@ class EventNote(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='event_notes')
     template = models.ForeignKey(NoteTemplate, on_delete=models.PROTECT)
     note_data = models.JSONField()  
-    created_by = models.ForeignKey('Clinician', on_delete=models.CASCADE)
+    created_by = models.ForeignKey('Clinician', on_delete=models.CASCADE, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

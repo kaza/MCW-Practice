@@ -14,10 +14,15 @@ class NoteFormView(TemplateView):
         context['event_id'] = event_id
         return context
 
-class GetEventNotesDataView(View):
+class GetEventDetailsDataView(View):
     def get(self, request, event_id):
         data = EventNotesService.get_event_details(event_id)
-        return render(request, 'admin_dashboard/event_notes.html', {'note': data}) 
+        return render(request, 'admin_dashboard/event_notes.html', {'details': data}) 
+
+class GetEventNotesDataView(View):
+    def get(self, request, event_id):
+        data = EventNotesService.get_event_notes(event_id)
+        return JsonResponse({'note': data}, safe=False)
     
 class GetNoteTemplateDataView(View):
     def get(self, request, event_id, template_id):
@@ -27,6 +32,5 @@ class GetNoteTemplateDataView(View):
 class SaveEventNoteView(View):
     def post(self, request, event_id):
         data = json.loads(request.body)
-        clinician_id = request.user.id  
-        result = EventNotesService.save_event_note(event_id, data, clinician_id)
+        result = EventNotesService.save_event_note(event_id, data)
         return JsonResponse(result)
