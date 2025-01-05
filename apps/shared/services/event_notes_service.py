@@ -90,6 +90,7 @@ class EventNotesService:
             if note:
                 return {
                     'id': note.id,
+                    'template_id': note.template_id,
                     'template_name': note.template.name,
                     'template_data': note.template.template_data,
                     'note_data': note.note_data,
@@ -105,21 +106,29 @@ class EventNotesService:
     def save_event_note(cls, event_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Save a new note for an event"""
         try:
-            event = Event.objects.get(id=event_id)
-            template = NoteTemplate.objects.get(id=data['template_id'])
-            
-            note = EventNote.objects.create(
-                event=event,
-                template=template,
-                note_data=data['note_data']
-            )
+            note_id = data.get('note_id')
+            if note_id:
+                note = EventNote.objects.get(id=note_id)
+                note.note_data = data['note_data']
+                note.save()
+            else:
+                event = Event.objects.get(id=event_id)
+                template = NoteTemplate.objects.get(id=data['template_id'])
+                
+                note = EventNote.objects.create(
+                    event=event,
+                    template=template,
+                    note_data=data['note_data']
+                )
             
             return {
-                'id': note.id,
-                'template_name': template.name,
-                'note_data': note.note_data,
-                'created_at': note.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
+                    'id': note.id,
+                    'template_id': note.template_id,
+                    'template_name': note.template.name,
+                    'template_data': note.template.template_data,
+                    'note_data': note.note_data,
+                    'created_at': note.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                }
             
         except (Event.DoesNotExist, NoteTemplate.DoesNotExist) as e:
             return {'error': str(e)}

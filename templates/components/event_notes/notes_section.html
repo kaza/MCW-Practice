@@ -1,8 +1,9 @@
 {% load crispy_forms_tags %}
 
+<input type="hidden" id="eventNote_id">
 <div class="notes-container">
     <h2 class="progress-note-header">Progress Note</h2>
-    <div id="note-template-container">
+    <div id="note-template-container" style="display: none;">
         <div class="note-controls">
             <select class="template-select" id="templateSelect">
             </select>
@@ -14,6 +15,7 @@
                 <!-- Dynamic form fields will be inserted here -->
             </div>
             <button type="submit" id="saveNoteButton" class="btn-save">Save</button>
+            <button type="button" id="cancelNoteButton" class="btn-cancel" style="display: none;">Cancel</button>
         </form>
     </div>
     <div id="note-container">

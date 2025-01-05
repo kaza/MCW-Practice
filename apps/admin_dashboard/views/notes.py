@@ -33,4 +33,4 @@ class SaveEventNoteView(View):
     def post(self, request, event_id):
         data = json.loads(request.body)
         result = EventNotesService.save_event_note(event_id, data)
-        return JsonResponse(result)
+        return JsonResponse(result, safe=False)

@@ -16,18 +16,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 templateSelect.appendChild(option);
             });
 
-            const noteFormContainer = document.getElementById('note-template-container');
-            const noteHistoryContainer = document.getElementById('note-container');
+            const eventNoteId = document.getElementById('eventNote_id');
 
             // Check if note exists and set initial display
             const note = data.note.notes;
-            if (note) {
-                noteFormContainer.style.display = 'none';
-                noteHistoryContainer.style.display = 'block';
+            if (note && !note.error) {
+                showHideNoteTemplateAndData(false);
+                eventNoteId.value = note.id;
                 showNotes(note);
             } else {
-                noteFormContainer.style.display = 'block';
-                noteHistoryContainer.style.display = 'none';
+                showHideNoteTemplateAndData(true);
                 // Load initial template if available
                 if (templateSelect.options.length > 0) {
                     templateSelect.selectedIndex = 0;
@@ -44,12 +42,16 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('saveNoteButton').addEventListener('click', function (e) {
                 e.preventDefault();
                 saveNote().then((note) => {
-                    noteFormContainer.style.display = 'none';
-                    noteHistoryContainer.style.display = 'block';
+                    showHideNoteTemplateAndData(false);
                     showNotes(note);
                 });
             });
 
+            // Cancel Note Button
+            document.getElementById('cancelNoteButton').addEventListener('click', function () {
+                showHideNoteTemplateAndData(false);
+                cancelNoteButton.style.display = 'none';
+            });
         }
     })
         .catch(error => {
@@ -90,6 +92,9 @@ function getNoteTemplateData(templateId) {
         .finally(() => hideSpinner());
 }
 
+// Global object to store editor values
+const editorValues = {};
+
 function initializeTinyMCE(selector) {
     tinymce.init({
         selector: selector,
@@ -120,6 +125,11 @@ function initializeTinyMCE(selector) {
             });
 
             editor.on('init', function () {
+                // Set content from global variable if it exists
+                const editorId = editor.id;
+                if (editorValues[editorId]) {
+                    editor.setContent(editorValues[editorId]);
+                }
                 console.log('Editor initialized:', editor.id); 
             });
         }
@@ -127,112 +137,117 @@ function initializeTinyMCE(selector) {
 }
 
 function saveNote() {
-    const templateId = document.getElementById('templateSelect').value;
-    let formattedData = [];
+    return new Promise((resolve, reject) => { // Wrap in a Promise
+        const templateId = document.getElementById('templateSelect').value;
+        const noteId = document.getElementById('eventNote_id').value;
+        let formattedData = [];
 
-    const form = document.querySelector('#noteForm');
+        const form = document.querySelector('#noteForm');
 
-    // Process TinyMCE editors (FREE_TEXT)
-    form.querySelectorAll('textarea[id^="editor_"]').forEach(textArea => {
-        const [_, questionId] = textArea.id.split('_');
-        const editor = tinymce.get(textArea.id);
-        if (editor) {
+        // Process TinyMCE editors (FREE_TEXT)
+        form.querySelectorAll('textarea[id^="editor_"]').forEach(textArea => {
+            const [_, questionId] = textArea.id.split('_');
+            const editor = tinymce.get(textArea.id);
+            if (editor) {
+                formattedData.push({
+                    questionId: parseInt(questionId),
+                    questionType: 'FREE_TEXT',
+                    freeTextAnswer: editor.getContent(),
+                    formattedFreeTextAnswer: editor.getContent() + '\n'
+                });
+            }
+        });
+
+        // Process TEXT_FIELDS
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            const [_, questionId, answerId] = input.name.split('_');
+            let questionObj = formattedData.find(q => q.questionId === parseInt(questionId));
+
+            if (!questionObj) {
+                questionObj = {
+                    questionId: parseInt(questionId),
+                    questionType: 'TEXT_FIELDS',
+                    answers: []
+                };
+                formattedData.push(questionObj);
+            }
+
+            const label = input.closest('.mb-3')?.querySelector('label');
+            questionObj.answers.push({
+                answer_id: answerId,
+                text: input.value || null,
+                answer_text: label ? label.textContent.trim() : ''
+            });
+        });
+
+        // Process SINGLE_SELECT
+        form.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+            const questionId = radio.name.replace('field_', '');
             formattedData.push({
                 questionId: parseInt(questionId),
-                questionType: 'FREE_TEXT',
-                freeTextAnswer: editor.getContent(),
-                formattedFreeTextAnswer: editor.getContent() + '\n'
+                questionType: 'SINGLE_SELECT',
+                answers: [{
+                    answer_id: radio.value,
+                    text: radio.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
+                }]
             });
-        }
-    });
-
-    // Process TEXT_FIELDS
-    form.querySelectorAll('input[type="text"]').forEach(input => {
-        const [_, questionId, answerId] = input.name.split('_');
-        let questionObj = formattedData.find(q => q.questionId === parseInt(questionId));
-
-        if (!questionObj) {
-            questionObj = {
-                questionId: parseInt(questionId),
-                questionType: 'TEXT_FIELDS',
-                answers: []
-            };
-            formattedData.push(questionObj);
-        }
-
-        const label = input.closest('.mb-3')?.querySelector('label');
-        questionObj.answers.push({
-            answer_id: answerId,
-            text: input.value || null,
-            answer_text: label ? label.textContent.trim() : ''
         });
-    });
 
-    // Process SINGLE_SELECT
-    form.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
-        const questionId = radio.name.replace('field_', '');
-        formattedData.push({
-            questionId: parseInt(questionId),
-            questionType: 'SINGLE_SELECT',
-            answers: [{
-                answer_id: radio.value,
-                text: radio.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
-            }]
-        });
-    });
+        // Process MULTI_SELECT
+        const checkboxGroups = new Map();
+        form.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+            const questionId = checkbox.name.replace('field_', '');
 
-    // Process MULTI_SELECT
-    const checkboxGroups = new Map();
-    form.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
-        const questionId = checkbox.name.replace('field_', '');
-
-        if (!checkboxGroups.has(questionId)) {
-            checkboxGroups.set(questionId, []);
-        }
-
-        checkboxGroups.get(questionId).push({
-            answer_id: checkbox.value,
-            text: checkbox.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
-        });
-    });
-
-    // Add checkbox groups to formatted data
-    checkboxGroups.forEach((answers, questionId) => {
-        formattedData.push({
-            questionId: parseInt(questionId),
-            questionType: 'MULTI_SELECT',
-            answers: answers
-        });
-    });
-
-    // Sort the formatted data by questionId
-    formattedData.sort((a, b) => a.questionId - b.questionId);
-
-    // Send data to server
-    fetch(`api/notes/save/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken(),
-        },
-        body: JSON.stringify({
-            template_id: templateId,
-            note_data: formattedData
-        })
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert('Error saving note: ' + data.error);
-            } else {
-                alert('Note saved successfully!');
-                // Optionally refresh the page or update the UI
+            if (!checkboxGroups.has(questionId)) {
+                checkboxGroups.set(questionId, []);
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error saving note. Please try again.');
+
+            checkboxGroups.get(questionId).push({
+                answer_id: checkbox.value,
+                text: checkbox.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
+            });
         });
+
+        // Add checkbox groups to formatted data
+        checkboxGroups.forEach((answers, questionId) => {
+            formattedData.push({
+                questionId: parseInt(questionId),
+                questionType: 'MULTI_SELECT',
+                answers: answers
+            });
+        });
+
+        // Sort the formatted data by questionId
+        formattedData.sort((a, b) => a.questionId - b.questionId);
+
+        showSpinner();
+        // Send data to server
+        fetch(`api/notes/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+            },
+            body: JSON.stringify({
+                note_id: noteId || null,
+                template_id: templateId,
+                note_data: formattedData
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    reject('Error saving note: ' + data.error); // Reject the promise
+                } else {
+                    resolve(data); 
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                reject('Error saving note. Please try again.'); // Reject the promise
+            })
+            .finally(() => hideSpinner());
+    });
 }
 
 function showNotes(note) {
@@ -245,10 +260,10 @@ function showNotes(note) {
 
         // Add edit button
         const editButton = document.createElement('button');
-        editButton.className = 'edit-note-btn btn-primary ml-2';
+        editButton.className = 'btn-edit btn-primary ml-2';
         editButton.textContent = 'Edit';
         editButton.onclick = function () {
-            showEditForm(note.note_data, note.template_data);
+            showEditForm(note);
         };
 
         // Add header with metadata
@@ -256,8 +271,7 @@ function showNotes(note) {
         headerDiv.className = 'note-header flex justify-between items-center mb-4';
         headerDiv.innerHTML = `
             <div>
-                <h3 class="font-bold">${note.template_name}</h3>
-                <span class="text-sm text-gray-600">Created: ${note.created_at}</span>
+                <b class="template-name">${note.template_name}</b>
             </div>
         `;
         headerDiv.appendChild(editButton);
@@ -269,24 +283,26 @@ function showNotes(note) {
     }
 }
 
-function showEditForm(noteData, templateData) {
+function showEditForm(note) {
     const noteFormContainer = document.getElementById('note-template-container');
     const noteHistoryContainer = document.getElementById('note-container');
     const templateSelect = document.getElementById('templateSelect');
     const formContainer = document.getElementById('dynamicFormFields');
+    const cancelNoteButton = document.getElementById('cancelNoteButton');
+    tinymce.remove();
 
     // Find and select the correct template in dropdown
     Array.from(templateSelect.options).forEach(option => {
-        if (option.text === noteData.template_name) {
+        if (option.value === String(note.template_id)) {
             templateSelect.value = option.value;
         }
     });
 
     noteFormContainer.style.display = 'block';
     noteHistoryContainer.style.display = 'none';
-
-    populateFormFields(templateData, formContainer).then(() => {
-        bindNoteDataToForm(noteData);
+    populateFormFields(note.template_data, formContainer).then(() => {
+        bindNoteDataToForm(note.note_data);
+        cancelNoteButton.style.display = 'block';
     });
 }
     
@@ -296,7 +312,8 @@ function bindNoteDataToForm(noteData) {
             case 'FREE_TEXT':
                 const editor = tinymce.get(`editor_${question.questionId}_${index}`);
                 if (editor) {
-                    editor.setContent(question.freeTextAnswer || '');
+                    editorValues[editor.id] = question.freeTextAnswer || '';
+                    editor.setContent(editorValues[editor.id]);
                 }
                 break;
 
@@ -351,32 +368,44 @@ function showNote(noteData, templateData, container) {
             case 'FREE_TEXT':
                 if (questionData.freeTextAnswer) {
                     section.innerHTML = `
-                        <div class="font-medium mb-1">${templateQuestion.question}</div>
-                        <div class="whitespace-pre-wrap">${questionData.freeTextAnswer}</div>
+                        <div class="question-text">${templateQuestion.question}</div>
+                        <div class="answer-text">${questionData.freeTextAnswer}</div>
                     `;
                 }
                 break;
 
             case 'TEXT_FIELDS':
                 if (questionData.answers && questionData.answers.length > 0) {
-                    let content = `<div class="font-medium mb-1">${templateQuestion.question}</div>`;
-                    questionData.answers.forEach(answer => {
-                        const templateAnswer = templateQuestion.intakeAnswers.find(a => a.id === parseInt(answer.answer_id));
-                        if (templateAnswer && answer.text) {
-                            content += `<div class="mb-1">${templateAnswer.text} ${answer.text}</div>`;
-                        }
+                    
+                    const hasValidAnswers = questionData.answers.some(answer => {
+                        return answer.text != null;
                     });
-                    section.innerHTML = content;
+                    if (hasValidAnswers) {
+                        let content = `<div class="question-text">${templateQuestion.question}</div>`;
+                        questionData.answers.forEach(answer => {
+                            if(answer.text != null) {   
+                                const templateAnswer = templateQuestion.intakeAnswers.find(a => a.id === parseInt(answer.answer_id));
+                                if (templateAnswer && answer.text) {
+                                    // content += `<div style="display: flex; align-items: baseline;">`;
+                                    content += `<div class="question-text" style="margin-right: 10px;">${templateAnswer.text}</div>`;
+                                    content += `<div class="answer-text">${answer.text}</div>`;
+                                    // content += `</div>`;
+                                }
+                            }
+                        });
+                        section.innerHTML = content;
+
+                    }
                 }
                 break;
 
             case 'MULTI_SELECT':
                 if (questionData.answers && questionData.answers.length > 0) {
-                    let content = `<div class="font-medium mb-1">${templateQuestion.question}</div><ul class="list-disc pl-5">`;
+                    let content = `<div class="question-text">${templateQuestion.question}</div><ul class="list-disc pl-5">`;
                     questionData.answers.forEach(answer => {
                         const templateAnswer = templateQuestion.intakeAnswers.find(a => a.id === parseInt(answer.answer_id));
                         if (templateAnswer) {
-                            content += `<li>${templateAnswer.text}</li>`;
+                            content += `<li class="answer-text">${templateAnswer.text}</li>`;
                         }
                     });
                     content += '</ul>';
@@ -391,8 +420,8 @@ function showNote(noteData, templateData, container) {
                     );
                     if (templateAnswer) {
                         section.innerHTML = `
-                            <div class="font-medium mb-1">${templateQuestion.question}</div>
-                            <div>${templateAnswer.text}</div>
+                            <div class="question-text">${templateQuestion.question}</div>
+                            <div class="answer-text">${templateAnswer.text}</div>
                         `;
                     }
                 }
@@ -523,4 +552,19 @@ function populateFormFields(templateData, formContainer) {
         }
     });
 }
+
+
+function showHideNoteTemplateAndData(isTemplate = true) {
+    const noteFormContainer = document.getElementById('note-template-container');
+    const noteHistoryContainer = document.getElementById('note-container');
+    if (isTemplate) {
+        noteFormContainer.style.display = 'block';
+        noteHistoryContainer.style.display = 'none';
+    } else {
+        noteFormContainer.style.display = 'none';
+        noteHistoryContainer.style.display = 'block';
+}
+}
+
+
 
