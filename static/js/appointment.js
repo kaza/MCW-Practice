@@ -774,7 +774,27 @@ function getEventData(eventId) {
 }
 
 function BindNotes(lastEvents, container, userType) {
+    const addNoteLink = container.querySelector('#add-note-link');
     const lastEventsSection = container.querySelector('.last-events-list');
+    const eventId = document.getElementById('event-id').value;
+    let noteUrl;
+
+    if (userType === 'ADMIN') {
+        noteUrl = `/admin-dashboard/notes/`;
+    } else if (userType === 'CLINICIAN') {
+        noteUrl = `/clinician-dashboard/notes/`;
+    }
+
+    if (addNoteLink) {
+        let addNoteLinkUrl = noteUrl + eventId + '/';
+        addNoteLink.addEventListener('click', () => {
+            if (addNoteLinkUrl !== '#') {
+                window.location.href = addNoteLinkUrl;
+            }
+        });
+
+    }
+
     if (lastEventsSection) {
         lastEventsSection.innerHTML = '';
 
@@ -784,35 +804,28 @@ function BindNotes(lastEvents, container, userType) {
         lastEvents.forEach(event => {
             const eventItem = document.createElement('span');
             eventItem.className = 'last-event-item';
-            eventItem.textContent = event.date; 
+            eventItem.textContent = event.date;
             eventItem.setAttribute('data-id', event.id);
-            
-            // Determine the URL based on user type
-            let noteUrl;
-            if (userType === 'ADMIN') {
-                noteUrl = `/admin-dashboard/notes/${event.id}/`; 
-            } else if (userType === 'CLINICIAN') {
-                noteUrl = `/clinician-dashboard/notes/${event.id}/`; 
-            } else {
-                noteUrl = '#'; 
-            }
 
+            let lastEventUrl = noteUrl + event.id + '/';
             // Add click handler for the event item
             eventItem.addEventListener('click', () => {
-                if (noteUrl !== '#') {
-                    window.location.href = noteUrl; 
+                if (lastEventUrl !== '#') {
+                    window.location.href = lastEventUrl;
                 }
             });
-            eventItem.style.cursor = 'pointer'; 
-            
+            eventItem.style.cursor = 'pointer';
+
             lastEventsSection.appendChild(eventItem);
-            lastEventsSection.appendChild(document.createTextNode(' | ')); 
+            lastEventsSection.appendChild(document.createTextNode(' | '));
         });
-        
+
         // Remove the last separator
         if (lastEventsSection.lastChild) {
             lastEventsSection.removeChild(lastEventsSection.lastChild);
         }
+
+
     }
 }
 

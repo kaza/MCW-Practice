@@ -12,7 +12,8 @@ urlpatterns = [
     path('api/get_clinician_services/<int:clinician_id>/<int:patient_id>/', views.GetClinicianServicesView.as_view(), name='get_clinician_services'),
     path('api/get_event_data/<int:event_id>/', views.GetEventDataView.as_view(), name='get_event_data'),
     path('api/get_appointment_states/', views.GetAppointmentStatesView.as_view(), name='get_appointment_states'),
-    path('notes/<int:event_id>/', views.GetEventNotesDataView.as_view(), name='get_event_notes'),
-    path('api/notes/<int:event_id>/save/', views.SaveEventNoteView.as_view(), name='save_event_note'),
+    path('notes/<int:event_id>/', views.GetEventDetailsDataView.as_view(), name='get_event_details'),
+    path('notes/<int:event_id>/api/notes/', views.GetEventNotesDataView.as_view(), name='get_event_notes'),
+    path('notes/<int:event_id>/api/notes/save/', views.SaveEventNoteView.as_view(), name='save_event_note'),
     path('notes/<int:event_id>/api/notes/<int:template_id>/', views.GetNoteTemplateDataView.as_view(), name='get_note_template_data'),
 ]
