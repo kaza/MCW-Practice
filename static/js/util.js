@@ -25,24 +25,16 @@ function getStartAndEndDates(selectedDate, selectedView) {
 
     switch (selectedView) {
         case 'Day':
-            startDate = new Date(selectedDate);
-            startDate.setHours(0, 0, 0, 0);
-            endDate = new Date(selectedDate);
-            endDate.setHours(23, 59, 59, 999);
+            startDate = moment.tz(selectedDate, 'America/New_York').startOf('day').format();
+            endDate = moment.tz(selectedDate, 'America/New_York').endOf('day').format();
             break;
         case 'Week':
-            startDate = new Date(selectedDate);
-            startDate.setDate(selectedDate.getDate() - selectedDate.getDay());
-            startDate.setHours(0, 0, 0, 0);
-            endDate = new Date(startDate);
-            endDate.setDate(startDate.getDate() + 6);
-            endDate.setHours(23, 59, 59, 999);
+            startDate = moment.tz(selectedDate, 'America/New_York').startOf('week').format();
+            endDate = moment.tz(selectedDate, 'America/New_York').endOf('week').format();
             break;
         case 'Month':
-            startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-            startDate.setHours(0, 0, 0, 0);
-            endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-            endDate.setHours(23, 59, 59, 999);
+            startDate = moment.tz(selectedDate, 'America/New_York').startOf('month').format();
+            endDate = moment.tz(selectedDate, 'America/New_York').endOf('month').format();
             break;
         default:
             return null;

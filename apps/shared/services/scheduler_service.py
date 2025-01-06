@@ -142,8 +142,8 @@ class SchedulerDataService:
         """Convert event model to dictionary format"""
         event_dict = {
             'Id': event.id,
-            'StartTime': event.start_datetime,
-            'EndTime': event.end_datetime, 
+            'StartTime': event.start_datetime.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+            'EndTime': event.end_datetime.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
             'IsAllDay': event.is_all_day,
             'ResourceId': event.clinician_id,
             'RecurrenceRuleString': event.recurrence_rule if event.is_recurring else None,

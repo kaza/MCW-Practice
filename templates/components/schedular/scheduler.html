@@ -123,7 +123,7 @@
             try {
                 const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
                 const response = await fetch(
-                    `${window.location.href}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
+                    `${window.location.href}?start_date=${startDate}&end_date=${endDate}`,
                     {
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest'
@@ -140,6 +140,8 @@
         }
 
         scheduler.appendTo('#scheduler');
+
+        scheduler.selectedDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
         // Load initial events
         fetchAndUpdateEvents();

@@ -10,8 +10,24 @@ function createEvent(selectedLocation, selectedTeamMember, scheduler) {
             const eventData = {
                 eventType: 'EVENT',
                 Subject: validationResult.eventName,
-                StartTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.startTime}`) : new Date(`${validationResult.allDayStartDate}T00:00:00`),
-                EndTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.endTime}`) : new Date(`${validationResult.allDayEndDate}T23:59:59`),
+                StartTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.startTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayStartDate}T00:00:00`,
+                    'America/New_York'
+                ).format(),
+                EndTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.endTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayEndDate}T23:59:59`,
+                    'America/New_York'
+                ).format(),
                 IsAllDay: validationResult.isAllDay,
                 Location: selectedLocation,
                 TeamMember: selectedTeamMember
@@ -53,8 +69,24 @@ function updateEvent(selectedLocation, selectedTeamMember, scheduler) {
                 eventId: document.getElementById('event-id').value,
                 eventType: 'EVENT',
                 Subject: validationResult.eventName,
-                StartTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.startTime}`) : new Date(`${validationResult.allDayStartDate}T00:00:00`),
-                EndTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.endTime}`) : new Date(`${validationResult.allDayEndDate}T23:59:59`),
+                StartTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.startTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayStartDate}T00:00:00`,
+                    'America/New_York'
+                ).format(),
+                EndTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.endTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayEndDate}T23:59:59`,
+                    'America/New_York'
+                ).format(),
                 IsAllDay: validationResult.isAllDay,
                 Location: selectedLocation,
                 TeamMember: selectedTeamMember

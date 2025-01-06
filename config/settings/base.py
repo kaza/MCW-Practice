@@ -110,3 +110,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Auth settings
 LOGIN_URL = 'login'
+
+
+TIME_ZONE = 'America/New_York' 
+USE_TZ = True
