@@ -517,3 +517,8 @@ input[type="radio"], input[type="checkbox"] {
     color: #444 !important;
     margin-bottom: 4px !important;
 }
+
+.dropdown-desc {
+   height: 40px;
+}
+

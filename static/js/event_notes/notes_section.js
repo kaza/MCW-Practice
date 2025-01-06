@@ -137,88 +137,117 @@ function initializeTinyMCE(selector) {
 }
 
 function saveNote() {
-    return new Promise((resolve, reject) => { // Wrap in a Promise
+    return new Promise((resolve, reject) => {
         const templateId = document.getElementById('templateSelect').value;
         const noteId = document.getElementById('eventNote_id').value;
         let formattedData = [];
 
         const form = document.querySelector('#noteForm');
 
-        // Process TinyMCE editors (FREE_TEXT)
-        form.querySelectorAll('textarea[id^="editor_"]').forEach(textArea => {
-            const [_, questionId] = textArea.id.split('_');
-            const editor = tinymce.get(textArea.id);
-            if (editor) {
+        // Helper function to get question type from element
+        const getQuestionType = (element) => {
+            return element.dataset.questionType || 
+                   element.closest('[data-question-type]')?.dataset.questionType ||
+                   element.closest('.mb-4')?.dataset.questionType;
+        };
+
+        // First process section headers since they don't have form elements
+        form.querySelectorAll('[data-question-type="SECTION_HEADER"]').forEach(element => {
+            const fieldId = element.dataset.fieldId;
+            if (fieldId) {
                 formattedData.push({
-                    questionId: parseInt(questionId),
-                    questionType: 'FREE_TEXT',
-                    freeTextAnswer: editor.getContent(),
-                    formattedFreeTextAnswer: editor.getContent() + '\n'
+                    questionId: parseInt(fieldId),
+                    questionType: 'SECTION_HEADER'
                 });
             }
         });
 
-        // Process TEXT_FIELDS
-        form.querySelectorAll('input[type="text"]').forEach(input => {
-            const [_, questionId, answerId] = input.name.split('_');
-            let questionObj = formattedData.find(q => q.questionId === parseInt(questionId));
+        // Process all form elements
+        form.querySelectorAll('[name^="field_"]').forEach(element => {
+            const questionType = getQuestionType(element);
+            if (!questionType) return;
 
+            const nameSegments = element.name.split('_');
+            const questionId = nameSegments[1];
+            const answerId = nameSegments[2];
+
+            // Find existing question object or create new one
+            let questionObj = formattedData.find(q => q.questionId === parseInt(questionId));
+            
             if (!questionObj) {
                 questionObj = {
                     questionId: parseInt(questionId),
-                    questionType: 'TEXT_FIELDS',
-                    answers: []
+                    questionType: questionType
                 };
                 formattedData.push(questionObj);
             }
 
-            const label = input.closest('.mb-3')?.querySelector('label');
-            questionObj.answers.push({
-                answer_id: answerId,
-                text: input.value || null,
-                answer_text: label ? label.textContent.trim() : ''
-            });
-        });
+            // Handle different question types
+            switch (questionType) {
+                case 'FREE_TEXT':
+                    const editor = tinymce.get(element.id);
+                    if (editor) {
+                        questionObj.freeTextAnswer = editor.getContent();
+                        questionObj.formattedFreeTextAnswer = editor.getContent() + '\n';
+                    }
+                    break;
 
-        // Process SINGLE_SELECT
-        form.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
-            const questionId = radio.name.replace('field_', '');
-            formattedData.push({
-                questionId: parseInt(questionId),
-                questionType: 'SINGLE_SELECT',
-                answers: [{
-                    answer_id: radio.value,
-                    text: radio.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
-                }]
-            });
-        });
+                case 'TEXT_FIELDS':
+                    if (!questionObj.answers) questionObj.answers = [];
+                    const label = element.closest('.mb-3')?.querySelector('label');
+                    questionObj.answers.push({
+                        answer_id: answerId,
+                        text: element.value || null,
+                        answer_text: label ? label.textContent.trim() : ''
+                    });
+                    break;
 
-        // Process MULTI_SELECT
-        const checkboxGroups = new Map();
-        form.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
-            const questionId = checkbox.name.replace('field_', '');
+                case 'SINGLE_SELECT':
+                    if (element.checked) {
+                        questionObj.answers = [{
+                            answer_id: element.value,
+                            text: element.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
+                        }];
+                    }
+                    break;
 
-            if (!checkboxGroups.has(questionId)) {
-                checkboxGroups.set(questionId, []);
+                case 'MULTI_SELECT':
+                    if (element.checked) {
+                        if (!questionObj.answers) questionObj.answers = [];
+                        questionObj.answers.push({
+                            answer_id: element.value,
+                            text: element.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
+                        });
+                    }
+                    break;
+
+                case 'DROPDOWN':
+                    if (element.value) {
+                        questionObj.answers = [{
+                            answer_id: element.value,
+                            text: element.options[element.selectedIndex].text
+                        }];
+                    }
+                    break;
+
+                case 'SHORT_ANSWER':
+                    if (element.value) {
+                        questionObj.shortAnswer = element.value;
+                    }
+                    break;
+                    
+                case 'SECTION_HEADER':
+                    // For section headers, we just need to include the question type
+                    questionObj = {
+                        questionId: parseInt(questionId),
+                        questionType: 'SECTION_HEADER'
+                    };
+                    break;
             }
-
-            checkboxGroups.get(questionId).push({
-                answer_id: checkbox.value,
-                text: checkbox.closest('.flex.items-center.mb-2')?.querySelector('label')?.textContent.trim() || null
-            });
         });
 
-        // Add checkbox groups to formatted data
-        checkboxGroups.forEach((answers, questionId) => {
-            formattedData.push({
-                questionId: parseInt(questionId),
-                questionType: 'MULTI_SELECT',
-                answers: answers
-            });
-        });
-
-        // Sort the formatted data by questionId
-        formattedData.sort((a, b) => a.questionId - b.questionId);
+        // Only sort by questionId
+        formattedData = formattedData.sort((a, b) => a.questionId - b.questionId);
 
         showSpinner();
         // Send data to server
@@ -237,14 +266,14 @@ function saveNote() {
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    reject('Error saving note: ' + data.error); // Reject the promise
+                    reject('Error saving note: ' + data.error);
                 } else {
-                    resolve(data); 
+                    resolve(data);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                reject('Error saving note. Please try again.'); // Reject the promise
+                reject('Error saving note. Please try again.');
             })
             .finally(() => hideSpinner());
     });
@@ -347,6 +376,20 @@ function bindNoteDataToForm(noteData) {
                     });
                 }
                 break;
+
+            case 'DROPDOWN':
+                const select = document.querySelector(`select[name="field_${question.questionId}"]`);
+                if (select && question.answers && question.answers.length > 0) {
+                    select.value = question.answers[0].answer_id;
+                }
+                break;
+
+            case 'SHORT_ANSWER':
+                const shortAnswerInput = document.querySelector(`input[name="field_${question.questionId}"]`);
+                if (shortAnswerInput && question.shortAnswer) {
+                    shortAnswerInput.value = question.shortAnswer;
+                }
+                break;
         }
     });
 }
@@ -376,7 +419,6 @@ function showNote(noteData, templateData, container) {
 
             case 'TEXT_FIELDS':
                 if (questionData.answers && questionData.answers.length > 0) {
-                    
                     const hasValidAnswers = questionData.answers.some(answer => {
                         return answer.text != null;
                     });
@@ -386,15 +428,12 @@ function showNote(noteData, templateData, container) {
                             if(answer.text != null) {   
                                 const templateAnswer = templateQuestion.intakeAnswers.find(a => a.id === parseInt(answer.answer_id));
                                 if (templateAnswer && answer.text) {
-                                    // content += `<div style="display: flex; align-items: baseline;">`;
                                     content += `<div class="question-text" style="margin-right: 10px;">${templateAnswer.text}</div>`;
                                     content += `<div class="answer-text">${answer.text}</div>`;
-                                    // content += `</div>`;
                                 }
                             }
                         });
                         section.innerHTML = content;
-
                     }
                 }
                 break;
@@ -426,6 +465,29 @@ function showNote(noteData, templateData, container) {
                     }
                 }
                 break;
+
+            case 'DROPDOWN':
+                if (questionData.answers && questionData.answers.length > 0) {
+                    const templateAnswer = templateQuestion.intakeAnswers.find(
+                        a => a.id === parseInt(questionData.answers[0].answer_id)
+                    );
+                    if (templateAnswer) {
+                        section.innerHTML = `
+                            <div class="question-text">${templateQuestion.question}</div>
+                            <div class="answer-text">${templateAnswer.text}</div>
+                        `;
+                    }
+                }
+                break;
+
+            case 'SHORT_ANSWER':
+                if (questionData.shortAnswer) {
+                    section.innerHTML = `
+                        <div class="question-text">${templateQuestion.question}</div>
+                        <div class="answer-text">${questionData.shortAnswer}</div>
+                    `;
+                }
+                break;
         }
 
         if (section.innerHTML) {
@@ -445,7 +507,10 @@ function populateFormFields(templateData, formContainer) {
                 templateData.forEach((field, index) => {
                     const section = document.createElement('div');
                     section.className = 'mb-4';
-
+                    
+                    // Add data attribute for question type
+                    section.dataset.questionType = field.questionType;
+                    
                     // Create required marker if field is required
                     const requiredMark = field.required ? '<span class="required-mark">*</span>' : '';
 
@@ -453,11 +518,13 @@ function populateFormFields(templateData, formContainer) {
                         case "FREE_TEXT":
                             const editorId = `editor_${field.id}_${index}`;
                             section.innerHTML = `
-                                <div class="field-question mb-2">
+                                <div class="field-question mb-2" data-field-id="${field.id}">
                                     ${requiredMark} ${field.question}
                                 </div>
                                 <div class="editor-wrapper">
-                                    <textarea id="${editorId}" name="field_${field.id}"></textarea>
+                                    <textarea id="${editorId}" 
+                                            name="field_${field.id}" 
+                                            data-question-type="FREE_TEXT"></textarea>
                                 </div>
                             `;
                             formContainer.appendChild(section);
@@ -467,16 +534,31 @@ function populateFormFields(templateData, formContainer) {
                         case "TEXT_FIELDS":
                             if (field.intakeAnswers.length > 0) {
                                 section.innerHTML = `
-                                    <div class="field-question">
+                                    <div class="field-question" data-field-id="${field.id}">
                                         ${requiredMark} ${field.question}
                                     </div>
                                     ${field.intakeAnswers.map(answer => `
                                         <div class="mb-3">
                                             <label class="field-question">${answer.text}</label>
-                                            <input type="text" 
-                                                   name="field_${field.id}_${answer.id}" 
-                                                   class="w-full border rounded p-2"
-                                                   ${field.required ? 'required' : ''}>
+                                            ${answer.show_prefill_options && answer.prefill_options ? `
+                                                <input type="text" 
+                                                       list="datalist_${field.id}_${answer.id}"
+                                                       name="field_${field.id}_${answer.id}" 
+                                                       data-question-type="TEXT_FIELDS"
+                                                       class="w-full border rounded p-2"
+                                                       ${field.required ? 'required' : ''}>
+                                                <datalist id="datalist_${field.id}_${answer.id}">
+                                                    ${answer.prefill_options.map(option => `
+                                                        <option value="${option}">
+                                                    `).join('')}
+                                                </datalist>
+                                            ` : `
+                                                <input type="text" 
+                                                       name="field_${field.id}_${answer.id}" 
+                                                       data-question-type="TEXT_FIELDS"
+                                                       class="w-full border rounded p-2"
+                                                       ${field.required ? 'required' : ''}>
+                                            `}
                                         </div>
                                     `).join('')}
                                 `;
@@ -486,7 +568,7 @@ function populateFormFields(templateData, formContainer) {
 
                         case "SINGLE_SELECT":
                             section.innerHTML = `
-                                <div class="field-question mb-2">
+                                <div class="field-question mb-2" data-field-id="${field.id}">
                                     ${requiredMark} ${field.question}
                                 </div>
                                 <div class="radio-group">
@@ -496,6 +578,7 @@ function populateFormFields(templateData, formContainer) {
                                                    id="radio_${field.id}_${answer.id}"
                                                    name="field_${field.id}" 
                                                    value="${answer.id}"
+                                                   data-question-type="SINGLE_SELECT"
                                                    class="mr-2"
                                                    ${field.required ? 'required' : ''}>
                                             <label for="radio_${field.id}_${answer.id}"
@@ -511,7 +594,7 @@ function populateFormFields(templateData, formContainer) {
 
                         case "MULTI_SELECT":
                             section.innerHTML = `
-                                <div class="field-question mb-2">
+                                <div class="field-question mb-2" data-field-id="${field.id}">
                                     ${requiredMark} ${field.question}
                                 </div>
                                 <div class="checkbox-group">
@@ -521,6 +604,7 @@ function populateFormFields(templateData, formContainer) {
                                                    id="checkbox_${field.id}_${answer.id}"
                                                    name="field_${field.id}" 
                                                    value="${answer.id}"
+                                                   data-question-type="MULTI_SELECT"
                                                    class="mr-2"
                                                    ${field.required ? 'required' : ''}>
                                             <label for="checkbox_${field.id}_${answer.id}"
@@ -536,9 +620,44 @@ function populateFormFields(templateData, formContainer) {
 
                         case "SECTION_HEADER":
                             section.innerHTML = `
-                                <h3 class="font-bold text-lg text-gray-900 mb-3">
+                                <h3 class="font-bold text-lg text-gray-900 mb-3" 
+                                    data-field-id="${field.id}" data-question-type="SECTION_HEADER">
                                     ${requiredMark} ${field.question}
                                 </h3>
+                            `;
+                            formContainer.appendChild(section);
+                            break;
+
+                        case "DROPDOWN":
+                            section.innerHTML = `
+                                <div class="field-question mb-2" data-field-id="${field.id}">
+                                    ${requiredMark} ${field.question}
+                                </div>
+                                <select name="field_${field.id}" 
+                                        data-question-type="DROPDOWN"
+                                        class="w-full border rounded p-2 dropdown-desc" 
+                                        ${field.required ? 'required' : ''}>
+                                    <option value="">--</option>
+                                    ${field.intakeAnswers.map(answer => `
+                                        <option value="${answer.id}">
+                                            ${answer.text}
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            `;
+                            formContainer.appendChild(section);
+                            break;
+
+                        case "SHORT_ANSWER":
+                            section.innerHTML = `
+                                <div class="field-question mb-2" data-field-id="${field.id}">
+                                    ${requiredMark} ${field.question}
+                                </div>
+                                <input type="text" 
+                                       name="field_${field.id}" 
+                                       data-question-type="SHORT_ANSWER"
+                                       class="w-full border rounded p-2"
+                                       ${field.required ? 'required' : ''}>
                             `;
                             formContainer.appendChild(section);
                             break;
