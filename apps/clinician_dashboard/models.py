@@ -219,7 +219,6 @@ class EventService(models.Model):
         
     class Meta:
         db_table = 'Event_services'
-        unique_together = ('event', 'service')
         indexes = [
             models.Index(fields=['event']),
             models.Index(fields=['service']),

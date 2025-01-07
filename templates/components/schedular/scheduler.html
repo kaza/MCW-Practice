@@ -108,6 +108,9 @@
                         });
                 }
             },
+            resizeStart: function (args) {
+                args.cancel = true;
+            },
             timeScale: {
                 enable: true,
                 interval: 60,

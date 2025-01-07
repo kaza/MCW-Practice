@@ -99,28 +99,6 @@ function InitializePracticeServices(services) {
             populateSelect(select);
         });
 
-        // Function to calculate total fee
-        function calculateTotalFee() {
-            const feeInputs = document.querySelectorAll('.fee-input');
-            let total = 0;
-
-            feeInputs.forEach(input => {
-                const fee = parseFloat(input.value) || 0; // Parse fee or default to 0
-                total += fee;
-            });
-
-            return total;
-        }
-
-        // Function to update billing amount
-        function updateBillingAmount() {
-            const total = calculateTotalFee();
-            const appointmentTotal = document.getElementById('appointment-total');
-            if (appointmentTotal) {
-                document.getElementById('appointment-total').setAttribute('data-amount', '$' + total.toFixed(2));
-            }
-        }
-
         // Add event listeners to fee inputs
         document.querySelectorAll('.fee-input').forEach(input => {
             input.addEventListener('input', function() {
@@ -185,6 +163,28 @@ function InitializePracticeServices(services) {
         // Resolve the promise after initialization
         resolve('Services initialized successfully');
     });
+}
+
+  // Function to calculate total fee
+  function calculateTotalFee() {
+    const feeInputs = document.querySelectorAll('.fee-input');
+    let total = 0;
+
+    feeInputs.forEach(input => {
+        const fee = parseFloat(input.value) || 0; // Parse fee or default to 0
+        total += fee;
+    });
+
+    return total;
+}
+
+// Function to update billing amount
+function updateBillingAmount() {
+    const total = calculateTotalFee();
+    const appointmentTotal = document.getElementById('appointment-total');
+    if (appointmentTotal) {
+        document.getElementById('appointment-total').setAttribute('data-amount', '$' + total.toFixed(2));
+    }
 }
 
 // Function to reset all services
@@ -275,6 +275,19 @@ function buildSelectedServices(services) {
                     }
                 });
             }
+
+            // Create a delete icon for the new service block
+            const deleteIcon = document.createElement('i');
+            deleteIcon.className = 'fas fa-trash';
+            deleteIcon.style.cursor = 'pointer';
+            deleteIcon.style.marginLeft = '10px';
+            deleteIcon.onclick = function() {
+                newBlock.remove(); 
+                updateBillingAmount(); // Update total after deletion
+            };
+
+            // Append the delete icon to the new block
+            newBlock.querySelector('.modifiers-fee-row').appendChild(deleteIcon);
 
             // Add the new block before the add service button
             const addServiceBtn = document.querySelector('.service-link');
