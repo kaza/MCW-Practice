@@ -15,5 +15,6 @@ urlpatterns = [
     path('notes/<int:event_id>/', views.GetEventDetailsDataView.as_view(), name='get_event_details'),
     path('notes/<int:event_id>/api/notes/', views.GetEventNotesDataView.as_view(), name='get_event_notes'),
     path('notes/<int:event_id>/api/notes/save/', views.SaveEventNoteView.as_view(), name='save_event_note'),
+    path('notes/<int:event_id>/api/psychotherapy/save/', views.SavePsychotherapyNoteView.as_view(), name='save_psychotherapy_note'),
     path('notes/<int:event_id>/api/notes/<int:template_id>/', views.GetNoteTemplateDataView.as_view(), name='get_note_template_data'),
 ]

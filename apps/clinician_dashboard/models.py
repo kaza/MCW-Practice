@@ -326,3 +326,17 @@ class EventNote(models.Model):
 
     def __str__(self):
         return f'Note for {self.event} - {self.created_at}'
+    
+class PhsycotherapyNote(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='phsycotherapy_notes')
+    note_data = models.TextField()
+    created_by = models.ForeignKey('Clinician', on_delete=models.CASCADE, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'PhsycotherapyNote'
+        indexes = [
+            models.Index(fields=['event']),
+            models.Index(fields=['created_by']),
+        ]

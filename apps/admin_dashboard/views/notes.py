@@ -34,3 +34,12 @@ class SaveEventNoteView(View):
         data = json.loads(request.body)
         result = EventNotesService.save_event_note(event_id, data)
         return JsonResponse(result, safe=False)
+    
+class SavePsychotherapyNoteView(View):
+    def post(self, request, event_id):  
+        data = json.loads(request.body)
+        note_data = data['note_data']
+        result = EventNotesService.save_psychotherapy_note(event_id, note_data)
+        return JsonResponse(result, safe=False)
+
+

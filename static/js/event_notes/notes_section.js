@@ -52,6 +52,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 showHideNoteTemplateAndData(false);
                 cancelNoteButton.style.display = 'none';
             });
+
+            // Add Psychotherapy Note Button
+            document.getElementById('add-psychotherapy-note').addEventListener('click', function () {
+                addPsychotherapyNote();
+            });
         }
     })
         .catch(error => {
@@ -130,7 +135,7 @@ function initializeTinyMCE(selector) {
                 if (editorValues[editorId]) {
                     editor.setContent(editorValues[editorId]);
                 }
-                console.log('Editor initialized:', editor.id); 
+                console.log('Editor initialized:', editor.id);
             });
         }
     });
@@ -146,9 +151,9 @@ function saveNote() {
 
         // Helper function to get question type from element
         const getQuestionType = (element) => {
-            return element.dataset.questionType || 
-                   element.closest('[data-question-type]')?.dataset.questionType ||
-                   element.closest('.mb-4')?.dataset.questionType;
+            return element.dataset.questionType ||
+                element.closest('[data-question-type]')?.dataset.questionType ||
+                element.closest('.mb-4')?.dataset.questionType;
         };
 
         // First process section headers since they don't have form elements
@@ -173,7 +178,7 @@ function saveNote() {
 
             // Find existing question object or create new one
             let questionObj = formattedData.find(q => q.questionId === parseInt(questionId));
-            
+
             if (!questionObj) {
                 questionObj = {
                     questionId: parseInt(questionId),
@@ -235,7 +240,7 @@ function saveNote() {
                         questionObj.shortAnswer = element.value;
                     }
                     break;
-                    
+
                 case 'SECTION_HEADER':
                     // For section headers, we just need to include the question type
                     questionObj = {
@@ -334,7 +339,7 @@ function showEditForm(note) {
         cancelNoteButton.style.display = 'block';
     });
 }
-    
+
 function bindNoteDataToForm(noteData) {
     noteData.forEach((question, index) => {
         switch (question.questionType) {
@@ -425,7 +430,7 @@ function showNote(noteData, templateData, container) {
                     if (hasValidAnswers) {
                         let content = `<div class="question-text">${templateQuestion.question}</div>`;
                         questionData.answers.forEach(answer => {
-                            if(answer.text != null) {   
+                            if (answer.text != null) {
                                 const templateAnswer = templateQuestion.intakeAnswers.find(a => a.id === parseInt(answer.answer_id));
                                 if (templateAnswer && answer.text) {
                                     content += `<div class="question-text" style="margin-right: 10px;">${templateAnswer.text}</div>`;
@@ -507,10 +512,10 @@ function populateFormFields(templateData, formContainer) {
                 templateData.forEach((field, index) => {
                     const section = document.createElement('div');
                     section.className = 'mb-4';
-                    
+
                     // Add data attribute for question type
                     section.dataset.questionType = field.questionType;
-                    
+
                     // Create required marker if field is required
                     const requiredMark = field.required ? '<span class="required-mark">*</span>' : '';
 
@@ -682,7 +687,136 @@ function showHideNoteTemplateAndData(isTemplate = true) {
     } else {
         noteFormContainer.style.display = 'none';
         noteHistoryContainer.style.display = 'block';
+    }
 }
+
+
+
+// Psychotherapy Note
+
+function initializePsychotherapyTinyMCE() {
+    const tinymceField = document.querySelector('.tinymce-psychotherapy-editor');
+    if (tinymceField) {
+        tinymce.init({
+            selector: '.tinymce-psychotherapy-editor',
+            branding: false,
+            resize: false,
+            statusbar: false,
+            height: 150,
+            menubar: false,
+            plugins: 'lists link',
+            placeholder: 'Begin typing here...',
+            toolbar: 'bold italic strikethrough bullist numlist | link hr | undo redo',
+            content_style: `
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    font-size: 16px;
+                    line-height: 1.5;
+                }
+                .mce-content-body[data-mce-placeholder]:not(.mce-visualblocks)::before{
+                    color: #bbb;
+                    font-size: .875rem;
+                }
+            `,
+            skin: 'oxide',
+            icons: 'thin',
+            setup: function (editor) {
+                editor.on('focus', function (e) {
+                    editor.getContainer().style.boxShadow = 'none';
+                });
+            }
+        });
+    }
+}
+
+function addPsychotherapyNote() {
+    // Hide the "Add note" button
+    const addNoteButton = document.getElementById('add-psychotherapy-note');
+    if (addNoteButton) {
+        addNoteButton.style.display = 'none'; 
+    }
+
+    // Save Psychotherapy Note Button
+    const savePsychotherapyNoteButton = document.getElementById('savePsychotherapyNoteButton');
+    if (savePsychotherapyNoteButton) {
+        savePsychotherapyNoteButton.addEventListener('click', function () {
+            savePsychotherapyNote().then(data => {
+                console.log(data);
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert('Psychotherapy note saved successfully');
+                }
+            });
+        });
+    }
+
+    // Cancel Psychotherapy Note Button
+    const cancelPsychotherapyNoteButton = document.getElementById('cancelPsychotherapyNoteButton');
+    if (cancelPsychotherapyNoteButton) {
+        cancelPsychotherapyNoteButton.addEventListener('click', function () {
+            cancelPsychotherapyNote();
+        });
+    }
+
+    const psychotherapyNoteEditor = document.getElementById('psychotherapy-note-editor');
+    if (psychotherapyNoteEditor) {
+        psychotherapyNoteEditor.style.display = 'block';
+        initializePsychotherapyTinyMCE();
+    }
+}
+
+function cancelPsychotherapyNote() {
+    const psychotherapyNoteEditor = document.getElementById('psychotherapy-note-editor');
+    if (psychotherapyNoteEditor) {
+        psychotherapyNoteEditor.style.display = 'none';
+    }
+
+    // Show the "Add note" button
+    const addNoteButton = document.getElementById('add-psychotherapy-note');
+    if (addNoteButton) {
+        addNoteButton.style.display = 'block';
+    }
+}
+
+
+function savePsychotherapyNote() {
+    return new Promise((resolve, reject) => {
+        const tinymceField = document.querySelector('.tinymce-psychotherapy-editor');
+        if (tinymceField) {
+            const content = tinymce.get(tinymceField.id).getContent();
+            const noteData = {
+                note_data: content
+            };
+            showSpinner();
+            fetch(`api/psychotherapy/save/`, {
+                method: 'POST',
+                body: JSON.stringify(noteData),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                }
+            })
+            .then(response => {
+                hideSpinner();
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                
+                resolve(data); // Resolve the promise with the data
+            })
+            .catch(error => {
+                hideSpinner();
+                console.error(error);
+                reject(error);
+            });
+        } else {
+            reject(new Error('TinyMCE field not found')); 
+        }
+    });
 }
 
 

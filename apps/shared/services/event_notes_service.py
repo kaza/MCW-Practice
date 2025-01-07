@@ -3,7 +3,7 @@ from django.db.models import Q
 import json 
 from django.http import JsonResponse
 
-from apps.clinician_dashboard.models import Event, EventNote, EventType, NoteTemplate, EventService, Patient, Clinician, Location, AppointmentState
+from apps.clinician_dashboard.models import Event, EventNote, EventType, NoteTemplate, EventService, Patient, Clinician, Location, AppointmentState, PhsycotherapyNote
 from apps.shared.services.scheduler_service import SchedulerDataService
 
 class EventNotesService:
@@ -134,6 +134,15 @@ class EventNotesService:
             return {'error': str(e)}
         except Exception as e:
             return {'error': f'Unexpected error: {str(e)}'} 
+
+    @classmethod
+    def save_psychotherapy_note(cls, event_id: int, content: str) -> Dict[str, Any]:
+        """Save a psychotherapy note for an event"""
+        try:
+            note = PhsycotherapyNote.objects.create(event_id=event_id, note_data=content)
+            return { 'note_id': note.id , 'note_data': note.note_data , 'created_at': note.created_at.strftime('%Y-%m-%d %H:%M:%S')}
+        except Exception as e:
+            return {'error': f'Unexpected error: {str(e)}'}
 
     @classmethod
     def get_event_services(cls, event: Event) -> str:
