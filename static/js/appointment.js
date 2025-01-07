@@ -31,8 +31,24 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
         if (validationResult.isValid) {
             const eventData = {
                 eventType: 'APPOINTMENT',
-                StartTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.startTime}`) : new Date(`${validationResult.allDayStartDate}T00:00:00`),
-                EndTime: !validationResult.isAllDay ? new Date(`${validationResult.startDate}T${validationResult.endTime}`) : new Date(`${validationResult.allDayEndDate}T23:59:59`),
+                StartTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.startTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayStartDate}T00:00:00`,
+                    'America/New_York'
+                ).format(),
+                 EndTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.endTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayEndDate}T23:59:59`,
+                    'America/New_York'
+                ).format(),
                 IsAllDay: validationResult.isAllDay,
                 Client: selectedClient,
                 Location: selectedLocation,
@@ -78,8 +94,24 @@ function updateAppointment(selectedLocation, scheduler) {
                 eventId: document.getElementById('event-id').value,
                 StateId: stateId,
                 eventType: 'APPOINTMENT',
-                StartTime: validationResult.isAllDay ? new Date(`${validationResult.allDayStartDate}T00:00:00`) : new Date(`${validationResult.startDate}T${validationResult.startTime}`),
-                EndTime: validationResult.isAllDay ? new Date(`${validationResult.allDayEndDate}T23:59:59`) : new Date(`${validationResult.startDate}T${validationResult.endTime}`),
+                StartTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.startTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayStartDate}T00:00:00`,
+                    'America/New_York'
+                ).format(),
+                EndTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.endTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayEndDate}T23:59:59`,
+                    'America/New_York'
+                ).format(),
                 IsAllDay: validationResult.isAllDay,
                 Location: selectedLocation,
                 Services: getSelectedServices(),
