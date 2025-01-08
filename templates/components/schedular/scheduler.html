@@ -4,6 +4,7 @@
     <div class="spinner"></div>
 </div>
 
+<input type="hidden" id="is-clinician" value="{{ is_clinician }}">
 {% block content %}
 {% include 'components/schedular/scheduler-editor.html' %}
 {% include 'components/schedular/appointment-modal.html' %}
@@ -22,6 +23,13 @@
         const clientData = JSON.parse('{{ clients|safe }}');
         const locationData = JSON.parse('{{ locations|safe }}');
         const teamMemberData = JSON.parse('{{ team_members|safe }}');
+        const isClinician = '{{ is_clinician }}';
+
+        //set is clinician value
+        const isClinicianInput = document.getElementById('is-clinician');
+        if (isClinicianInput) {
+            isClinicianInput.value = isClinician;
+        }
 
         let currentResourceId = null;
         // Initialize Scheduler
@@ -185,16 +193,17 @@
 
             // Get selected client and location based on the active tab
             if (eventId ? eventType === 'APPOINTMENT' : activeTab === 'appointment') {
+                selectedClinician = clinicianSearch.getSelectedItem();
                 selectedClient = clientSearch.getSelectedItem();
                 selectedLocation = locationSearch.getSelectedItem();
                 if (eventId) {
-                    updateAppointment(selectedLocation, scheduler).then(() => {
+                    updateAppointment(selectedLocation,selectedClinician, scheduler).then(() => {
                         scheduler.closeEditor();
                     }).catch(() => {
                         scheduler.closeEditor();
                     })
                 } else {
-                    createAppointment(selectedClient, selectedLocation, scheduler).then(() => {
+                    createAppointment(selectedClient, selectedLocation, selectedClinician, scheduler).then(() => {
                         scheduler.closeEditor();
                     }).catch(() => {
                         scheduler.closeEditor();
@@ -218,9 +227,21 @@
                         scheduler.closeEditor();
                     })
                 }
-            } else if (activeTab === 'out of office') {
+            } else if (eventId ? eventType === 'OUT_OF_OFFICE' : activeTab === 'out of office') {
                 selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
-                createOutOfOffice(selectedTeamMember, scheduler);
+                if (eventId) {
+                    updateOutOfOfficeData(selectedTeamMember, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                } else {
+                    createOutOfOffice(selectedTeamMember, scheduler).then(() => {
+                        scheduler.closeEditor();
+                    }).catch(() => {
+                        scheduler.closeEditor();
+                    })
+                }
             }
             hideSpinner();
         });
@@ -248,6 +269,13 @@
                     scheduler.closeEditor();
                 });
             }
+            else if (eventType === 'OUT_OF_OFFICE') {
+                deleteOutOfOffice(scheduler).then(() => {
+                    scheduler.closeEditor();
+                }).catch(() => {
+                    scheduler.closeEditor();
+                });
+            }
             hideSpinner();
         });
 
@@ -255,7 +283,14 @@
         function initializeEditorComponents(args) {
             return new Promise((resolve, reject) => {
                 const container = args.element;
+                const clinicianId = args.data.ResourceId;
                 const isExistingEvent = args.data.Id ? true : false;
+
+                //set clinician id
+                const clinicianIdInput = document.getElementById('clinician-id');
+                if (clinicianIdInput) {
+                    clinicianIdInput.value = clinicianId;
+                }
 
                 try {
                     // Initialize all components

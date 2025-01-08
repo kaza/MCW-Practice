@@ -4,6 +4,8 @@ from django.conf import settings
 
 class Location(models.Model):
     name = models.CharField(max_length=255)
+    type = models.CharField(max_length=255, null=True, blank=True)
+    color = models.CharField(max_length=7, default='#7499e1')
 
     def __str__(self):
         return self.name
@@ -141,8 +143,7 @@ class Event(models.Model):
     # Common fields
     type = models.ForeignKey(EventType, on_delete=models.PROTECT)
     title = models.CharField(max_length=255, null=True, blank=True) 
-    clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE, related_name='primary_events')
-    team_member = models.ForeignKey(Clinician, on_delete=models.CASCADE, null=True, blank=True, related_name='team_member_events', db_index=True)
+    clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE, related_name='clinician_events')
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
     location = models.ForeignKey(Location, on_delete=models.CASCADE, null=True, blank=True)

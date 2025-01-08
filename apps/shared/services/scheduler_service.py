@@ -168,7 +168,7 @@ class SchedulerDataService:
                 'Subject': event.title,
                 'Description': event.notes,
                 'Status': event.status.name if event.status else None,
-                'TeamMember': event.team_member.id if event.team_member else None,
+                'Clinician': event.clinician.id if event.clinician else None,
                 'Location': event.location.id if event.location else None,
             })
         else:  # OUT_OF_OFFICE
@@ -176,7 +176,7 @@ class SchedulerDataService:
                 'Type': event.type.name,
                 'Subject': 'Out of Office',
                 'Description': event.notes,
-                'TeamMember': event.team_member.id if event.team_member else None,
+                'Clinician': event.clinician.id if event.clinician else None,
                 'IsCancelAppointment': event.cancel_appointments,
                 'IsNotifyClient': event.notify_clients,
             })
@@ -194,11 +194,29 @@ class SchedulerDataService:
                 output_field=CharField()
             )
         ).values('id', 'name', 'email', 'phone')
+    
+    @classmethod
+    def get_clients_by_clinician(cls, login_id: int) -> List[Dict[str, Any]]:
+        """Get all clients (patients) by clinician"""
+        # Retrieve clinician ID from login ID
+        clinician = Clinician.objects.filter(login_id=login_id).first()
+        if not clinician:
+            return [] 
 
+        return Patient.objects.annotate(
+            name=Concat(
+                F('first_name'),
+                Value(' '),
+                F('last_name'),
+                output_field=CharField()
+            )
+        ).filter(clinician_id=clinician.id).values('id', 'name', 'email', 'phone')
+
+    
     @classmethod
     def get_locations(cls) -> List[Dict[str, Any]]:
         """Get all locations"""
-        return Location.objects.values('id', 'name')
+        return Location.objects.values('id', 'name', 'type', 'color')
 
     @classmethod
     def search_clients(cls, query: str) -> List[Dict[str, Any]]:
@@ -229,7 +247,7 @@ class SchedulerDataService:
         """Search locations by name"""
         return Location.objects.filter(
             Q(name__icontains=query)
-        ).values('id', 'name')
+        ).values('id', 'name', 'type', 'color')
 
     
     @classmethod
@@ -408,7 +426,6 @@ class SchedulerDataService:
         # Common event fields
         common_fields = {
             'type_id': EventType.objects.get(name=event_type).id,
-            'clinician_id': data.get('resourceId'),
             'start_datetime': start_time,
             'end_datetime': end_time,
             'is_all_day': data.get('eventData').get('IsAllDay', False),
@@ -426,8 +443,9 @@ class SchedulerDataService:
                     appointment_total=data.get('eventData').get('AppointmentTotal'),
                     location_id=data.get('eventData').get('Location').get('id'),
                     patient_id=data.get('eventData').get('Client').get('id'),
-                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
-                    notify_clients=data.get('eventData').get('IsNotifyClient', False)
+                    clinician_id=data.get('eventData').get('Clinician').get('id'),
+                    cancel_appointments=data.get('eventData').get('CancelAppointments', False),
+                    notify_clients=data.get('eventData').get('NotifyClients', False)
                 )
                 
                 # Create EventServices for each service
@@ -445,19 +463,22 @@ class SchedulerDataService:
                     **common_fields,
                     title=data.get('eventData').get('Subject'),
                     location_id=data.get('eventData').get('Location').get('id'),
-                    team_member_id=data.get('eventData').get('TeamMember').get('id'),
-                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
-                    notify_clients=data.get('eventData').get('IsNotifyClient', False)
+                    clinician_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('CancelAppointments', False),
+                    notify_clients=data.get('eventData').get('NotifyClients', False)
                 )
             
-            elif event_type == 'OutOfOffice':
+            elif event_type == 'OUT_OF_OFFICE':
+                # Out of office events don't support recurrence
+                common_fields.update({
+                    'is_recurring': False,
+                    'recurrence_rule': None
+                })
                 event = Event.objects.create(
                     **common_fields,
-                    team_member_id=data.get('eventData').get('TeamMember').get('id'),
-                    cancel_appointments=data.get('eventData').get('IsCancelAppointment', False),
-                    notify_clients=data.get('eventData').get('IsNotifyClient', False),
-                    is_recurring=False,  # Out of office events don't support recurrence
-                    recurrence_rule=None
+                    clinician_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('CancelAppointments', False),
+                    notify_clients=data.get('eventData').get('NotifyClients', False),
                 )
             else:
                 raise ValueError(f"Invalid event type: {event_type}")
@@ -543,6 +564,7 @@ class SchedulerDataService:
     def _update_appointment_specific_fields(cls, event: 'Event', event_data: Dict[str, Any]) -> None:
         """Update appointment-specific fields"""
         event.appointment_total = event_data.get('AppointmentTotal')
+        event.clinician_id = event_data.get('Clinician').get('id')
         if event_data.get('Services'):
             cls.update_event_services(event, event_data.get('Services'))
     
@@ -550,7 +572,14 @@ class SchedulerDataService:
     def _update_event_specific_fields(cls, event: 'Event', event_data: Dict[str, Any]) -> None:
         """Update event-specific fields"""
         event.title = event_data.get('Subject')
-        event.team_member_id = event_data.get('TeamMember').get('id')
+        event.clinician_id = event_data.get('TeamMember').get('id')
+
+    @classmethod
+    def _update_out_of_office_specific_fields(cls, event: 'Event', event_data: Dict[str, Any]) -> None:
+        """Update out of office-specific fields"""
+        event.clinician_id = event_data.get('TeamMember').get('id')
+        event.cancel_appointments = event_data.get('CancelAppointments', False)
+        event.notify_clients = event_data.get('NotifyClients', False)
        
 
     @classmethod
@@ -565,6 +594,8 @@ class SchedulerDataService:
             cls._update_appointment_specific_fields(event, event_data)
         if event_data.get('eventType') == 'EVENT':
             cls._update_event_specific_fields(event, event_data)
+        if event_data.get('eventType') == 'OUT_OF_OFFICE':
+            cls._update_out_of_office_specific_fields(event, event_data)
 
     @classmethod
     def _handle_series_update_timing(cls, events: QuerySet, time_diff: timedelta) -> None:

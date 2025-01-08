@@ -9,13 +9,13 @@ from apps.shared.services.scheduler_service import SchedulerDataService
 from django.views.decorators.csrf import csrf_exempt
 
 class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    template_name = 'admin_dashboard/dashboard.html'
+    template_name = 'clinician_dashboard/dashboard.html'
     login_url = 'login'
     
     def test_func(self):
-        return self.request.user.user_type == 'ADMIN'
+        return self.request.user.user_type == 'CLINICIAN'
     
-    def handle_no_permission(self):
+    def handle_no_permission(self):     
         if not self.request.user.is_authenticated:
             return redirect(self.login_url)
         return redirect('login')
@@ -24,10 +24,10 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context.update({
             'clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
-            'clients': json.dumps(list(SchedulerDataService.get_clients())),
+            'clients': json.dumps(list(SchedulerDataService.get_clients_by_clinician(self.request.user.id))),
             'locations': json.dumps(list(SchedulerDataService.get_locations())),
             'team_members': json.dumps(list(SchedulerDataService.get_team_members())),
-            'is_clinician': False
+            'is_clinician': True
         })
         return context
         
@@ -35,13 +35,14 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             start_date = request.GET.get('start_date')
             end_date = request.GET.get('end_date')
+            clinician_id = request.user.id if request.user.user_type == 'CLINICIAN' else None
             return JsonResponse(
                 SchedulerDataService.get_events(
-                    request.user.user_type,
-                    getattr(request.user, 'id', None),
+                    request.user.user_type, 
+                    clinician_id,
                     start_date,
                     end_date
-                ), 
+            ), 
                 safe=False
             )
         return super().get(request, *args, **kwargs)

@@ -23,7 +23,7 @@ const stateColors = {
         background: '#fff9e8'
     }
 };
-function createAppointment(selectedClient, selectedLocation, scheduler) {
+function createAppointment(selectedClient, selectedLocation, selectedClinician , scheduler) {
     return new Promise((resolve, reject) => {
         const validationResult = validateAppointment(selectedClient, selectedLocation);
 
@@ -51,6 +51,7 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
                 ).format(),
                 IsAllDay: validationResult.isAllDay,
                 Client: selectedClient,
+                Clinician: selectedClinician,
                 Location: selectedLocation,
                 Services: getSelectedServices(),
                 AppointmentTotal: validationResult.appointmentTotal
@@ -84,7 +85,7 @@ function createAppointment(selectedClient, selectedLocation, scheduler) {
     });
 }
 
-function updateAppointment(selectedLocation, scheduler) {
+function updateAppointment(selectedLocation, selectedClinician ,scheduler) {
     return new Promise((resolve, reject) => {
         const validationResult = validateAppointment(selectedLocation, true);
 
@@ -113,6 +114,7 @@ function updateAppointment(selectedLocation, scheduler) {
                     'America/New_York'
                 ).format(),
                 IsAllDay: validationResult.isAllDay,
+                Clinician: selectedClinician,
                 Location: selectedLocation,
                 Services: getSelectedServices(),
                 AppointmentTotal: validationResult.appointmentTotal
@@ -295,23 +297,41 @@ function initializeClientSearch(clients) {
         items: clients,
         onSelect: function (selectedClient) {
 
-            // Show the clinician section when a client is selected
-            document.querySelector('.clinician-section').style.display = 'block';
+            const clinician = document.getElementById('is-clinician').value;
+            if (clinician.trim() === 'False') {
+                // Show the clinician section when a client is selected
+                document.querySelector('.clinician-section').style.display = 'block';
 
-            // Fetch clinicians for the selected client
-            showSpinner();
-            getClientClinicians(selectedClient.id)
-                .then(clinicians => {
-                    initializeClinicianDropdown(clinicians, selectedClient).then(() => {
-                        hideSpinner();
-                    }).catch(() => {
+                // Fetch clinicians for the selected client
+                showSpinner();
+                getClientClinicians(selectedClient.id)
+                    .then(clinicians => {
+                        initializeClinicianDropdown(clinicians, selectedClient).then(() => {
+                            hideSpinner();
+                        }).catch(() => {
+                            hideSpinner();
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching clinicians:', error);
                         hideSpinner();
                     });
-                })
-                .catch(error => {
-                    console.error('Error fetching clinicians:', error);
-                    hideSpinner();
-                });
+            }
+            else{
+                showSpinner();
+                const clinicianId = document.getElementById('clinician-id').value;
+                fetchClinicianServices(clinicianId, selectedClient.id)
+                    .then(message => {
+                        document.querySelector('.services-section').style.display = 'block';
+                        hideSpinner();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching clinician services:', error);
+                        hideSpinner();
+                    }).finally(() => {
+                        hideSpinner();
+                    });
+            }
         },
         onDeselect: function () {
             document.querySelector('.clinician-section').style.display = 'none';
@@ -506,18 +526,39 @@ function initializeDateTimePicker(dateData) {
         initializeWithData();
     }
 }
+
 // Location dropdown initialization function
 function initializeLocationDropdown(locations) {
+    
+    const locationsWithSvg = locations.map(location => {
+        const item = { ...location }; 
+        
+        if (location.type === 'Onsite') {
+            // Create SVG with dynamic color from the location's color property
+            item.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+                <path fill="${location.color}" d="M7.26 15.62C5.627 13.616 2 8.753 2 6.02a6 6 0 1112 0c0 2.732-3.656 7.595-5.26 9.6a.944.944 0 01-1.48 0zM8 8.02c1.103 0 2-.896 2-2 0-1.102-.897-2-2-2s-2 .898-2 2c0 1.104.897 2 2 2z"></path>
+            </svg>`;
+        }
+        else{
+            item.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+                        <rect x="1" y="4" width="10" height="8" rx="1" fill="#4CAF50"/>
+                        <path d="M11 7L15 4V12L11 9V7Z" fill="#4CAF50"/>
+                        </svg>`;
+        }
+        return item;
+    });
+
     locationSearch = new DynamicSearch({
         containerId: 'locationSearchContainer',
-        items: locations,
+        items: locationsWithSvg,
         onSelect: function (selectedLocation) {
             console.log('Selected location:', selectedLocation);
             // Handle the selection here
         }
     });
-    if (locations.length > 0) {
-        const firstLocation = locations[0];
+
+    if (locationsWithSvg.length > 0) {
+        const firstLocation = locationsWithSvg[0];
         locationSearch.selectItem(firstLocation);
         console.log('Automatically selected location:', firstLocation);
     }
@@ -539,34 +580,34 @@ function initializeClinicianDropdown(clinicians, selectedClient) {
             console.log('Automatically selected clinician:', firstClinician);
             showSpinner();
 
-            fetch(`api/get_clinician_services/${firstClinician.id}/${selectedClient.id}/`)
-                .then(response => response.json())
-                .then(result => {
-                    if (result.status === 'success') {
-                        InitializePracticeServices(result.data).then(message => {
-                            document.querySelector('.services-section').style.display = 'block';
-                            hideSpinner();
-                            resolve();
-                        })
-                            .catch(error => {
-                                hideSpinner();
-                                resolve();
-                            });
-                    } else {
-                        console.error('Error:', result.error);
-                        hideSpinner();
-                        reject(new Error(result.error)); // Reject the promise on error
-                    }
+            fetchClinicianServices(firstClinician.id, selectedClient.id)
+                .then(message => {
+                    document.querySelector('.services-section').style.display = 'block';
+                    hideSpinner();
+                    resolve();
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     hideSpinner();
-                    reject(error); // Reject the promise on fetch error
+                    reject(error); // Reject the promise on error
                 });
         } else {
             resolve(); // Resolve immediately if no clinicians are available
         }
     });
+}
+
+// function to fetch clinician services
+function fetchClinicianServices(clinicianId, clientId) {
+    return fetch(`api/get_clinician_services/${clinicianId}/${clientId}/`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.status === 'success') {
+                return InitializePracticeServices(result.data);
+            } else {
+                throw new Error(result.error); 
+            }
+        });
 }
 
 // Helper function to clear error messages

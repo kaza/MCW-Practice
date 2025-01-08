@@ -352,17 +352,28 @@ function initializeEventDateTimePicker(dateData) {
 }
 
 function initializeEventLocationDropdown(locations) {
+    // Modify locations array to include SVG for Onsite locations
+    const locationsWithSvg = locations.map(location => {
+        const item = { ...location };
+        
+        if (item.type === 'Onsite') {
+            item.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+                <path fill="${item.color}" d="M7.26 15.62C5.627 13.616 2 8.753 2 6.02a6 6 0 1112 0c0 2.732-3.656 7.595-5.26 9.6a.944.944 0 01-1.48 0zM8 8.02c1.103 0 2-.896 2-2 0-1.102-.897-2-2-2s-2 .898-2 2c0 1.104.897 2 2 2z"></path>
+            </svg>`;
+        }
+        return item;
+    });
     
     eventLocationSearch = new DynamicSearch({
         containerId: 'event-locationSearchContainer',
-        items: locations,
+        items: locationsWithSvg,
         onSelect: function (selectedLocation) {
             console.log('Selected event location:', selectedLocation);
         }
     });
     
-    if (locations.length > 0) {
-        const firstLocation = locations[0];
+    if (locationsWithSvg.length > 0) {
+        const firstLocation = locationsWithSvg[0];
         eventLocationSearch.selectItem(firstLocation);
     }
 }
@@ -401,8 +412,8 @@ function bindEventData(data, container) {
         const isRecurring = container.querySelector('#is-recurring');
 
         try {
-            if (data.TeamMember && eventTeamMemberSearch) {
-                eventTeamMemberSearch.selectItemById(data.TeamMember);
+            if (data.Clinician && eventTeamMemberSearch) {
+                eventTeamMemberSearch.selectItemById(data.Clinician);
             }
             if (data.Location && eventLocationSearch) {
                 eventLocationSearch.selectItemById(data.Location);
