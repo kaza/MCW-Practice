@@ -54,9 +54,10 @@ class Clinician(models.Model):
     specialities = models.ManyToManyField(Speciality, through='ClinicianSpeciality')
     groups = models.ManyToManyField(Group, through='ClinicianGroup')
     modalities = models.ManyToManyField(Modality, through='ClinicianModality')
+    patients = models.ManyToManyField('Patient', through='CareTeam')
 
     def __str__(self):
-        return f"Clinician {self.id}"
+        return f"{self.first_name} {self.last_name}"
 
     class Meta:
         db_table = 'Clinician'
@@ -231,20 +232,54 @@ class Patient(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     login_id = models.CharField(max_length=255, unique=True)
-    clinician = models.ForeignKey('Clinician', null=True, blank=True, on_delete=models.CASCADE)
+    clinicians = models.ManyToManyField(Clinician, through='CareTeam')
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
-
+    
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
+
 
     class Meta:
         db_table = 'Patient'
         indexes = [
             models.Index(fields=['login_id']),
-            models.Index(fields=['clinician']),
         ]
+
+class CareTeam(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE)
+    is_primary = models.BooleanField(default=False)
+    start_date = models.DateTimeField(auto_now_add=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('ACTIVE', 'Active'),
+            ('INACTIVE', 'Inactive'),
+            ('TRANSFERRED', 'Transferred'),
+        ],
+        default='ACTIVE'
+    )
+    notes = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'CareTeam'
+        unique_together = [['patient', 'clinician']]
+        indexes = [
+            models.Index(fields=['patient', 'clinician']),
+            models.Index(fields=['is_primary']),
+            models.Index(fields=['status']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.is_primary:
+            CareTeam.objects.filter(
+                patient=self.patient,
+                is_primary=True
+            ).exclude(id=self.id).update(is_primary=False)
+        super().save(*args, **kwargs)
 
 class ClinicianService(models.Model):
     clinician = models.ForeignKey(Clinician, on_delete=models.CASCADE)

@@ -361,6 +361,12 @@ function initializeEventLocationDropdown(locations) {
                 <path fill="${item.color}" d="M7.26 15.62C5.627 13.616 2 8.753 2 6.02a6 6 0 1112 0c0 2.732-3.656 7.595-5.26 9.6a.944.944 0 01-1.48 0zM8 8.02c1.103 0 2-.896 2-2 0-1.102-.897-2-2-2s-2 .898-2 2c0 1.104.897 2 2 2z"></path>
             </svg>`;
         }
+        else{
+            item.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+                        <rect x="1" y="4" width="10" height="8" rx="1" fill="#4CAF50"/>
+                        <path d="M11 7L15 4V12L11 9V7Z" fill="#4CAF50"/>
+                        </svg>`;
+        }
         return item;
     });
     
@@ -384,6 +390,18 @@ function initializeEventTeamMemberDropdown(teamMembers) {
         items: teamMembers,
         onSelect: function (selectedTeamMember) {
             console.log('Selected event team member:', selectedTeamMember);
+            showSpinner();
+            fetchClinicianLocations(selectedTeamMember.id)
+                .then(locations => {
+                    initializeEventLocationDropdown(locations);
+                    hideSpinner();
+                })
+                .catch(error => {
+                    console.error('Error fetching clinician locations:', error);
+                    hideSpinner();
+                }).finally(() => {
+                    hideSpinner();
+                });
         }
     });
 
@@ -391,6 +409,15 @@ function initializeEventTeamMemberDropdown(teamMembers) {
         const firstTeamMember = teamMembers[0];
         eventTeamMemberSearch.selectItem(firstTeamMember);
     }
+}
+
+// function to fetch clinician locations
+function fetchClinicianLocations(clinicianId) {
+    return fetch(`api/get_clinician_locations/${clinicianId}/`)
+        .then(response => response.json())
+        .then(result => {
+            return result;
+        });
 }
 
 function reInitializeEventComponents(dateData) {

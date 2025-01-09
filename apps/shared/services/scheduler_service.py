@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from django.db.models import Q, Value, F, CharField
 from django.db.models.functions import Concat
 from django.conf import settings
-from django.forms import ValidationError
+from django.forms import BooleanField, ValidationError
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from zoneinfo import ZoneInfo
@@ -15,7 +15,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 from django.db.models import F
 from django.db.models.functions import ExtractYear, ExtractMonth, ExtractDay
-from apps.clinician_dashboard.models import AppointmentState, Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService
+from apps.clinician_dashboard.models import AppointmentState, CareTeam, Clinician, Event, EventService, EventType, Patient, Location, PracticeService, PatientDefaultService, ClinicianService, ClinicianLocation
 from apps.accounts.models import Login  
 
 class SchedulerDataService:
@@ -258,45 +258,74 @@ class SchedulerDataService:
 
     @classmethod
     def get_client_clinicians(cls, patient_id: int) -> List[Dict[str, Any]]:
-        """Get all clinicians for a client"""
+        """
+        Get all clinicians for a client including:
+        - Admin clinicians
+        - Clinicians actively assigned to the patient through CareTeam
+        
+        Returns:
+            List of dictionaries containing:
+            - id: Clinician ID
+            - name: Full name
+        """
         # Get all clinicians with user type 'ADMIN'
         admin_clinicians = Clinician.objects.filter(
             login_id__in=Login.objects.filter(user_type='ADMIN').values('id')
+        ).annotate(
+            name=Concat('first_name', Value(' '), 'last_name')
         )
 
-        # Get clinicians assigned to the specified patient
+        # Get assigned clinicians with relationship details from CareTeam
         assigned_clinicians = Clinician.objects.filter(
-            id__in=Patient.objects.filter(id=patient_id).values('clinician_id')
+            careteam__patient_id=patient_id
+        ).annotate(
+            name=Concat('first_name', Value(' '), 'last_name')
         )
 
-        # Combine both querysets
+        # Combine and return results
         combined_clinicians = admin_clinicians | assigned_clinicians
 
-        return list(combined_clinicians.annotate(
-            name=Concat('first_name', Value(' '), 'last_name')
-        ).values('id', 'name').distinct())  # Use distinct to avoid duplicates
+        return list(combined_clinicians.values(
+            'id', 
+            'name'
+        ).distinct())
     
     @classmethod
     def search_clinicians(cls, patient_id: int, query: str) -> List[Dict[str, Any]]:
-        """Search clinicians by name"""
+        """
+        Search clinicians by name including:
+        - Admin clinicians 
+        - Active care team members for the patient
+        
+        Args:
+            patient_id: ID of the patient
+            query: Search string to filter clinicians by name
+            
+        Returns:
+            List of dictionaries containing clinician id and full name
+        """
         # Get all clinicians with user type 'ADMIN'
         admin_clinicians = Clinician.objects.filter(
             login_id__in=Login.objects.filter(user_type='ADMIN').values('id')
         )
 
-        # Get clinicians assigned to the specified patient
-        assigned_clinicians = Clinician.objects.filter(
-            id__in=Patient.objects.filter(id=patient_id).values('clinician_id')
+        # Get clinicians from active care team
+        care_team_clinicians = Clinician.objects.filter(
+            careteam__patient_id=patient_id,
+            careteam__status='ACTIVE'
         )
 
         # Combine both querysets and apply the search query
-        combined_clinicians = admin_clinicians | assigned_clinicians
+        combined_clinicians = admin_clinicians | care_team_clinicians
 
         return list(combined_clinicians.filter(
             Q(first_name__icontains=query) | Q(last_name__icontains=query)
         ).annotate(
-            name=Concat('first_name', Value(' '), 'last_name')
-        ).values('id', 'name').distinct())  # Use distinct to avoid duplicates
+            name=Concat('first_name', Value(' '), 'last_name'),
+        ).values(
+            'id', 
+            'name'
+        ).distinct()) 
     
     @classmethod
     def get_clinician_services(cls, clinician_id: int, patient_id: int) -> Dict[str, Any]:
@@ -311,10 +340,11 @@ class SchedulerDataService:
             Dict containing either clinician_services or practice_services, 
             along with patient_default_services
         """
-        # Check if clinician is assigned to patient
-        is_assigned = Patient.objects.filter(
-            id=patient_id, 
-            clinician_id=clinician_id
+        # Check if clinician is in patient's active care team
+        is_assigned = CareTeam.objects.filter(
+            patient_id=patient_id,
+            clinician_id=clinician_id,
+            status='ACTIVE'
         ).exists()
 
         # Get patient default services
@@ -403,6 +433,35 @@ class SchedulerDataService:
                 'practice_services': services_data,
                 'patient_default_services': processed_default_services
             }
+    
+    @classmethod
+    def get_clinician_locations(cls, clinician_id: int) -> List[Dict[str, Any]]:
+        """
+        Get all locations for a clinician
+        
+        Args:
+            clinician_id: ID of the clinician
+            
+        Returns:
+            List of dictionaries containing:
+            - id: Location ID
+            - name: Location name
+            - type: Location type
+            - color: Location color
+        """
+        return list(ClinicianLocation.objects.filter(
+            clinician_id=clinician_id
+        ).select_related('location').values(
+            'location__id',
+            'location__name', 
+            'location__type',
+            'location__color'
+        ).annotate(
+            id=F('location__id'),
+            name=F('location__name'),
+            type=F('location__type'),
+            color=F('location__color')
+        ).values('id', 'name', 'type', 'color'))
 
     @classmethod
     def get_appointment_states(cls) -> List[Dict[str, Any]]:
@@ -565,6 +624,7 @@ class SchedulerDataService:
         """Update appointment-specific fields"""
         event.appointment_total = event_data.get('AppointmentTotal')
         event.clinician_id = event_data.get('Clinician').get('id')
+        event.status_id = event_data.get('StateId')
         if event_data.get('Services'):
             cls.update_event_services(event, event_data.get('Services'))
     
@@ -976,7 +1036,6 @@ class SchedulerDataService:
                         notes=event.notes,
                         location_id=event.location_id,
                         patient_id=event.patient_id,
-                        team_member_id=event.team_member_id,
                         status_id=event.status_id,
                         cancel_appointments=event.cancel_appointments,
                         notify_clients=event.notify_clients,

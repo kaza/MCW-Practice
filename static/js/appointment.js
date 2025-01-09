@@ -23,7 +23,7 @@ const stateColors = {
         background: '#fff9e8'
     }
 };
-function createAppointment(selectedClient, selectedLocation, selectedClinician , scheduler) {
+function createAppointment(selectedClient, selectedLocation, selectedClinician, scheduler) {
     return new Promise((resolve, reject) => {
         const validationResult = validateAppointment(selectedClient, selectedLocation);
 
@@ -31,24 +31,24 @@ function createAppointment(selectedClient, selectedLocation, selectedClinician ,
         if (validationResult.isValid) {
             const eventData = {
                 eventType: 'APPOINTMENT',
-                StartTime: !validationResult.isAllDay 
-                ? moment.tz(
-                    `${validationResult.startDate}T${validationResult.startTime}`,
-                    'America/New_York'
-                ).format()
-                : moment.tz(
-                    `${validationResult.allDayStartDate}T00:00:00`,
-                    'America/New_York'
-                ).format(),
-                 EndTime: !validationResult.isAllDay 
-                ? moment.tz(
-                    `${validationResult.startDate}T${validationResult.endTime}`,
-                    'America/New_York'
-                ).format()
-                : moment.tz(
-                    `${validationResult.allDayEndDate}T23:59:59`,
-                    'America/New_York'
-                ).format(),
+                StartTime: !validationResult.isAllDay
+                    ? moment.tz(
+                        `${validationResult.startDate}T${validationResult.startTime}`,
+                        'America/New_York'
+                    ).format()
+                    : moment.tz(
+                        `${validationResult.allDayStartDate}T00:00:00`,
+                        'America/New_York'
+                    ).format(),
+                EndTime: !validationResult.isAllDay
+                    ? moment.tz(
+                        `${validationResult.startDate}T${validationResult.endTime}`,
+                        'America/New_York'
+                    ).format()
+                    : moment.tz(
+                        `${validationResult.allDayEndDate}T23:59:59`,
+                        'America/New_York'
+                    ).format(),
                 IsAllDay: validationResult.isAllDay,
                 Client: selectedClient,
                 Clinician: selectedClinician,
@@ -85,7 +85,7 @@ function createAppointment(selectedClient, selectedLocation, selectedClinician ,
     });
 }
 
-function updateAppointment(selectedLocation, selectedClinician ,scheduler) {
+function updateAppointment(selectedLocation, selectedClinician, scheduler) {
     return new Promise((resolve, reject) => {
         const validationResult = validateAppointment(selectedLocation, true);
 
@@ -95,24 +95,24 @@ function updateAppointment(selectedLocation, selectedClinician ,scheduler) {
                 eventId: document.getElementById('event-id').value,
                 StateId: stateId,
                 eventType: 'APPOINTMENT',
-                StartTime: !validationResult.isAllDay 
-                ? moment.tz(
-                    `${validationResult.startDate}T${validationResult.startTime}`,
-                    'America/New_York'
-                ).format()
-                : moment.tz(
-                    `${validationResult.allDayStartDate}T00:00:00`,
-                    'America/New_York'
-                ).format(),
-                EndTime: !validationResult.isAllDay 
-                ? moment.tz(
-                    `${validationResult.startDate}T${validationResult.endTime}`,
-                    'America/New_York'
-                ).format()
-                : moment.tz(
-                    `${validationResult.allDayEndDate}T23:59:59`,
-                    'America/New_York'
-                ).format(),
+                StartTime: !validationResult.isAllDay
+                    ? moment.tz(
+                        `${validationResult.startDate}T${validationResult.startTime}`,
+                        'America/New_York'
+                    ).format()
+                    : moment.tz(
+                        `${validationResult.allDayStartDate}T00:00:00`,
+                        'America/New_York'
+                    ).format(),
+                EndTime: !validationResult.isAllDay
+                    ? moment.tz(
+                        `${validationResult.startDate}T${validationResult.endTime}`,
+                        'America/New_York'
+                    ).format()
+                    : moment.tz(
+                        `${validationResult.allDayEndDate}T23:59:59`,
+                        'America/New_York'
+                    ).format(),
                 IsAllDay: validationResult.isAllDay,
                 Clinician: selectedClinician,
                 Location: selectedLocation,
@@ -306,7 +306,7 @@ function initializeClientSearch(clients) {
                 showSpinner();
                 getClientClinicians(selectedClient.id)
                     .then(clinicians => {
-                        initializeClinicianDropdown(clinicians, selectedClient).then(() => {
+                        initializeClinicianDropdown(clinicians).then(() => {
                             hideSpinner();
                         }).catch(() => {
                             hideSpinner();
@@ -317,7 +317,7 @@ function initializeClientSearch(clients) {
                         hideSpinner();
                     });
             }
-            else{
+            else {
                 showSpinner();
                 const clinicianId = document.getElementById('clinician-id').value;
                 fetchClinicianServices(clinicianId, selectedClient.id)
@@ -529,17 +529,17 @@ function initializeDateTimePicker(dateData) {
 
 // Location dropdown initialization function
 function initializeLocationDropdown(locations) {
-    
+
     const locationsWithSvg = locations.map(location => {
-        const item = { ...location }; 
-        
+        const item = { ...location };
+
         if (location.type === 'Onsite') {
             // Create SVG with dynamic color from the location's color property
             item.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
                 <path fill="${location.color}" d="M7.26 15.62C5.627 13.616 2 8.753 2 6.02a6 6 0 1112 0c0 2.732-3.656 7.595-5.26 9.6a.944.944 0 01-1.48 0zM8 8.02c1.103 0 2-.896 2-2 0-1.102-.897-2-2-2s-2 .898-2 2c0 1.104.897 2 2 2z"></path>
             </svg>`;
         }
-        else{
+        else {
             item.svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
                         <rect x="1" y="4" width="10" height="8" rx="1" fill="#4CAF50"/>
                         <path d="M11 7L15 4V12L11 9V7Z" fill="#4CAF50"/>
@@ -564,33 +564,59 @@ function initializeLocationDropdown(locations) {
     }
 }
 
-function initializeClinicianDropdown(clinicians, selectedClient) {
+function initializeClinicianDropdown(clinicians, selectedClinician = null) {
     return new Promise((resolve, reject) => {
         clinicianSearch = new DynamicSearch({
             containerId: 'clinicianSearchContainer',
             items: clinicians,
             onSelect: function (selectedClinician) {
-                // Handle selection if needed
+                showSpinner();
+
+                const selectedClient = clientSearch.getSelectedItem();
+                const eventId = document.getElementById('event-id').value;
+                let clientId;
+                if (!selectedClient) {
+                    if (eventId.trim() === '') {
+                        hideSpinner();
+                        return reject(new Error('No client selected')); // Reject if no client is selected
+                    }
+                    else {
+                        clientId = document.getElementById('client-id').value;;
+                    }
+                }
+                else {
+                    clientId = selectedClient.id;
+                }
+
+
+                // Fetch locations and services concurrently
+                Promise.all([
+                    fetchClinicianLocations(selectedClinician.id),
+                    fetchClinicianServices(selectedClinician.id, clientId)
+                ])
+                    .then(([locations, services]) => {
+                        initializeLocationDropdown(locations);
+                        document.querySelector('.services-section').style.display = 'block';
+                        hideSpinner();
+                        resolve(); // Resolve after both operations are complete
+                    })
+                    .catch(error => {
+                        console.error('Error fetching data:', error);
+                        hideSpinner();
+                        reject(error); // Reject the promise on error
+                    });
             }
         });
 
         if (clinicians.length > 0) {
-            const firstClinician = clinicians[0];
-            clinicianSearch.selectItem(firstClinician);
-            console.log('Automatically selected clinician:', firstClinician);
-            showSpinner();
-
-            fetchClinicianServices(firstClinician.id, selectedClient.id)
-                .then(message => {
-                    document.querySelector('.services-section').style.display = 'block';
-                    hideSpinner();
-                    resolve();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    hideSpinner();
-                    reject(error); // Reject the promise on error
-                });
+            if (selectedClinician) {
+                clinicianSearch.selectItemById(selectedClinician);
+            }
+            else {
+                const firstClinician = clinicians[0];
+                clinicianSearch.selectItem(firstClinician);
+                console.log('Automatically selected clinician:', firstClinician);
+            }
         } else {
             resolve(); // Resolve immediately if no clinicians are available
         }
@@ -605,8 +631,17 @@ function fetchClinicianServices(clinicianId, clientId) {
             if (result.status === 'success') {
                 return InitializePracticeServices(result.data);
             } else {
-                throw new Error(result.error); 
+                throw new Error(result.error);
             }
+        });
+}
+
+// function to fetch clinician locations
+function fetchClinicianLocations(clinicianId) {
+    return fetch(`api/get_clinician_locations/${clinicianId}/`)
+        .then(response => response.json())
+        .then(result => {
+            return result;
         });
 }
 
@@ -656,7 +691,7 @@ function loadEventData(eventId, container) {
         getEventData(eventId)
             .then(data => {
 
-                const userType = data.userType; 
+                const userType = data.userType;
 
                 // Show appropriate section based on event type
                 const appointmentSection = container.querySelector('.appointment-section');
@@ -709,7 +744,11 @@ function loadEventData(eventId, container) {
                                 if (data.Clinician) {
                                     return getClientClinicians(data.Client.id)
                                         .then(clinicians => {
-                                            return initializeClinicianDropdown(clinicians, data.Client);
+                                            const clientId = container.querySelector('#client-id');
+                                            if (clientId) {
+                                                clientId.value = data.Client.id;
+                                            }
+                                            return initializeClinicianDropdown(clinicians, data.Clinician);
                                         })
                                         .then(() => {
                                             document.querySelector('.clinician-section').style.display = 'block';
@@ -733,31 +772,28 @@ function loadEventData(eventId, container) {
                                                 }
                                             }
 
-                                            if (clinicianSearch) {
-                                                clinicianSearch.selectItemById(data.Clinician.id);
+                                            if (data.Location) {
+                                                locationSearch.selectItemById(data.Location);
+                                            }
 
-                                                if (data.Location) {
-                                                    locationSearch.selectItemById(data.Location);
-                                                }
-
-                                                if (data.IsRecurring) {
-                                                    isRecurring.value = 'true';
-                                                    if (recurringSummary) {
-                                                        recurringSummary.style.display = 'block';
-                                                        window.recurringSummary.setDocumentElement(container);
-                                                        window.recurringSummary.show(data.RecurrenceRuleString);
-                                                    }
-                                                }
-
-                                                buildSelectedServices(data.services);
-
-                                                BindNotes(data.last_events, container, userType);
-
-                                                const appointmentTotal = document.getElementById('appointment-total');
-                                                if (appointmentTotal) {
-                                                    document.getElementById('appointment-total').setAttribute('data-amount', '$' + data.AppointmentTotal.toFixed(2));
+                                            if (data.IsRecurring) {
+                                                isRecurring.value = 'true';
+                                                if (recurringSummary) {
+                                                    recurringSummary.style.display = 'block';
+                                                    window.recurringSummary.setDocumentElement(container);
+                                                    window.recurringSummary.show(data.RecurrenceRuleString);
                                                 }
                                             }
+
+                                            buildSelectedServices(data.services);
+
+                                            BindNotes(data.last_events, container, userType);
+
+                                            const appointmentTotal = document.getElementById('appointment-total');
+                                            if (appointmentTotal) {
+                                                document.getElementById('appointment-total').setAttribute('data-amount', '$' + data.AppointmentTotal.toFixed(2));
+                                            }
+
 
                                             resolve();
                                         });
