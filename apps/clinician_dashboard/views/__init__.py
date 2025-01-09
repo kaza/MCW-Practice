@@ -5,8 +5,7 @@ from .appointment import (
     GetClientCliniciansView,
     GetClinicianServicesView,
     GetEventDataView,
-    GetAppointmentStatesView,
-    GetClinicianLocationsView
+    GetAppointmentStatesView
 )
 
 __all__ = [
@@ -23,6 +22,5 @@ __all__ = [
     'SaveEventNoteView',
     'GetNoteTemplateDataView',
     'GetEventNotesDataView',
-    'SavePsychotherapyNoteView',
-    'GetClinicianLocationsView'
+    'SavePsychotherapyNoteView'
 ]

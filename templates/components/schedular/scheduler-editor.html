@@ -21,6 +21,9 @@
         <input type="hidden" id="event-id" value="">
         <input type="hidden" id="is-recurring" value="false">
         <input type="hidden" id="event-type" value="">
+        <input type="hidden" id="clinician-id" value="{{ clinician_id }}">
+        <input type="hidden" id="client-id" value="">
+        
     
         <!-- Appointment Type Selection -->
         <div class="appointment-section">
@@ -29,10 +32,10 @@
                 <img src="{% static 'images/individual_couple.svg' %}" alt="Description of the icon" width="40" height="24">
                 Individual or couple
             </button>
-            <button class="type-btn">
+            <!-- <button class="type-btn">
                 <img src="{% static 'images/group.svg' %}" alt="Description of the icon" width="40" height="24">
                 Group
-            </button>
+            </button> -->
         </div>
     
         <!-- Client Search -->
@@ -47,7 +50,7 @@
                 </div>
                 <div class="error-message" id="client-error"></div>
             </div>
-            <a href="#" class="create-link">+ Create client</a>
+            <!-- <a href="#" class="create-link">+ Create client</a> -->
         </div>
 
          <!-- Add client details container -->
@@ -349,7 +352,7 @@
 
     .search-input {
         width: 100%;
-        padding: 8px 12px;
+        padding: 8px 20px;
         border: 1px solid #e0e0e0;
         border-radius: 4px;
         font-size: 12px;

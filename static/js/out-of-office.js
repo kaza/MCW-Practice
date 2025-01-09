@@ -1,93 +1,96 @@
 let oofTeamMemberSearch;
 
 function createOutOfOffice(selectedTeamMember, scheduler) {
-    
-    const validationResult = validateOutOfOfficeData(selectedTeamMember);
-    // If all validations pass, proceed with creating the Out of Office entry
-    if (validationResult.isValid) {
-        const oofData = {
-            eventType: 'OutOfOffice',
-            StartTime: !validationResult.isAllDay 
-            ? moment.tz(
-                `${validationResult.startDate}T${validationResult.startTime}`,
-                'America/New_York'
-            ).format()
-            : moment.tz(
-                `${validationResult.allDayStartDate}T00:00:00`,
-                'America/New_York'
-            ).format(), 
-            EndTime: !validationResult.isAllDay 
-            ? moment.tz(
-                `${validationResult.startDate}T${validationResult.endTime}`,
-                'America/New_York'
-            ).format()
-            : moment.tz(
-                `${validationResult.allDayEndDate}T23:59:59`,
-                'America/New_York'
-            ).format(),
-            IsAllDay: validationResult.isAllDay,
-            TeamMember: selectedTeamMember,
-            CancelAppointments: document.getElementById('oof-cancelAppointments').checked,
-            NotifyClients: document.getElementById('oof-notifyClients').checked
-        };
+    return new Promise((resolve, reject) => {
+        const validationResult = validateOutOfOfficeData(selectedTeamMember);
+        
+        // If all validations pass, proceed with creating the Out of Office entry
+        if (validationResult.isValid) {
+            const oofData = {
+                eventType: 'OUT_OF_OFFICE',
+                StartTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.startTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayStartDate}T00:00:00`,
+                    'America/New_York'
+                ).format(), 
+                EndTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.endTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayEndDate}T23:59:59`,
+                    'America/New_York'
+                ).format(),
+                IsAllDay: validationResult.isAllDay,
+                TeamMember: selectedTeamMember,
+                CancelAppointments: document.getElementById('oof-cancelAppointments').checked,
+                NotifyClients: document.getElementById('oof-notifyClients').checked
+            };
 
-        const args = {
-            requestType: 'eventCreate',
-            data: oofData
-        };
-        scheduler.actionBegin(args);
-    }
+            const args = {
+                requestType: 'eventCreate',
+                data: oofData
+            };
+            scheduler.actionBegin(args);
+            resolve(oofData); // Resolve with the created data
+        } else {
+            reject(new Error('Validation failed')); // Reject if validation fails
+        }
+    });
 }
 
-function updateOutOfOfficeData(data) {
+function updateOutOfOfficeData(selectedTeamMember, scheduler) {
+    return new Promise((resolve, reject) => {
+        const validationResult = validateOutOfOfficeData(selectedTeamMember);
+        
+        // If all validations pass, proceed with updating the Out of Office entry
+        if (validationResult.isValid) {
+            const oofData = {
+                eventId: document.getElementById('event-id').value,
+                eventType: 'OUT_OF_OFFICE',
+                StartTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.startTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayStartDate}T00:00:00`,
+                    'America/New_York'
+                ).format(),
+                EndTime: !validationResult.isAllDay 
+                ? moment.tz(
+                    `${validationResult.startDate}T${validationResult.endTime}`,
+                    'America/New_York'
+                ).format()
+                : moment.tz(
+                    `${validationResult.allDayEndDate}T23:59:59`,
+                    'America/New_York'
+                ).format(),
+                IsAllDay: validationResult.isAllDay,
+                TeamMember: selectedTeamMember,
+                CancelAppointments: document.getElementById('oof-cancelAppointments').checked,
+                NotifyClients: document.getElementById('oof-notifyClients').checked,
+                editType: 'single'
+            };
 
-    const validationResult = validateOutOfOfficeData(selectedTeamMember);
-    // If all validations pass, proceed with creating the Out of Office entry
-    if (validationResult.isValid) {
-        const oofData = {
-            eventId: document.getElementById('event-id').value,
-            eventType: 'OutOfOffice',
-            StartTime: !validationResult.isAllDay 
-            ? moment.tz(
-                `${validationResult.startDate}T${validationResult.startTime}`,
-                'America/New_York'
-            ).format()
-            : moment.tz(
-                `${validationResult.allDayStartDate}T00:00:00`,
-                'America/New_York'
-            ).format(),
-            EndTime: !validationResult.isAllDay 
-            ? moment.tz(
-                `${validationResult.startDate}T${validationResult.endTime}`,
-                'America/New_York'
-            ).format()
-            : moment.tz(
-                `${validationResult.allDayEndDate}T23:59:59`,
-                'America/New_York'
-            ).format(),
-            IsAllDay: validationResult.isAllDay,
-            TeamMember: selectedTeamMember,
-            CancelAppointments: document.getElementById('oof-cancelAppointments').checked,
-            NotifyClients: document.getElementById('oof-notifyClients').checked
-        };
-
-        const args = {
-            requestType: 'eventCreate',
-            data: oofData
-        };
-        scheduler.actionBegin(args);
-    }
+            const args = {
+                requestType: 'eventChange',
+                data: oofData
+            };
+            scheduler.actionBegin(args);
+            resolve(oofData); // Resolve with the updated data
+        } else {
+            reject(new Error('Validation failed')); // Reject if validation fails
+        }
+    });
 }
 
-function deleteOutOfOfficeData(data) {
-    const eventId = document.getElementById('event-id').value;
-    const args = {
-        requestType: 'eventDelete',
-        data: data
-    };
-    scheduler.actionBegin(args);
-}
-function deleteEvent(scheduler) {
+function deleteOutOfOffice(scheduler) {
     return new Promise((resolve, reject) => {
         const eventId = document.getElementById('event-id').value;
         let eventData = {};
@@ -286,8 +289,8 @@ function bindOutOffOfficeData(data, container) {
             const oofCancelAppointments = container.querySelector('#oof-cancelAppointments');
             const oofNotifyClients = container.querySelector('#oof-notifyClients');
 
-            if (data.TeamMember && oofTeamMemberSearch) {
-                oofTeamMemberSearch.selectItemById(data.TeamMember);
+            if (data.Clinician && oofTeamMemberSearch) {
+                oofTeamMemberSearch.selectItemById(data.Clinician);
             }
 
             if (data.IsCancelAppointment) {

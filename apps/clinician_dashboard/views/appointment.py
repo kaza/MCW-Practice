@@ -77,8 +77,3 @@ class GetAppointmentStatesView(View):
     def get(self, request):
         appointment_states = SchedulerDataService.get_appointment_states()
         return JsonResponse(appointment_states, safe=False)
-    
-class GetClinicianLocationsView(View):
-    def get(self, request, clinician_id):
-        locations = SchedulerDataService.get_clinician_locations(clinician_id)
-        return JsonResponse(locations, safe=False)

@@ -96,6 +96,7 @@
     padding: 6px 16px;
     border-radius: 4px;
     float: right;
+    padding: 3px 12px;
 }
 
 .btn-cancel {
@@ -265,9 +266,10 @@
 .psychotherapy-note {
     background-color: #f8f9fa;
     padding: 15px;
-    margin-top: 20px;
+    margin-top: 35px !important;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
+    margin: 20px;
 }
 
 /* Responsive Design */
@@ -521,4 +523,48 @@ input[type="radio"], input[type="checkbox"] {
 .dropdown-desc {
    height: 40px;
 }
+
+.psychotherapy-note {
+
+    .title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 10px;
+    }
+    .description {
+        font-size: 14px;
+        color: #555;
+        margin-bottom: 20px;
+    }
+    .add-note {
+        font-size: 14px;
+        color: #007bff;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .add-note:hover {
+        text-decoration: underline;
+    }
+}
+
+.btn-psychotherapy-save {
+    background-color: #0d6efd;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 4px;
+    float: right;
+    padding: 3px 12px;
+    margin-top: 24px;
+}
+
+.btn-psychotherapy-cancel {
+    background-color: #f2f2f2;
+    color: #333;
+    padding: 6px 16px;
+    border-radius: 4px;
+    float: right;
+    margin-top: 24px;
+}
+
 

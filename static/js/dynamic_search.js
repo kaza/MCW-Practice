@@ -14,12 +14,28 @@ class DynamicSearch {
         this.selectedIndex = -1;
 
         this.setupEventListeners();
+
+        this.inputWrapper = this.container.querySelector('.input-wrapper');
+        if (!this.inputWrapper) {
+            // Create input wrapper if it doesn't exist
+            this.inputWrapper = document.createElement('div');
+            this.inputWrapper.className = 'input-wrapper';
+            this.searchInput.parentNode.insertBefore(this.inputWrapper, this.searchInput);
+            this.inputWrapper.appendChild(this.searchInput);
+        }
     }
 
     setupEventListeners() {
         // Input event
         this.searchInput.addEventListener('input', () => {
             this.filterItems(this.searchInput.value);
+            if(this.searchInput.value.trim() === ''){
+                //remove existing icon
+                const existingIcon = this.inputWrapper.querySelector('.location-icon');
+                if (existingIcon) {
+                    existingIcon.remove();
+                }
+            }
         });
 
         // Focus event
@@ -60,6 +76,7 @@ class DynamicSearch {
             item.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
         
+        
         this.renderDropdown(filtered);
     }
 
@@ -74,13 +91,11 @@ class DynamicSearch {
             const div = document.createElement('div');
             div.className = 'dropdown-item';
             
-            let html = '';
-            if (item.image) {
-                html += `<img src="${item.image}" alt="${item.name}">`;
+            if (item.svg) {
+                div.innerHTML = `${item.svg}<span>${item.name}</span>`;
+            } else {
+                div.innerHTML = `<span>${item.name}</span>`;
             }
-            html += `<span>${item.name}</span>`;
-            
-            div.innerHTML = html;
             
             div.addEventListener('click', () => {
                 this.selectItem(item);
@@ -100,9 +115,25 @@ class DynamicSearch {
     selectItem(item) {
         this.searchInput.value = item.name;
         this.searchInput.dataset.searchId = item.id;
+        
+        // Remove existing icon if present
+        const existingIcon = this.inputWrapper.querySelector('.location-icon');
+        if (existingIcon) {
+            existingIcon.remove();
+        }
+        
+        // Add SVG if provided
+        if (item.svg) {
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'location-icon';
+            iconDiv.innerHTML = item.svg;
+            this.inputWrapper.insertBefore(iconDiv, this.searchInput);
+        }
+        
         this.hideDropdown();
         this.onSelect(item);
     }
+
 
     selectItemById(id) {
         const item = this.items.find(item => item.id === id);

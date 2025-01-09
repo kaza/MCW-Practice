@@ -4,6 +4,7 @@
     <div class="spinner"></div>
 </div>
 
+<input type="hidden" id="is-clinician" value="{{ is_clinician }}">
 {% block content %}
 {% include 'components/schedular/scheduler-editor.html' %}
 {% include 'components/schedular/appointment-modal.html' %}
@@ -16,348 +17,472 @@
 <script src="{% static 'js/practice_services.js' %}"></script>
 <script src="{% static 'js/recurring-summary.js' %}"></script>
 <script src="{% static 'js/appointment-modal.js' %}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const resourceData = JSON.parse('{{ clinicians|safe }}');
-        const clientData = JSON.parse('{{ clients|safe }}');
-        const locationData = JSON.parse('{{ locations|safe }}');
-        const teamMemberData = JSON.parse('{{ team_members|safe }}');
 
-        let currentResourceId = null;
-        // Initialize Scheduler
-        const scheduler = new ej.schedule.Schedule({
+<script>
+// Region: Constants
+const TIMEZONE = 'America/New_York';
+const DEFAULT_VIEW = 'Day';
+const VIEWS = [
+    { option: 'Day' },
+    { option: 'Week' },
+    { option: 'Month' }
+];
+
+// Region: Event Types
+const EVENT_TYPES = {
+    APPOINTMENT: 'APPOINTMENT',
+    EVENT: 'EVENT',
+    OUT_OF_OFFICE: 'OUT_OF_OFFICE'
+};
+
+// Region: Main Scheduler Class
+class SchedulerManager {
+    constructor(resourceData, clientData, locationData, teamMemberData, isClinician) {
+        this.resourceData = resourceData;
+        this.clientData = clientData;
+        this.locationData = locationData;
+        this.teamMemberData = teamMemberData;
+        this.isClinician = isClinician;
+        this.currentResourceId = null;
+        this.scheduler = null;
+        this.initializeScheduler();
+        this.setupEventListeners();
+    }
+
+    // Region: Initialization
+    initializeScheduler() {
+        this.setClinicianValue();
+        this.createScheduler();
+        this.fetchAndUpdateEvents(); // Initial load of events
+    }
+
+    setClinicianValue() {
+        const isClinicianInput = document.getElementById('is-clinician');
+        if (isClinicianInput) {
+            isClinicianInput.value = this.isClinician;
+        }
+    }
+
+    createScheduler() {
+        this.scheduler = new ej.schedule.Schedule(this.getSchedulerConfig());
+        this.scheduler.appendTo('#scheduler');
+        this.scheduler.selectedDate = this.getCurrentDate();
+    }
+
+    getSchedulerConfig() {
+        return {
             width: '100%',
             height: '100%',
             selectedDate: new Date(),
             cssClass: 'tailwind-scheduler',
-            currentView: 'Day',
-            views: [
-                { option: 'Day' },
-                { option: 'Week' },
-                { option: 'Month' }
-            ],
-            group: {
-                resources: ['Resources']
-            },
-            resources: [{
-                field: 'ResourceId',
-                title: 'Clinicians',
-                name: 'Resources',
-                dataSource: resourceData,
-                textField: 'text',
-                idField: 'id',
-                colorField: 'color'
-            }],
-            timezone: 'America/New_York',
-            eventSettings: {
-                dataSource: [],
-                fields: {
-                    id: 'Id',
-                    resourceId: { name: 'ResourceId' }
-                }
-            },
+            currentView: DEFAULT_VIEW,
+            views: VIEWS,
+            group: { resources: ['Resources'] },
+            resources: [this.getResourceConfig()],
+            timezone: TIMEZONE,
+            eventSettings: this.getEventSettings(),
             editorTemplate: '#EventEditorTemplate',
-            popupOpen: function (args) {
-                if (args.type === 'Editor') {
-                    // Initially hide the popup while data is loading
-                    if (args.element) {
-                        args.element.style.display = 'none';
-                    }
-                    initializeEditorComponents(args)
-                        .then(() => {
-                            currentResourceId = args.data.ResourceId;
-                            if (args.element) {
-                                args.element.style.display = 'flex';
-                            }
-                        })
-                        .catch(() => {
-                        });
-                }
-                if (args.type === 'QuickInfo') {
-                    args.cancel = true;
-                }
-            },
-            actionBegin: function (args) {
-                if (args.requestType === 'eventCreate' || args.requestType === 'eventChange' || args.requestType === 'eventRemove') {
-                    const eventData = args.data[0] || args.data;
-                    const action = args.requestType.replace('event', '').toLowerCase();
-                    const resourceId = currentResourceId;
-
-                    showSpinner();
-                    fetch(window.location.href, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCsrfToken()
-                        },
-                        body: JSON.stringify({
-                            action: action,
-                            eventData: eventData,
-                            resourceId: resourceId
-                        })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                // Refresh the calendar data after successful creation
-                                fetchAndUpdateEvents();
-                            }
-                        })
-                        .finally(() => {
-                            hideSpinner();
-                        });
-                }
-            },
-            resizeStart: function (args) {
-                args.cancel = true;
-            },
-            timeScale: {
-                enable: true,
-                interval: 60,
-                slotCount: window.innerWidth < 768 ? 1 : 2
-            },
+            popupOpen: (args) => this.handlePopupOpen(args),
+            actionBegin: (args) => this.handleActionBegin(args),
+            resizeStart: (args) => { args.cancel = true; },
+            timeScale: this.getTimeScaleConfig(),
             rowAutoHeight: false,
             allowResizing: window.innerWidth >= 768,
             allowDragAndDrop: window.innerWidth >= 768
-        });
+        };
+    }
 
-        // Central function to fetch and update events
-        async function fetchAndUpdateEvents(selectedDate = scheduler.selectedDate, selectedView = scheduler.currentView) {
+    // Region: Configuration Helpers
+    getResourceConfig() {
+        return {
+            field: 'ResourceId',
+            title: 'Clinicians',
+            name: 'Resources',
+            dataSource: this.resourceData,
+            textField: 'text',
+            idField: 'id',
+            colorField: 'color'
+        };
+    }
+
+    getEventSettings() {
+        return {
+            dataSource: [],
+            fields: {
+                id: 'Id',
+                resourceId: { name: 'ResourceId' }
+            }
+        };
+    }
+
+    getTimeScaleConfig() {
+        return {
+            enable: true,
+            interval: 60,
+            slotCount: window.innerWidth < 768 ? 1 : 2
+        };
+    }
+
+    getCurrentDate() {
+        return new Date(new Date().toLocaleString('en-US', { timeZone: TIMEZONE }));
+    }
+
+    // Region: Event Handlers
+    async handlePopupOpen(args) {
+        if (args.type === 'Editor') {
+            await this.handleEditorPopup(args);
+        } else if (args.type === 'QuickInfo') {
+            args.cancel = true;
+        }
+    }
+
+    async handleEditorPopup(args) {
+        if (args.element) {
+            args.element.style.display = 'none';
+        }
+        try {
+            await this.initializeEditorComponents(args);
+            this.currentResourceId = args.data.ResourceId;
+            if (args.element) {
+                args.element.style.display = 'flex';
+            }
+        } catch (error) {
+            console.error('Error initializing editor components:', error);
+        }
+    }
+
+    async handleActionBegin(args) {
+        if (['eventCreate', 'eventChange', 'eventRemove'].includes(args.requestType)) {
+            const eventData = args.data[0] || args.data;
+            const action = args.requestType.replace('event', '').toLowerCase();
+            
+            showSpinner();
             try {
-                const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
-                const response = await fetch(
-                    `${window.location.href}?start_date=${startDate}&end_date=${endDate}`,
-                    {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    }
-                );
-                const data = await response.json();
-                scheduler.eventSettings.dataSource = data;
-                scheduler.dataBind();
-                scheduler.closeEditor(); // Close editor if open
+                const response = await this.sendEventRequest(action, eventData);
+                if (response.status === 'success') {
+                    await this.fetchAndUpdateEvents();
+                }
             } catch (error) {
-                console.error('Error loading events:', error);
+                console.error('Error handling event action:', error);
+            } finally {
+                hideSpinner();
             }
         }
+    }
 
-        scheduler.appendTo('#scheduler');
-
-        scheduler.selectedDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-
-        // Load initial events
-        fetchAndUpdateEvents();
-
-        // Update navigationClick method
-        scheduler.navigationClick = function (args) {
-            fetchAndUpdateEvents();
-        };
-
-        // Update navigating method
-        scheduler.navigating = function (args) {
-            if (args.action === 'date' || args.action === 'view') {
-                const selectedDate = args.currentDate || scheduler.selectedDate;
-                const selectedView = args.action === 'view' ? args.currentView : scheduler.currentView;
-                fetchAndUpdateEvents(selectedDate, selectedView);
-            }
-        };
-        // Handle window resize
-        window.addEventListener('resize', function () {
-            scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
-            scheduler.allowResizing = window.innerWidth >= 768;
-            scheduler.allowDragAndDrop = window.innerWidth >= 768;
-            scheduler.dataBind();
+    // Region: Event Operations
+    async sendEventRequest(action, eventData) {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                action: action,
+                eventData: eventData,
+                resourceId: this.currentResourceId
+            })
         });
+        return response.json();
+    }
 
+    async fetchAndUpdateEvents(selectedDate = this.scheduler.selectedDate, selectedView = this.scheduler.currentView) {
+        try {
+            const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
+            const response = await fetch(
+                `${window.location.href}?start_date=${startDate}&end_date=${endDate}`,
+                { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+            );
+            const data = await response.json();
+            this.scheduler.eventSettings.dataSource = data;
+            this.scheduler.dataBind();
+            this.scheduler.closeEditor();
+        } catch (error) {
+            console.error('Error loading events:', error);
+        }
+    }
 
-        $(document).on('click', '#done-button', function () {
-            showSpinner();
-            // Clear any existing error messages
-            clearErrorMessages();
+    // Region: Editor Components
+    async initializeEditorComponents(args) {
+        return new Promise((resolve, reject) => {
+            const container = args.element;
+            const clinicianId = args.data.ResourceId;
+            const isExistingEvent = args.data.Id ? true : false;
 
-            // Determine which tab is active
-            const activeTab = document.querySelector('.tab-link.active').textContent.toLowerCase();
-            const eventId = document.getElementById('event-id').value;
-            const eventType = document.getElementById('event-type').value;
+            try {
+                this.initializeBasicComponents(args.data, clinicianId);
+                this.initializeSpecializedComponents(args.data);
 
-            let selectedClient, selectedLocation, selectedTeamMember;
-
-            // Get selected client and location based on the active tab
-            if (eventId ? eventType === 'APPOINTMENT' : activeTab === 'appointment') {
-                selectedClient = clientSearch.getSelectedItem();
-                selectedLocation = locationSearch.getSelectedItem();
-                if (eventId) {
-                    updateAppointment(selectedLocation, scheduler).then(() => {
-                        scheduler.closeEditor();
-                    }).catch(() => {
-                        scheduler.closeEditor();
-                    })
+                if (isExistingEvent) {
+                    this.handleExistingEvent(container, args.data);
+                    loadEventData(args.data.Id, container)
+                        .then(() => resolve())
+                        .catch(reject);
                 } else {
-                    createAppointment(selectedClient, selectedLocation, scheduler).then(() => {
-                        scheduler.closeEditor();
-                    }).catch(() => {
-                        scheduler.closeEditor();
-                    })
+                    initializeTabNavigation(args.data);
+                    resolve();
                 }
-            } else if (eventId ? eventType === 'EVENT' : activeTab === 'event') {
-                selectedLocation = eventLocationSearch.getSelectedItem();
-                selectedTeamMember = eventTeamMemberSearch.getSelectedItem();
-                const eventName = document.getElementById('event-name').value;
-                if (eventId) {
-                    updateEvent(selectedLocation, selectedTeamMember, scheduler).then(() => {
-                        scheduler.closeEditor();
-                    }).catch(() => {
-                        scheduler.closeEditor();
-                    })
-                }
-                else {
-                    createEvent(selectedLocation, selectedTeamMember, scheduler).then(() => {
-                        scheduler.closeEditor();
-                    }).catch(() => {
-                        scheduler.closeEditor();
-                    })
-                }
-            } else if (activeTab === 'out of office') {
-                selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
-                createOutOfOffice(selectedTeamMember, scheduler);
+            } catch (error) {
+                reject(error);
             }
-            hideSpinner();
-        });
-
-        $(document).on('click', '#cancel-button', function () {
-            scheduler.closeEditor();
-        });
-
-        $(document).on('click', '#delete-button', function () {
-            showSpinner();
-            // Determine which tab is active
-            const eventId = document.getElementById('event-id').value;
-            const eventType = document.getElementById('event-type').value;
-            if (eventType === 'APPOINTMENT') {
-                deleteAppointment(scheduler).then(() => {
-                    scheduler.closeEditor();
-                }).catch(() => {
-                    scheduler.closeEditor();
-                });
-            }
-            else if (eventType === 'EVENT') {
-                deleteEvent(scheduler).then(() => {
-                    scheduler.closeEditor();
-                }).catch(() => {
-                    scheduler.closeEditor();
-                });
-            }
-            hideSpinner();
-        });
-
-        // Initialize editor components
-        function initializeEditorComponents(args) {
-            return new Promise((resolve, reject) => {
-                const container = args.element;
-                const isExistingEvent = args.data.Id ? true : false;
-
-                try {
-                    // Initialize all components
-                    initializeClientSearch(clientData);
-                    initializeDateTimePicker(args.data);
-                    initializeLocationDropdown(locationData);
-                    initializeRecurringControl(args.data.StartTime);
-
-                    // Initialize event components
-                    initializeEventDateTimePicker(args.data);
-                    initializeEventLocationDropdown(locationData);
-                    initializeEventTeamMemberDropdown(teamMemberData);
-
-                    // Initialize out of office components
-                    initializeOutOfOfficeDateTimePicker(args.data);
-                    initializeOutOfOfficeTeamMemberDropdown(teamMemberData);
-
-                    if (isExistingEvent) {
-                        // Hide tab navigation and type selection for existing events
-                        const tabNavigation = container.querySelector('.tab-navigation');
-                        const typeSelection = container.querySelector('.type-selection');
-                        const searchSection = container.querySelector('.search-section');
-                        const clientDetails = container.querySelector('.client-details-container');
-                        const eventId = container.querySelector('#event-id');
-                        const eventType = container.querySelector('#event-type');
-
-                        if (tabNavigation) tabNavigation.style.display = 'none';
-                        if (typeSelection) typeSelection.style.display = 'none';
-                        if (searchSection) searchSection.style.display = 'none';
-                        if (clientDetails) clientDetails.style.display = 'block';
-                        if (eventId) eventId.value = args.data.Id;
-                        if (eventType) eventType.value = args.data.Type;
-
-                        loadEventData(args.data.Id, container)
-                            .then(() => resolve())
-                            .catch(error => reject(error));
-                    } else {
-                        // For new events, show tab navigation and initialize it
-                        initializeTabNavigation(args.data);
-                        resolve();
-                    }
-                } catch (error) {
-                    reject(error);
-                }
-            });
-        }
-
-    });
-
-    function initializeTabNavigation(dateData) {
-        const tabs = document.querySelectorAll('.tab-link');
-        const appointmentSection = document.querySelector('.appointment-section');
-        const outOfOfficeSection = document.querySelector('.out-of-office-section');
-        const eventSection = document.querySelector('.event-section');
-        const recurringSection = document.querySelector('#recurring-section');
-        const servicesSection = document.querySelector('.services-section');
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                e.preventDefault();
-                const tabType = tab.textContent.toLowerCase();
-
-                // Clear any existing error messages
-                clearErrorMessages();
-
-                // Update active tab
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-
-
-                // Show/hide and reinitialize appropriate sections
-                if (tabType === 'appointment') {
-                    appointmentSection.style.display = 'block';
-                    eventSection.style.display = 'none';
-                    outOfOfficeSection.style.display = 'none';
-                    recurringSection.style.display = 'block';
-
-                    reInitializeAppointment(dateData);
-                    reInitializeRecurringControl(dateData.StartTime);
-                    reInitializePracticeServices();
-
-                } else if (tabType === 'event') {
-                    appointmentSection.style.display = 'none';
-                    eventSection.style.display = 'block';
-                    outOfOfficeSection.style.display = 'none';
-                    recurringSection.style.display = 'block';
-                    servicesSection.style.display = 'none';
-
-
-                    reInitializeEventComponents(dateData);
-                    reInitializeRecurringControl(dateData.StartTime);
-
-                } else { // Out of office
-                    appointmentSection.style.display = 'none';
-                    eventSection.style.display = 'none';
-                    outOfOfficeSection.style.display = 'block';
-                    recurringSection.style.display = 'none';
-                    servicesSection.style.display = 'none';
-
-                    reInitializeOutOfOfficeComponents(dateData);
-                }
-            });
         });
     }
+
+    initializeBasicComponents(data, clinicianId) {
+        const clinicianIdInput = document.getElementById('clinician-id');
+        if (clinicianIdInput) {
+            clinicianIdInput.value = clinicianId;
+        }
+
+        initializeClientSearch(this.clientData);
+        initializeDateTimePicker(data);
+        initializeLocationDropdown(this.locationData);
+        initializeRecurringControl(data.StartTime);
+    }
+
+    initializeSpecializedComponents(data) {
+        initializeEventDateTimePicker(data);
+        initializeEventLocationDropdown(this.locationData);
+        initializeEventTeamMemberDropdown(this.teamMemberData);
+        initializeOutOfOfficeDateTimePicker(data);
+        initializeOutOfOfficeTeamMemberDropdown(this.teamMemberData);
+    }
+
+    handleExistingEvent(container, eventData) {
+        const elements = {
+            tabNavigation: container.querySelector('.tab-navigation'),
+            typeSelection: container.querySelector('.type-selection'),
+            searchSection: container.querySelector('.search-section'),
+            clientDetails: container.querySelector('.client-details-container'),
+            eventId: container.querySelector('#event-id'),
+            eventType: container.querySelector('#event-type')
+        };
+
+        // Hide unnecessary elements for existing events
+        ['tabNavigation', 'typeSelection', 'searchSection'].forEach(key => {
+            if (elements[key]) elements[key].style.display = 'none';
+        });
+
+        // Show and set necessary elements
+        if (elements.clientDetails) elements.clientDetails.style.display = 'block';
+        if (elements.eventId) elements.eventId.value = eventData.Id;
+        if (elements.eventType) elements.eventType.value = eventData.Type;
+    }
+
+    // Region: Event Listeners
+    setupEventListeners() {
+        this.setupWindowResizeListener();
+        this.setupButtonListeners();
+        this.setupNavigationListeners();
+    }
+
+    setupWindowResizeListener() {
+        window.addEventListener('resize', () => {
+            this.scheduler.timeScale.slotCount = window.innerWidth < 768 ? 1 : 2;
+            this.scheduler.allowResizing = window.innerWidth >= 768;
+            this.scheduler.allowDragAndDrop = window.innerWidth >= 768;
+            this.scheduler.dataBind();
+        });
+    }
+
+    setupButtonListeners() {
+        $(document).on('click', '#done-button', () => this.handleDoneButton());
+        $(document).on('click', '#cancel-button', () => this.scheduler.closeEditor());
+        $(document).on('click', '#delete-button', () => this.handleDeleteButton());
+    }
+
+    setupNavigationListeners() {
+        this.scheduler.navigationClick = () => this.fetchAndUpdateEvents();
+        this.scheduler.navigating = (args) => {
+            if (args.action === 'date' || args.action === 'view') {
+                const selectedDate = args.currentDate || this.scheduler.selectedDate;
+                const selectedView = args.action === 'view' ? args.currentView : this.scheduler.currentView;
+                this.fetchAndUpdateEvents(selectedDate, selectedView);
+            }
+        };
+    }
+
+    // Region: Button Handlers
+    async handleDoneButton() {
+        clearErrorMessages();
+
+        try {
+            const formData = this.getFormData();
+            await this.processEventUpdate(formData);
+            this.scheduler.closeEditor();
+        } catch (error) {
+            console.error('Error processing event:', error);
+        } 
+    }
+
+    getFormData() {
+        const activeTab = document.querySelector('.tab-link.active')?.textContent.toLowerCase();
+        const eventId = document.getElementById('event-id')?.value;
+        const eventType = document.getElementById('event-type')?.value;
+        
+        return { activeTab, eventId, eventType };
+    }
+
+    async processEventUpdate({ activeTab, eventId, eventType }) {
+        if (eventId ? eventType === EVENT_TYPES.APPOINTMENT : activeTab === 'appointment') {
+            await this.handleAppointmentUpdate(eventId);
+        } else if (eventId ? eventType === EVENT_TYPES.EVENT : activeTab === 'event') {
+            await this.handleEventUpdate(eventId);
+        } else if (eventId ? eventType === EVENT_TYPES.OUT_OF_OFFICE : activeTab === 'out of office') {
+            await this.handleOutOfOfficeUpdate(eventId);
+        }
+    }
+
+    async handleDeleteButton() {
+        const eventId = document.getElementById('event-id').value;
+        const eventType = document.getElementById('event-type').value;
+
+        try {
+            switch(eventType) {
+                case EVENT_TYPES.APPOINTMENT:
+                    await deleteAppointment(this.scheduler);
+                    break;
+                case EVENT_TYPES.EVENT:
+                    await deleteEvent(this.scheduler);
+                    break;
+                case EVENT_TYPES.OUT_OF_OFFICE:
+                    await deleteOutOfOffice(this.scheduler);
+                    break;
+            }
+            this.scheduler.closeEditor();
+        } catch (error) {
+            console.error('Error deleting event:', error);
+        }
+    }
+
+    // Region: Event Type Specific Handlers
+    async handleAppointmentUpdate(eventId) {
+        const selectedClinician = clinicianSearch.getSelectedItem();
+        const selectedClient = clientSearch.getSelectedItem();
+        const selectedLocation = locationSearch.getSelectedItem();
+
+        if (eventId) {
+            await updateAppointment(selectedLocation, selectedClinician, this.scheduler);
+        } else {
+            await createAppointment(selectedClient, selectedLocation, selectedClinician, this.scheduler);
+        }
+    }
+
+    async handleEventUpdate(eventId) {
+        const selectedLocation = eventLocationSearch.getSelectedItem();
+        const selectedTeamMember = eventTeamMemberSearch.getSelectedItem();
+
+        if (eventId) {
+            await updateEvent(selectedLocation, selectedTeamMember, this.scheduler);
+        } else {
+            await createEvent(selectedLocation, selectedTeamMember, this.scheduler);
+        }
+    }
+
+    async handleOutOfOfficeUpdate(eventId) {
+        const selectedTeamMember = oofTeamMemberSearch.getSelectedItem();
+
+        if (eventId) {
+            await updateOutOfOfficeData(selectedTeamMember, this.scheduler);
+        } else {
+            await createOutOfOffice(selectedTeamMember, this.scheduler);
+        }
+    }
+}
+
+// Region: Tab Navigation
+function initializeTabNavigation(dateData) {
+    const elements = {
+        tabs: document.querySelectorAll('.tab-link'),
+        appointmentSection: document.querySelector('.appointment-section'),
+        outOfOfficeSection: document.querySelector('.out-of-office-section'),
+        eventSection: document.querySelector('.event-section'),
+        recurringSection: document.querySelector('#recurring-section'),
+        servicesSection: document.querySelector('.services-section')
+    };
+
+    elements.tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleTabClick(tab, elements, dateData);
+        });
+    });
+}
+
+function handleTabClick(tab, elements, dateData) {
+    const tabType = tab.textContent.toLowerCase();
+    clearErrorMessages();
+    updateActiveTab(tab, elements.tabs);
+    updateSectionVisibility(tabType, elements, dateData);
+}
+
+function updateActiveTab(selectedTab, allTabs) {
+    allTabs.forEach(t => t.classList.remove('active'));
+    selectedTab.classList.add('active');
+}
+
+function updateSectionVisibility(tabType, elements, dateData) {
+    switch(tabType) {
+        case 'appointment':
+            showAppointmentSections(elements, dateData);
+            break;
+        case 'event':
+            showEventSections(elements, dateData);
+            break;
+        default: // Out of office
+            showOutOfOfficeSections(elements, dateData);
+            break;
+    }
+}
+
+function showAppointmentSections(elements, dateData) {
+    elements.appointmentSection.style.display = 'block';
+    elements.eventSection.style.display = 'none';
+    elements.outOfOfficeSection.style.display = 'none';
+    elements.recurringSection.style.display = 'block';
+
+    reInitializeAppointment(dateData);
+    reInitializeRecurringControl(dateData.StartTime);
+    reInitializePracticeServices();
+}
+
+function showEventSections(elements, dateData) {
+    elements.appointmentSection.style.display = 'none';
+    elements.eventSection.style.display = 'block';
+    elements.outOfOfficeSection.style.display = 'none';
+    elements.recurringSection.style.display = 'block';
+    elements.servicesSection.style.display = 'none';
+
+    reInitializeEventComponents(dateData);
+    reInitializeRecurringControl(dateData.StartTime);
+}
+
+function showOutOfOfficeSections(elements, dateData) {
+    elements.appointmentSection.style.display = 'none';
+    elements.eventSection.style.display = 'none';
+    elements.outOfOfficeSection.style.display = 'block';
+    elements.recurringSection.style.display = 'none';
+    elements.servicesSection.style.display = 'none';
+
+    reInitializeOutOfOfficeComponents(dateData);
+}
+
+// Region: Document Ready Handler
+document.addEventListener('DOMContentLoaded', function () {
+    const resourceData = JSON.parse('{{ clinicians|safe }}');
+    const clientData = JSON.parse('{{ clients|safe }}');
+    const locationData = JSON.parse('{{ locations|safe }}');
+    const teamMemberData = JSON.parse('{{ team_members|safe }}');
+    const isClinician = '{{ is_clinician }}';
+
+    // Initialize the scheduler manager
+    const schedulerManager = new SchedulerManager(
+        resourceData,
+        clientData,
+        locationData,
+        teamMemberData,
+        isClinician
+    );
+});
 </script>
