@@ -197,21 +197,49 @@ class SchedulerDataService:
     
     @classmethod
     def get_clients_by_clinician(cls, login_id: int) -> List[Dict[str, Any]]:
-        """Get all clients (patients) by clinician"""
+        """
+        Get all clients (patients) by clinician using CareTeam relationship.
+        
+        Args:
+            login_id (int): Clinician's login ID
+            
+        Returns:
+            List[Dict[str, Any]]: List of patients with their details
+        """
         # Retrieve clinician ID from login ID
         clinician = Clinician.objects.filter(login_id=login_id).first()
         if not clinician:
-            return [] 
+            return []
 
-        return Patient.objects.annotate(
-            name=Concat(
-                F('first_name'),
-                Value(' '),
-                F('last_name'),
-                output_field=CharField()
-            )
-        ).filter(clinician_id=clinician.id).values('id', 'name', 'email', 'phone')
+        # Get patients through CareTeam relationship
+        return (Patient.objects
+                .annotate(
+                    name=Concat(
+                        F('first_name'),
+                        Value(' '),
+                        F('last_name'),
+                        output_field=CharField()
+                    )
+                )
+                .filter(
+                    careteam__clinician=clinician,
+                    careteam__status='ACTIVE'
+                )
+                .values(
+                    'id',
+                    'name',
+                    'email',
+                    'phone'
+                ))
 
+    @classmethod
+    def get_location_by_clinician_login_id(cls, login_id: int) -> List[Dict[str, Any]]:
+        """Get all locations by clinician based on login ID"""
+        #retrieve clinician ID from login ID
+        clinician = Clinician.objects.filter(login_id=login_id).first()
+        if not clinician:
+            return []
+        return cls.get_clinician_locations(clinician.id)
     
     @classmethod
     def get_locations(cls) -> List[Dict[str, Any]]:

@@ -44,27 +44,6 @@ function initializeRecurringControl(startDate) {
                 }
             });
         }
-
-        // Function to handle frequency visibility
-        function updateFrequencyVisibility(selectedValue) {
-            if (selectedValue === 'WEEKLY') {
-                frequencyContainer.style.display = 'block'; 
-                weekdaysContainer.style.display = 'block'; 
-                weekdaysContainer.style.display = 'flex';
-                monthContainer.style.display = 'none'; 
-                
-            } else if (selectedValue === 'MONTHLY') {
-                frequencyContainer.style.display = 'block'; 
-                monthContainer.style.display = 'block'; 
-                weekdaysContainer.style.display = 'none';          
-               
-            } else if (selectedValue === 'YEARLY') {
-                weekdaysContainer.style.display = 'none'; 
-                monthContainer.style.display = 'none'; 
-                frequencyContainer.style.display = 'none'; 
-            }
-        }
-
         // Initialize frequency selection
         if (frequencySelect) {
             frequencySelect.addEventListener('change', function() {
@@ -392,3 +371,29 @@ function updateMonthlyOptions(selectedDate) {
         monthSelect.appendChild(lastWeekdayOption);
     }
 }
+
+ // Function to handle frequency visibility
+ function updateFrequencyVisibility(selectedValue) {
+    // Containers for different frequency options
+    const frequencyContainer = document.querySelector('#frequency-container');
+    const weekdaysContainer = document.querySelector('#weekdays-container');
+    const monthContainer = document.querySelector('#month-container');
+    
+    if (selectedValue === 'WEEKLY') {
+        frequencyContainer.style.display = 'block'; 
+        weekdaysContainer.style.display = 'block'; 
+        weekdaysContainer.style.display = 'flex';
+        monthContainer.style.display = 'none'; 
+        
+    } else if (selectedValue === 'MONTHLY') {
+        frequencyContainer.style.display = 'block'; 
+        monthContainer.style.display = 'block'; 
+        weekdaysContainer.style.display = 'none';          
+       
+    } else if (selectedValue === 'YEARLY') {
+        weekdaysContainer.style.display = 'none'; 
+        monthContainer.style.display = 'none'; 
+        frequencyContainer.style.display = 'none'; 
+    }
+}
+

@@ -209,10 +209,15 @@ class SchedulerManager {
             const container = args.element;
             const clinicianId = args.data.ResourceId;
             const isExistingEvent = args.data.Id ? true : false;
+            const isClinician = this.isClinician;
 
             try {
                 this.initializeBasicComponents(args.data, clinicianId);
                 this.initializeSpecializedComponents(args.data);
+
+                if(isClinician) {
+                    setClinicianLogin(this.resourceData);
+                }
 
                 if (isExistingEvent) {
                     this.handleExistingEvent(container, args.data);

@@ -290,56 +290,113 @@ function validateAppointment(selectedLocation, isUpdateAppointment = false) {
     return { isValid, isAllDay, startDate, startTime, endTime, allDayStartDate, allDayEndDate, appointmentTotal };
 
 }
-
-function initializeClientSearch(clients) {
-    clientSearch = new DynamicSearch({
-        containerId: 'clientSearchContainer',
-        items: clients,
-        onSelect: function (selectedClient) {
-
-            const clinician = document.getElementById('is-clinician').value;
-            if (clinician.trim() === 'False') {
-                // Show the clinician section when a client is selected
-                document.querySelector('.clinician-section').style.display = 'block';
-
-                // Fetch clinicians for the selected client
-                showSpinner();
-                getClientClinicians(selectedClient.id)
-                    .then(clinicians => {
-                        initializeClinicianDropdown(clinicians).then(() => {
-                            hideSpinner();
-                        }).catch(() => {
-                            hideSpinner();
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error fetching clinicians:', error);
-                        hideSpinner();
-                    });
-            }
-            else {
-                showSpinner();
-                const clinicianId = document.getElementById('clinician-id').value;
-                fetchClinicianServices(clinicianId, selectedClient.id)
-                    .then(message => {
-                        document.querySelector('.services-section').style.display = 'block';
-                        hideSpinner();
-                    })
-                    .catch(error => {
-                        console.error('Error fetching clinician services:', error);
-                        hideSpinner();
-                    }).finally(() => {
-                        hideSpinner();
-                    });
-            }
+async function initializeClientSearch(clients) {
+    // Cache DOM elements and values
+    const elements = {
+        sections: {
+            clinician: document.querySelector('.clinician-section'),
+            services: document.querySelector('.services-section')
         },
-        onDeselect: function () {
-            document.querySelector('.clinician-section').style.display = 'none';
-            document.querySelector('.services-section').style.display = 'none';
-            hideClientDetails();
+        inputs: {
+            isClinician: document.getElementById('is-clinician'),
+            clinicianId: document.getElementById('clinician-id')
         }
-    });
+    };
+
+    // Handler for showing/hiding spinner
+    const withSpinner = async (action) => {
+        try {
+            showSpinner();
+            await action();
+        } catch (error) {
+            console.error('Operation failed:', error);
+            throw error;
+        } finally {
+            hideSpinner();
+        }
+    };
+
+    // Handle client selection based on user type
+    const handleClientSelection = async (selectedClient) => {
+        const isClinician = elements.inputs.isClinician?.value.trim() === 'True';
+
+        if (!selectedClient?.id) {
+            throw new Error('Invalid client selection');
+        }
+
+        if (!isClinician) {
+            await handleRegularUserSelection(selectedClient);
+        } else {
+            await handleClinicianSelection(selectedClient);
+        }
+    };
+
+    // Handle selection for regular users
+    const handleRegularUserSelection = async (selectedClient) => {
+        if (!elements.sections.clinician) {
+            console.warn('Clinician section not found in DOM');
+            return;
+        }
+
+        elements.sections.clinician.style.display = 'block';
+
+        try {
+            const clinicians = await getClientClinicians(selectedClient.id);
+            await initializeClinicianDropdown(clinicians);
+        } catch (error) {
+            elements.sections.clinician.style.display = 'none';
+            throw new Error(`Failed to initialize clinician data: ${error.message}`);
+        }
+    };
+
+    // Handle selection for clinicians
+    const handleClinicianSelection = async (selectedClient) => {
+        if (!elements.sections.services) {
+            console.warn('Services section not found in DOM');
+            return;
+        }
+
+        const clinicianId = elements.inputs.clinicianId?.value;
+        if (!clinicianId) {
+            throw new Error('Clinician ID not found');
+        }
+
+        try {
+            await fetchClinicianServices(clinicianId, selectedClient.id);
+            elements.sections.services.style.display = 'block';
+        } catch (error) {
+            elements.sections.services.style.display = 'none';
+            throw new Error(`Failed to fetch clinician services: ${error.message}`);
+        }
+    };
+
+    // Handle deselection
+    const handleDeselection = () => {
+        // Hide relevant sections
+        Object.values(elements.sections).forEach(section => {
+            if (section) section.style.display = 'none';
+        });
+        
+        // Clear client details
+        hideClientDetails();
+    };
+
+    // Initialize DynamicSearch
+    try {
+        clientSearch = new DynamicSearch({
+            containerId: 'clientSearchContainer',
+            items: clients,
+            onSelect: async (selectedClient) => {
+                await withSpinner(() => handleClientSelection(selectedClient));
+            },
+            onDeselect: handleDeselection
+        });
+    } catch (error) {
+        console.error('Failed to initialize client search:', error);
+        throw new Error('Client search initialization failed');
+    }
 }
+
 
 function updateClientDetails(client) {
     const detailsContainer = document.querySelector('.client-info');
@@ -623,26 +680,47 @@ function initializeClinicianDropdown(clinicians, selectedClinician = null) {
     });
 }
 
+
 // function to fetch clinician services
 function fetchClinicianServices(clinicianId, clientId) {
-    return fetch(`api/get_clinician_services/${clinicianId}/${clientId}/`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.status === 'success') {
-                return InitializePracticeServices(result.data);
-            } else {
-                throw new Error(result.error);
-            }
-        });
+    return new Promise((resolve, reject) => {
+        fetch(`api/get_clinician_services/${clinicianId}/${clientId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.status === 'success') {
+                    resolve(InitializePracticeServices(result.data)); // Resolve with the initialized services
+                } else {
+                    reject(new Error(result.error)); // Reject with the error message
+                }
+            })
+            .catch(error => {
+                reject(error); // Reject on fetch error
+            });
+    });
 }
 
 // function to fetch clinician locations
 function fetchClinicianLocations(clinicianId) {
-    return fetch(`api/get_clinician_locations/${clinicianId}/`)
-        .then(response => response.json())
-        .then(result => {
-            return result;
-        });
+    return new Promise((resolve, reject) => {
+        fetch(`api/get_clinician_locations/${clinicianId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(result => {
+                resolve(result); // Resolve with the result
+            })
+            .catch(error => {
+                reject(error); // Reject on fetch error
+            });
+    });
 }
 
 // Helper function to clear error messages
@@ -655,11 +733,11 @@ function clearErrorMessages() {
 }
 
 
-function reInitializeAppointment(dateData) {
+async function reInitializeAppointment(dateData) {
     // Reset and reinitialize client search
     if (clientSearch) {
         clientSearch.reset();
-        initializeClientSearch(clientSearch.items);
+        await initializeClientSearch(clientSearch.items);
     }
 
     // Reset and reinitialize location search
@@ -683,159 +761,180 @@ function reInitializeAppointment(dateData) {
     document.querySelector('.services-section').style.display = 'none';
 }
 
-function loadEventData(eventId, container) {
-    showSpinner();
-
-    return new Promise((resolve, reject) => {
-        // Fetch event data first
-        getEventData(eventId)
-            .then(data => {
-
-                const userType = data.userType;
-
-                // Show appropriate section based on event type
-                const appointmentSection = container.querySelector('.appointment-section');
-                const eventSection = container.querySelector('.event-section');
-                const outOfOfficeSection = container.querySelector('.out-of-office-section');
-                const deleteButton = container.querySelector('.btn-delete');
-                const recurringSection = container.querySelector('#recurring-section');
-                const recurringSummary = container.querySelector('.recurring-summary');
-                const isRecurring = container.querySelector('#is-recurring');
-                const lastEventsSection = container.querySelector('.last-events-section');
-
-                // Hide all sections first
-                if (appointmentSection) appointmentSection.style.display = 'none';
-                if (eventSection) eventSection.style.display = 'none';
-                if (outOfOfficeSection) outOfOfficeSection.style.display = 'none';
-                if (deleteButton) deleteButton.style.display = 'block';
-                if (recurringSection) recurringSection.style.display = 'none';
-                if (lastEventsSection) lastEventsSection.style.display = 'none';
-
-                // Show relevant section and bind data
-                if (data.Type === 'APPOINTMENT') {
-                    if (appointmentSection) {
-                        appointmentSection.style.display = 'block';
-                        if (lastEventsSection) lastEventsSection.style.display = 'flex';
-
-                        // Show client details if client exists
-                        if (data.Client) {
-                            updateClientDetails(data.Client);
-                        }
-
-                        // Fetch appointment states after loading event data
-                        return getAppointmentStates()
-                            .then(states => {
-                                const stateSection = container.querySelector('.appointment-state-section');
-                                if (stateSection) {
-                                    stateSection.style.display = 'block';
-                                    initializeAppointmentState(states);
-                                }
-                            })
-                            .then(() => {
-                                // Initialize and set appointment state
-                                if (data.Status) {
-                                    const stateSelect = document.getElementById('appointment-state');
-                                    if (stateSelect) {
-                                        stateSelect.value = data.Status.id;
-                                        updateOptionStyle(stateSelect);
-                                    }
-                                }
-                                // Fetch clinicians and initialize dropdown
-                                if (data.Clinician) {
-                                    return getClientClinicians(data.Client.id)
-                                        .then(clinicians => {
-                                            const clientId = container.querySelector('#client-id');
-                                            if (clientId) {
-                                                clientId.value = data.Client.id;
-                                            }
-                                            return initializeClinicianDropdown(clinicians, data.Clinician);
-                                        })
-                                        .then(() => {
-                                            document.querySelector('.clinician-section').style.display = 'block';
-
-                                            const eventDate = new Date(data.StartTime);
-                                            const currentDate = new Date();
-
-                                            // Set both dates to midnight to ignore time
-                                            eventDate.setHours(0, 0, 0, 0);
-                                            currentDate.setHours(0, 0, 0, 0);
-
-                                            if (eventDate < currentDate) {
-                                                // Disable clinician dropdown if the event date is older
-                                                const clinicianInput = document.getElementById('clinicianSearchInput');
-                                                const clinicianArrow = document.getElementById('clinicianDropdownArrow');
-                                                if (clinicianInput) {
-                                                    clinicianInput.disabled = true;
-                                                }
-                                                if (clinicianArrow) {
-                                                    clinicianArrow.style.display = 'none';
-                                                }
-                                            }
-
-                                            if (data.Location) {
-                                                locationSearch.selectItemById(data.Location);
-                                            }
-
-                                            if (data.IsRecurring) {
-                                                isRecurring.value = 'true';
-                                                if (recurringSummary) {
-                                                    recurringSummary.style.display = 'block';
-                                                    window.recurringSummary.setDocumentElement(container);
-                                                    window.recurringSummary.show(data.RecurrenceRuleString);
-                                                }
-                                            }
-
-                                            buildSelectedServices(data.services);
-
-                                            BindNotes(data.last_events, container, userType);
-
-                                            const appointmentTotal = document.getElementById('appointment-total');
-                                            if (appointmentTotal) {
-                                                document.getElementById('appointment-total').setAttribute('data-amount', '$' + data.AppointmentTotal.toFixed(2));
-                                            }
-
-
-                                            resolve();
-                                        });
-                                }
-                                resolve();
-                            });
-                    }
-                    resolve();
-                } else if (data.Type === 'EVENT') {
-                    if (eventSection) eventSection.style.display = 'block';
-                    if (lastEventsSection) lastEventsSection.style.display = 'none';
-                    bindEventData(data, container).then(() => {
-                        resolve();
-                    }).catch((error) => {
-                        console.error('Error binding event data:', error);
-                        reject(error);
-                    });
-
-                    resolve();
-                } else if (data.Type === 'OUT_OF_OFFICE') {
-                    if (outOfOfficeSection) outOfOfficeSection.style.display = 'block';
-                    if (lastEventsSection) lastEventsSection.style.display = 'none';
-                    bindOutOffOfficeData(data, container).then(() => {
-                        resolve();
-                    }).catch((error) => {
-                        console.error('Error binding out of office data:', error);
-                        reject(error);
-                    });
-
-                    resolve();
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching event data:', error);
-                reject(error); // Reject on error
-            })
-            .finally(() => {
-                hideSpinner();
-            });
-    });
-}
-
+async function loadEventData(eventId, container) {
+    try {
+      showSpinner();
+      
+      // Get DOM elements once
+      const elements = {
+        sections: {
+          appointment: container.querySelector('.appointment-section'),
+          event: container.querySelector('.event-section'),
+          outOfOffice: container.querySelector('.out-of-office-section'),
+          recurring: container.querySelector('#recurring-section'),
+          lastEvents: container.querySelector('.last-events-section'),
+          state: container.querySelector('.appointment-state-section'),
+          clinician: container.querySelector('.clinician-section'),
+          services: container.querySelector('.services-section')
+        },
+        buttons: {
+          delete: container.querySelector('.btn-delete')
+        },
+        inputs: {
+          isRecurring: container.querySelector('#is-recurring'),
+          clientId: container.querySelector('#client-id'),
+          clinicianSearch: document.getElementById('clinicianSearchInput'),
+          clinicianArrow: document.getElementById('clinicianDropdownArrow'),
+          appointmentTotal: document.getElementById('appointment-total'),
+          appointmentState: document.getElementById('appointment-state')
+        },
+        summaries: {
+          recurring: container.querySelector('.recurring-summary')
+        }
+      };
+  
+      const isClinician = document.getElementById('is-clinician')?.value === 'True';
+  
+      // Fetch event data
+      const data = await getEventData(eventId);
+      
+      // Hide all sections initially
+      Object.values(elements.sections).forEach(section => {
+        if (section) section.style.display = 'none';
+      });
+      if (elements.buttons.delete) elements.buttons.delete.style.display = 'block';
+  
+      // Handle different event types
+      const eventHandlers = {
+        APPOINTMENT: async () => {
+          if (!elements.sections.appointment) return;
+          
+          elements.sections.appointment.style.display = 'block';
+          if (elements.sections.lastEvents) elements.sections.lastEvents.style.display = 'flex';
+  
+          if (data.Client) {
+            updateClientDetails(data.Client);
+          }
+  
+          // Handle appointment state
+          if (elements.sections.state && data.Status) {
+            const states = await getAppointmentStates();
+            elements.sections.state.style.display = 'block';
+            initializeAppointmentState(states);
+            
+            if (elements.inputs.appointmentState) {
+              elements.inputs.appointmentState.value = data.Status.id;
+              updateOptionStyle(elements.inputs.appointmentState);
+            }
+          }
+  
+          // Handle clinician data
+          if (data.Clinician) {
+            await handleClinicianData(data, elements, isClinician);
+          }
+  
+          // Handle recurring events
+          if (data.IsRecurring) {
+            await handleRecurringEvent(data, elements);
+          }
+  
+          // Build services and notes
+          buildSelectedServices(data.services);
+          BindNotes(data.last_events, container, data.userType);
+  
+          // Set appointment total
+          if (elements.inputs.appointmentTotal) {
+            elements.inputs.appointmentTotal.setAttribute('data-amount', `$${data.AppointmentTotal.toFixed(2)}`);
+          }
+        },
+  
+        EVENT: async () => {
+          if (!elements.sections.event) return;
+          
+          elements.sections.event.style.display = 'block';
+          if (elements.sections.lastEvents) elements.sections.lastEvents.style.display = 'none';
+          
+          await bindEventData(data, container);
+        },
+  
+        OUT_OF_OFFICE: async () => {
+          if (!elements.sections.outOfOffice) return;
+          
+          elements.sections.outOfOffice.style.display = 'block';
+          if (elements.sections.lastEvents) elements.sections.lastEvents.style.display = 'none';
+          
+          await bindOutOffOfficeData(data, container);
+        }
+      };
+  
+      // Execute the appropriate handler for the event type
+      const handler = eventHandlers[data.Type];
+      if (handler) {
+        await handler();
+      } else {
+        throw new Error(`Unsupported event type: ${data.Type}`);
+      }
+  
+    } catch (error) {
+      console.error('Error in loadEventData:', error);
+      throw error;
+    } finally {
+      hideSpinner();
+    }
+  }
+  
+  // Helper functions
+  async function handleClinicianData(data, elements, isClinician) {
+    if (!isClinician && data.Client) {
+      const clinicians = await getClientClinicians(data.Client.id);
+      
+      if (elements.inputs.clientId) {
+        elements.inputs.clientId.value = data.Client.id;
+      }
+  
+      await initializeClinicianDropdown(clinicians, data.Clinician);
+      
+      if (elements.sections.clinician) {
+        elements.sections.clinician.style.display = 'block';
+      }
+  
+      // Handle past events
+      const eventDate = new Date(data.StartTime);
+      const currentDate = new Date();
+      eventDate.setHours(0, 0, 0, 0);
+      currentDate.setHours(0, 0, 0, 0);
+  
+      if (eventDate < currentDate) {
+        if (elements.inputs.clinicianSearch) {
+          elements.inputs.clinicianSearch.disabled = true;
+        }
+        if (elements.inputs.clinicianArrow) {
+          elements.inputs.clinicianArrow.style.display = 'none';
+        }
+      }
+    } else if (data.Client) {
+      await fetchClinicianServices(data.Clinician, data.Client.id);
+      if (elements.sections.services) {
+        elements.sections.services.style.display = 'block';
+      }
+    }
+  
+    if (data.Location) {
+      locationSearch.selectItemById(data.Location);
+    }
+  }
+  
+  async function handleRecurringEvent(data, elements) {
+    if (elements.inputs.isRecurring) {
+      elements.inputs.isRecurring.value = 'true';
+    }
+    
+    if (elements.summaries.recurring) {
+      elements.summaries.recurring.style.display = 'block';
+      window.recurringSummary.setDocumentElement(container);
+      window.recurringSummary.show(data.RecurrenceRuleString);
+    }
+  }
 function getClientClinicians(clientId) {
     return fetch(`api/get_client_clinicians/${clientId}/`)
         .then(response => {
@@ -936,6 +1035,50 @@ function BindNotes(lastEvents, container, userType) {
 
 
     }
+}
+
+
+
+// Clinician login section
+
+function setClinicianLogin(clinicians)
+{
+    document.querySelector('.clinician-section').style.display = 'none';
+    const oofTeamMemberSection = document.getElementById('oof-teamMemberSection');
+    if (oofTeamMemberSection) {
+        oofTeamMemberSection.style.display = 'none';
+    }
+    return new Promise((resolve, reject) => {
+        clinicianSearch = new DynamicSearch({
+            containerId: 'clinicianSearchContainer',
+            items: clinicians,
+            onSelect: function (selectedClinician) {
+                showSpinner();
+              // Fetch locations and services concurrently
+                fetchClinicianLocations(selectedClinician.id)
+                    .then((locations) => {
+                        initializeLocationDropdown(locations);
+                        initializeEventLocationDropdown(locations);
+                        initializeOutOfOfficeTeamMemberDropdown(clinicians);
+                        setClinicianEventLogin(clinicians);
+                        hideSpinner();
+                        resolve(); // Resolve after both operations are complete
+                    })
+                    .catch(error => {
+                        console.error('Error fetching data:', error);
+                        hideSpinner();
+                        reject(error); // Reject the promise on error
+                    });
+            }
+        });
+
+        if (clinicians.length > 0) {
+            const firstClinician = clinicians[0];
+            clinicianSearch.selectItem(firstClinician);
+        } else {
+            resolve(); // Resolve immediately if no clinicians are available
+        }
+    });
 }
 
 
