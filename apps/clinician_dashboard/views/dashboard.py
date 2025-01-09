@@ -1,4 +1,3 @@
-
 import json
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -25,8 +24,8 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context.update({
             'clinicians': json.dumps(list(SchedulerDataService.get_resources(self.request.user.user_type, self.request.user))),
             'clients': json.dumps(list(SchedulerDataService.get_clients_by_clinician(self.request.user.id))),
-            'locations': json.dumps(list(SchedulerDataService.get_locations())),
-            'team_members': json.dumps(list(SchedulerDataService.get_team_members())),
+            'locations': json.dumps([]),
+            'team_members': json.dumps([]),
             'is_clinician': True
         })
         return context

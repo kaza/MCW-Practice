@@ -439,6 +439,11 @@ function bindEventData(data, container) {
         const isRecurring = container.querySelector('#is-recurring');
 
         try {
+            
+            if(data.Subject){
+                document.getElementById('event-name').value = data.Subject;
+            }
+
             if (data.Clinician && eventTeamMemberSearch) {
                 eventTeamMemberSearch.selectItemById(data.Clinician);
             }
@@ -459,5 +464,30 @@ function bindEventData(data, container) {
             console.error('Error binding event data:', error);
             reject(error);
         }
+    });
+}
+
+
+// Clinician login section
+
+function setClinicianEventLogin(teamMembers) {
+    return new Promise((resolve, reject) => {
+        document.querySelector('.team-member-section').style.display = 'none';
+        
+        if (!Array.isArray(teamMembers) || teamMembers.length === 0) {
+            reject(new Error('No team members available')); 
+            return;
+        }
+
+        eventTeamMemberSearch = new DynamicSearch({
+            containerId: 'event-teamMemberSearchContainer',
+            items: teamMembers,
+            onSelect: function (selectedTeamMember) {
+                resolve(selectedTeamMember);
+            }
+        });
+
+        const firstTeamMember = teamMembers[0];
+        eventTeamMemberSearch.selectItem(firstTeamMember);
     });
 }
