@@ -835,7 +835,7 @@ async function loadEventData(eventId, container) {
   
           // Handle recurring events
           if (data.IsRecurring) {
-            await handleRecurringEvent(data, elements);
+            await handleRecurringEvent(data, elements , container);
           }
   
           // Build services and notes
@@ -924,7 +924,7 @@ async function loadEventData(eventId, container) {
     }
   }
   
-  async function handleRecurringEvent(data, elements) {
+  async function handleRecurringEvent(data, elements , container) {
     if (elements.inputs.isRecurring) {
       elements.inputs.isRecurring.value = 'true';
     }
