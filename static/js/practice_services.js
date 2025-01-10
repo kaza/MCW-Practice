@@ -75,6 +75,9 @@ function InitializePracticeServices(services) {
                 primaryOption.selected = true;
             } else if (defaultOption) {
                 defaultOption.selected = true;
+            } else if (servicesArray.length > 0) {
+                // If no primary or default service found, select the first service
+                select.value = servicesArray[0].id;
             }
 
             // Update the fee input
