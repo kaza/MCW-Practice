@@ -137,6 +137,8 @@ class SchedulerManager {
             await this.handleEditorPopup(args);
         } else if (args.type === 'QuickInfo') {
             args.cancel = true;
+            var currentAction = args.target.classList.contains("e-work-cells") ? "Add" : "Save";
+            this.scheduler.openEditor(args.data, currentAction);
         }
     }
 
@@ -219,7 +221,7 @@ class SchedulerManager {
                 this.initializeBasicComponents(args.data, clinicianId);
                 this.initializeSpecializedComponents(args.data);
 
-                if(isClinician) {
+                if(isClinician.toLowerCase() === 'true') {
                     setClinicianLogin(this.resourceData);
                 }
 

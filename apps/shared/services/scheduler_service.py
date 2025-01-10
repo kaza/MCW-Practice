@@ -503,7 +503,7 @@ class SchedulerDataService:
         """Create a new event with recurrence handling"""
         event_type = data.get('eventData').get('eventType')
         recurrence_rule = data.get('eventData').get('RecurrenceRule')
-        
+
         # Convert datetime strings to datetime objects if they're strings
         start_time = data.get('eventData').get('StartTime')
         end_time = data.get('eventData').get('EndTime')
@@ -511,124 +511,88 @@ class SchedulerDataService:
             start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
         if isinstance(end_time, str):
             end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-            
+
+        # If it's a recurring event, get the first occurrence date
+        if recurrence_rule and event_type != 'OUT_OF_OFFICE':
+            try:
+                recurring_dates = cls._get_future_dates_from_rule(start_time, recurrence_rule)
+                if recurring_dates:
+                    event_duration = end_time - start_time
+                    start_time = recurring_dates[0]
+                    end_time = start_time + event_duration
+            except Exception as e:
+                print(f"Error getting first occurrence date: {str(e)}")
+
         # Common event fields
         common_fields = {
             'type_id': EventType.objects.get(name=event_type).id,
+            'start_datetime': start_time,
+            'end_datetime': end_time,
             'is_all_day': data.get('eventData').get('IsAllDay', False),
             'status_id': 1,  # Default status
             'is_recurring': bool(recurrence_rule),
             'recurrence_rule': recurrence_rule,
             'parent_event': None
         }
-        
+
         try:
-            if recurrence_rule and event_type != 'OUT_OF_OFFICE':
-                # Get all recurring dates first
-                recurring_dates = cls._get_future_dates_from_rule(start_time, recurrence_rule)
-                if not recurring_dates:
-                    raise ValidationError("No valid recurring dates found")
-                
-                # Use first recurring date for parent event
-                first_date = recurring_dates[0]
-                event_duration = end_time - start_time
-                
-                # Update start and end times for parent event
-                common_fields.update({
-                    'start_datetime': first_date,
-                    'end_datetime': first_date + event_duration
-                })
-                
-                # Create the parent event based on type
-                if event_type == 'APPOINTMENT':
-                    event = Event.objects.create(
-                        **common_fields,
-                        appointment_total=data.get('eventData').get('AppointmentTotal'),
-                        location_id=data.get('eventData').get('Location').get('id'),
-                        patient_id=data.get('eventData').get('Client').get('id'),
-                        clinician_id=data.get('eventData').get('Clinician').get('id'),
-                        cancel_appointments=data.get('eventData').get('CancelAppointments', False),
-                        notify_clients=data.get('eventData').get('NotifyClients', False)
-                    )
-                    
-                    # Create EventServices for parent event
-                    for service in data.get('eventData').get('Services'):
-                        EventService.objects.create(
-                            event=event,
-                            service_id=service.get('serviceId'),
-                            fee=service.get('fee'),
-                            modifiers=', '.join(service.get('modifiers'))
-                        )
-                
-                elif event_type == 'EVENT':
-                    event = Event.objects.create(
-                        **common_fields,
-                        title=data.get('eventData').get('Subject'),
-                        location_id=data.get('eventData').get('Location').get('id'),
-                        clinician_id=data.get('eventData').get('TeamMember').get('id'),
-                        cancel_appointments=data.get('eventData').get('CancelAppointments', False),
-                        notify_clients=data.get('eventData').get('NotifyClients', False)
-                    )
-                
-                # Create child events for remaining dates
-                for occurrence_date in recurring_dates[1:]:
-                    occurrence_end = occurrence_date + event_duration
-                    new_event = Event.objects.create(
-                        type_id=event.type_id,
-                        clinician_id=event.clinician_id,
-                        start_datetime=occurrence_date,
-                        end_datetime=occurrence_end,
-                        is_all_day=event.is_all_day,
-                        title=getattr(event, 'title', None),
-                        notes=getattr(event, 'notes', None),
-                        location_id=event.location_id,
-                        patient_id=getattr(event, 'patient_id', None),
-                        status_id=event.status_id,
-                        cancel_appointments=event.cancel_appointments,
-                        notify_clients=event.notify_clients,
-                        is_recurring=True,
-                        recurrence_rule=recurrence_rule,
-                        parent_event=event,
-                        appointment_total=getattr(event, 'appointment_total', None)
-                    )
-                    
-                    # Copy services for appointments
-                    if event_type == 'APPOINTMENT' and data.get('eventData').get('Services'):
-                        for service in data.get('eventData').get('Services'):
-                            EventService.objects.create(
-                                event=new_event,
-                                service_id=service.get('serviceId'),
-                                fee=service.get('fee'),
-                                modifiers=', '.join(service.get('modifiers'))
-                            )
-            
-            else:
-                # Non-recurring event creation (including OUT_OF_OFFICE)
-                common_fields.update({
-                    'start_datetime': start_time,
-                    'end_datetime': end_time
-                })
-                
-                if event_type == 'OUT_OF_OFFICE':
-                    common_fields.update({
-                        'is_recurring': False,
-                        'recurrence_rule': None
-                    })
-                
+            # Rest of your event creation code stays the same...
+            if event_type == 'APPOINTMENT':
                 event = Event.objects.create(
                     **common_fields,
-                    clinician_id=data.get('eventData').get('TeamMember').get('id'),
+                    appointment_total=data.get('eventData').get('AppointmentTotal'),
+                    location_id=data.get('eventData').get('Location').get('id'),
+                    patient_id=data.get('eventData').get('Client').get('id'),
+                    clinician_id=data.get('eventData').get('Clinician').get('id'),
                     cancel_appointments=data.get('eventData').get('CancelAppointments', False),
                     notify_clients=data.get('eventData').get('NotifyClients', False)
                 )
 
-            return cls._convert_event_to_dict(event)
-            
-        except Exception as e:
-            # Log the error and re-raise
-            print(f"Error creating event: {str(e)}")
-            raise
+                # Create EventServices for each service
+                for service in data.get('eventData').get('Services'):
+                    EventService.objects.create(
+                        event=event,
+                        service_id=service.get('serviceId'),
+                        fee=service.get('fee'),
+                        modifiers=', '.join(service.get('modifiers'))
+                    )
 
+            elif event_type == 'EVENT':
+                event = Event.objects.create(
+                    **common_fields,
+                    title=data.get('eventData').get('Subject'),
+                    location_id=data.get('eventData').get('Location').get('id'),
+                    clinician_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('CancelAppointments', False),
+                    notify_clients=data.get('eventData').get('NotifyClients', False)
+                )
+            
+            elif event_type == 'OUT_OF_OFFICE':
+                # Out of office events don't support recurrence
+                common_fields.update({
+                    'is_recurring': False,
+                    'recurrence_rule': None
+                })
+                event = Event.objects.create(
+                    **common_fields,
+                    clinician_id=data.get('eventData').get('TeamMember').get('id'),
+                    cancel_appointments=data.get('eventData').get('CancelAppointments', False),
+                    notify_clients=data.get('eventData').get('NotifyClients', False),
+                )
+
+            # Handle recurring events in background thread
+            if recurrence_rule and event_type != 'OUT_OF_OFFICE':
+                threading.Thread(
+                    target=cls._handle_recurring_events,
+                    args=(event, recurrence_rule, data.get('eventData')),
+                    daemon=True
+                ).start()
+
+            return cls._convert_event_to_dict(event)
+
+        except Exception as e:
+            print(f"Error creating event: {str(e)}")
+            raise    
 
     #region update events
 
