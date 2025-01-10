@@ -763,7 +763,7 @@ async function reInitializeAppointment(dateData) {
 
 async function loadEventData(eventId, container) {
     try {
-      showSpinner();
+      showLoadingEventSpinner();
       
       // Get DOM elements once
       const elements = {
@@ -879,7 +879,7 @@ async function loadEventData(eventId, container) {
       console.error('Error in loadEventData:', error);
       throw error;
     } finally {
-      hideSpinner();
+      hideLoadingEventSpinner();
     }
   }
   

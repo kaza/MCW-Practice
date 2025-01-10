@@ -132,3 +132,18 @@ function hideSpinner() {
         spinnerContainer.style.display = 'none'; // Hide the spinner
     }
 }
+
+function showLoadingEventSpinner() {
+    const spinnerContainer = document.getElementById('loading-event-spinner-container');
+    if (spinnerContainer) {
+        spinnerContainer.style.display = 'flex'; // Show the spinner
+    }
+}
+
+function hideLoadingEventSpinner() {
+    const spinnerContainer = document.getElementById('loading-event-spinner-container');
+    if (spinnerContainer) {
+        spinnerContainer.style.display = 'none'; // Hide the spinner
+    }
+}
+

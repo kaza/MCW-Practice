@@ -59,6 +59,8 @@ class SchedulerDataService:
             end_date = (start_date + timedelta(days=32)).replace(day=1)
         else:
             try:
+                start_date = start_date.replace(' ', '+')  
+                end_date = end_date.replace(' ', '+')  
                 start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
                 end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             except (TypeError, ValueError):
@@ -501,7 +503,7 @@ class SchedulerDataService:
         """Create a new event with recurrence handling"""
         event_type = data.get('eventData').get('eventType')
         recurrence_rule = data.get('eventData').get('RecurrenceRule')
-        
+
         # Convert datetime strings to datetime objects if they're strings
         start_time = data.get('eventData').get('StartTime')
         end_time = data.get('eventData').get('EndTime')
@@ -509,7 +511,18 @@ class SchedulerDataService:
             start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
         if isinstance(end_time, str):
             end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-            
+
+        # If it's a recurring event, get the first occurrence date
+        if recurrence_rule and event_type != 'OUT_OF_OFFICE':
+            try:
+                recurring_dates = cls._get_future_dates_from_rule(start_time, recurrence_rule)
+                if recurring_dates:
+                    event_duration = end_time - start_time
+                    start_time = recurring_dates[0]
+                    end_time = start_time + event_duration
+            except Exception as e:
+                print(f"Error getting first occurrence date: {str(e)}")
+
         # Common event fields
         common_fields = {
             'type_id': EventType.objects.get(name=event_type).id,
@@ -521,9 +534,9 @@ class SchedulerDataService:
             'recurrence_rule': recurrence_rule,
             'parent_event': None
         }
-        
+
         try:
-            # Create the main event based on type
+            # Rest of your event creation code stays the same...
             if event_type == 'APPOINTMENT':
                 event = Event.objects.create(
                     **common_fields,
@@ -534,7 +547,7 @@ class SchedulerDataService:
                     cancel_appointments=data.get('eventData').get('CancelAppointments', False),
                     notify_clients=data.get('eventData').get('NotifyClients', False)
                 )
-                
+
                 # Create EventServices for each service
                 for service in data.get('eventData').get('Services'):
                     EventService.objects.create(
@@ -543,7 +556,6 @@ class SchedulerDataService:
                         fee=service.get('fee'),
                         modifiers=', '.join(service.get('modifiers'))
                     )
-            
 
             elif event_type == 'EVENT':
                 event = Event.objects.create(
@@ -567,24 +579,20 @@ class SchedulerDataService:
                     cancel_appointments=data.get('eventData').get('CancelAppointments', False),
                     notify_clients=data.get('eventData').get('NotifyClients', False),
                 )
-            else:
-                raise ValueError(f"Invalid event type: {event_type}")
 
             # Handle recurring events in background thread
             if recurrence_rule and event_type != 'OUT_OF_OFFICE':
                 threading.Thread(
                     target=cls._handle_recurring_events,
                     args=(event, recurrence_rule, data.get('eventData')),
-                    daemon=True  # Make thread daemon so it doesn't block server shutdown
+                    daemon=True
                 ).start()
 
             return cls._convert_event_to_dict(event)
-            
-        except Exception as e:
-            # Log the error and re-raise
-            print(f"Error creating event: {str(e)}")
-            raise
 
+        except Exception as e:
+            print(f"Error creating event: {str(e)}")
+            raise    
 
     #region update events
 
@@ -730,8 +738,50 @@ class SchedulerDataService:
                             event_data: Dict[str, Any], recurrence_rule: str) -> None:
         """Handle series update for a parent event"""
         with transaction.atomic():
+            # Get all series events
             series_events = Event.objects.filter(parent_event=event).select_for_update()
             time_diff = event.start_datetime - common_fields['start_datetime']
+            
+            # If recurrence rule has changed, handle the change
+            if event.recurrence_rule != recurrence_rule:
+                # Get all future dates based on new recurrence rule
+                new_dates = cls._get_future_dates_from_rule(
+                    common_fields['start_datetime'],
+                    recurrence_rule
+                )
+                
+                # Get all existing event dates
+                existing_dates = set(
+                    series_events.values_list('start_datetime', flat=True)
+                )
+                
+                # Delete events that don't match new recurrence pattern
+                events_to_delete = series_events.exclude(
+                    start_datetime__in=new_dates
+                )
+                events_to_delete.delete()
+                
+                # Create new events for dates that don't exist
+                event_duration = event.end_datetime - event.start_datetime
+                for new_date in new_dates:
+                    if new_date not in existing_dates:
+                        new_event = Event.objects.create(
+                            parent_event=event,
+                            start_datetime=new_date,
+                            end_datetime=new_date + event_duration,
+                            is_recurring=True,
+                            recurrence_rule=recurrence_rule,
+                            **{k: getattr(event, k) for k in [
+                                'type_id', 'clinician_id', 'is_all_day', 'title',
+                                'notes', 'location_id', 'patient_id', 'status_id',
+                                'cancel_appointments', 'notify_clients',
+                                'appointment_total'
+                            ]}
+                        )
+                        
+                        # Copy services if it's an appointment
+                        if event.type.name == 'APPOINTMENT' and event_data.get('Services'):
+                            cls.update_event_services(new_event, event_data.get('Services'))
             
             # Update parent
             cls._update_base_event_fields(event, common_fields, event_data)
@@ -739,8 +789,9 @@ class SchedulerDataService:
             event.recurrence_rule = recurrence_rule
             event.save()
             
-            # Update series events
-            for series_event in series_events:
+            # Update remaining series events
+            remaining_series_events = Event.objects.filter(parent_event=event)
+            for series_event in remaining_series_events:
                 series_event.start_datetime -= time_diff
                 series_event.end_datetime -= time_diff
                 cls._update_base_event_fields(series_event, 
@@ -748,6 +799,87 @@ class SchedulerDataService:
                     event_data
                 )
                 series_event.save()
+
+    @classmethod
+    def _get_future_dates_from_rule(cls, start_date: datetime, recurrence_rule: str) -> List[datetime]:
+        """
+        Get all future dates based on a recurrence rule
+        
+        Args:
+            start_date: The start date for the recurrence
+            recurrence_rule: The recurrence rule string (iCal format)
+            
+        Returns:
+            List of datetime objects for all occurrences
+        """
+        try:
+            # Parse the recurrence rule
+            rule_parts = recurrence_rule.split(';')
+            rule_dict = {}
+            for part in rule_parts:
+                if '=' in part:
+                    key, value = part.split('=')
+                    rule_dict[key.strip()] = value.strip()
+
+            # Map frequency
+            freq_map = {
+                'DAILY': rrule.DAILY,
+                'WEEKLY': rrule.WEEKLY,
+                'MONTHLY': rrule.MONTHLY,
+                'YEARLY': rrule.YEARLY
+            }
+
+            # Build rule parameters
+            rule_params = {
+                'dtstart': start_date,
+                'freq': freq_map[rule_dict['FREQ']],
+                'interval': int(rule_dict.get('INTERVAL', 1))
+            }
+
+            # Add count or until if present
+            if 'COUNT' in rule_dict:
+                rule_params['count'] = int(rule_dict['COUNT'])
+            if 'UNTIL' in rule_dict:
+                until_str = rule_dict['UNTIL']
+                if 'T' in until_str:
+                    until_str = until_str.replace('T', '').replace('Z', '')
+                year = int(until_str[:4])
+                month = int(until_str[4:6])
+                day = int(until_str[6:8])
+                hour = int(until_str[8:10]) if len(until_str) > 8 else 23
+                minute = int(until_str[10:12]) if len(until_str) > 10 else 59
+                second = int(until_str[12:14]) if len(until_str) > 12 else 59
+                rule_params['until'] = datetime(year, month, day, hour, minute, second, tzinfo=start_date.tzinfo)
+
+            # Handle weekly recurrence
+            if rule_dict['FREQ'] == 'WEEKLY' and 'BYDAY' in rule_dict:
+                weekday_map = {
+                    'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
+                    'TH': rrule.TH, 'FR': rrule.FR, 'SA': rrule.SA, 'SU': rrule.SU
+                }
+                byweekday = [weekday_map[day] for day in rule_dict['BYDAY'].split(',')]
+                rule_params['byweekday'] = byweekday
+
+            # Handle monthly recurrence
+            if rule_dict['FREQ'] == 'MONTHLY':
+                if 'BYMONTHDAY' in rule_dict:
+                    rule_params['bymonthday'] = int(rule_dict['BYMONTHDAY'])
+                elif 'BYDAY' in rule_dict and 'BYSETPOS' in rule_dict:
+                    weekday_map = {
+                        'MO': rrule.MO, 'TU': rrule.TU, 'WE': rrule.WE,
+                        'TH': rrule.TH, 'FR': rrule.FR, 'SA': rrule.SA, 'SU': rrule.SU
+                    }
+                    bysetpos = int(rule_dict['BYSETPOS'])
+                    weekday = weekday_map[rule_dict['BYDAY']]
+                    rule_params['byweekday'] = weekday(-1) if bysetpos == -1 else weekday(bysetpos)
+
+            # Create the rule and get all dates
+            rule = rrule.rrule(**rule_params)
+            return list(rule)
+
+        except Exception as e:
+            print(f"Error parsing recurrence rule: {str(e)}")
+            raise ValidationError(f"Invalid recurrence rule format: {str(e)}")
 
     @classmethod
     def _handle_occurrence_update(cls, event: 'Event', common_fields: Dict[str, Any], 
@@ -1080,8 +1212,7 @@ class SchedulerDataService:
                             event=new_event,
                             service_id=service.get('serviceId'),
                             fee=service.get('fee'),
-                            modifiers=', '.join(service.get('modifiers'))
-                        )
+                            modifiers=', '.join(service.get('modifiers')))
                     
         except Exception as e:
             print(f"Error details: {str(e)}")
