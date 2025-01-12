@@ -50,8 +50,9 @@ class SchedulerDataService:
         return []
 
     @classmethod
-    def get_events(cls, user_role: str, clinician_id: int = None, start_date=None, end_date=None) -> List[Dict[str, Any]]:
-        """Get scheduled events based on user role and date range"""
+    def get_events(cls, user_role: str, clinician_id: int = None, start_date=None, end_date=None, 
+                   clinician_ids: Optional[List[int]] = None, location_ids: Optional[List[int]] = None) -> List[Dict[str, Any]]:
+        """Get scheduled events based on user role, date range, and location IDs"""
         # Set default dates if not provided
         today = timezone.now()
         if not start_date or not end_date:
@@ -77,8 +78,17 @@ class SchedulerDataService:
         ).filter(
             start_datetime__gte=start_date,
             start_datetime__lt=end_date
-        ).order_by('start_datetime')
+        )
 
+        # Filter by clinician IDs if provided
+        if clinician_ids is not None:
+            base_query = base_query.filter(clinician_id__in=clinician_ids)
+
+        # Filter by location IDs if provided
+        if location_ids is not None:
+            base_query = base_query.filter(location_id__in=location_ids)
+
+        # Continue with user role checks
         if user_role == 'ADMIN':
             events = base_query
         elif user_role == 'CLINICIAN' and clinician_id is not None:

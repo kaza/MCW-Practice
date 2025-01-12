@@ -1,5 +1,15 @@
 {% load static %}
 
+<div class="filters-container">
+    <div class="filter-item" id="clinician-filter-container">
+        {% include 'components/multi_select.html' with container_id='clinician-filter' main_header=clinician_header groups=clinician_groups all_selected=clinician_all_selected %}
+    </div>
+    <div class="filter-item">
+        {% include 'components/multi_select.html' with container_id='location-filter' main_header=location_header groups=location_groups all_selected=location_all_selected %}
+    </div>
+</div>
+
+
 <div id="spinner-container" class="spinner-container">
     <div class="spinner"></div>
 </div>
@@ -49,6 +59,11 @@ class SchedulerManager {
         this.isClinician = isClinician;
         this.currentResourceId = null;
         this.scheduler = null;
+
+        this.allResourceData = resourceData; 
+        this.filteredResourceData = resourceData;
+        this.selectedLocations = [];
+
         this.initializeScheduler();
         this.setupEventListeners();
     }
@@ -57,8 +72,48 @@ class SchedulerManager {
     initializeScheduler() {
         this.setClinicianValue();
         this.createScheduler();
+        this.initializeFilters();
         this.fetchAndUpdateEvents(); // Initial load of events
     }
+
+    initializeFilters() {
+        // Initialize clinician filter
+        this.clinicianSelect = new MultiSelect(document.querySelector('#clinician-filter'));
+        this.clinicianSelect.container.addEventListener('change', () => this.handleFilterChange());
+
+        // Initialize location filter
+        this.locationSelect = new MultiSelect(document.querySelector('#location-filter'));
+        this.locationSelect.container.addEventListener('change', () => this.handleFilterChange());
+
+        const clinicianFilterContainer = document.querySelector('#clinician-filter-container');
+        const isClinician = document.querySelector('#is-clinician');
+        if (clinicianFilterContainer && isClinician.value.toLowerCase() === 'true') {
+            clinicianFilterContainer.style.display = 'none';
+        }
+    }
+
+    async handleFilterChange() {
+        const selectedClinicians = this.clinicianSelect.getSelectedValues();
+        this.selectedLocations = this.locationSelect.getSelectedValues();
+
+        // Filter resources based on selected clinicians
+        this.filteredResourceData = this.allResourceData.filter(resource => 
+            selectedClinicians.includes(resource.id.toString())
+        );
+
+        // Update scheduler resources
+        this.updateSchedulerResources();
+
+        // Fetch and update events with new filters
+        await this.fetchAndUpdateEvents();
+    }
+
+    updateSchedulerResources() {
+        this.scheduler.resources[0].dataSource = this.filteredResourceData;
+        this.scheduler.dataBind();
+        this.scheduler.closeEditor();
+    }
+
 
     setClinicianValue() {
         const isClinicianInput = document.getElementById('is-clinician');
@@ -196,16 +251,43 @@ class SchedulerManager {
     async fetchAndUpdateEvents(selectedDate = this.scheduler.selectedDate, selectedView = this.scheduler.currentView) {
         try {
             const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
+            const clinicianIds = this.clinicianSelect.getSelectedValues();
+            const locationIds = this.locationSelect.getSelectedValues();
+
+            showSpinner();
+
             const response = await fetch(
-                `${window.location.href}?start_date=${startDate}&end_date=${endDate}`,
-                { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+                `api/get_events/`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCsrfToken(),
+                    },
+                    body: JSON.stringify({
+                        start_date: startDate,
+                        end_date: endDate,
+                        clinician_ids: this.clinicianSelect.isAllSelected ?
+                            null : clinicianIds,
+                        location_ids: this.locationSelect.isAllSelected ?
+                            null : locationIds
+                    })
+                }
             );
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
             const data = await response.json();
             this.scheduler.eventSettings.dataSource = data;
             this.scheduler.dataBind();
             this.scheduler.closeEditor();
         } catch (error) {
             console.error('Error loading events:', error);
+        } finally {
+            hideSpinner();
         }
     }
 

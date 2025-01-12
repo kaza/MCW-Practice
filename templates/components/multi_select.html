@@ -1,0 +1,73 @@
+{% load static %}
+
+{% block extra_js %}
+<script src="{% static 'js/multi_select.js' %}"></script>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/multi_select.css' %}">
+{% endblock %}
+
+<div id="{{ container_id }}" class="ms-container">
+    <div class="ms-header" data-toggle="dropdown">
+        <div class="ms-selected-display">
+            {% if main_header.icon %}
+                <span class="ms-icon">{{ main_header.icon|safe }}</span>
+            {% endif %}
+            <span class="ms-selected-text">{{ main_header.title }}</span>
+            <button class="ms-expand-btn" aria-expanded="false">▼</button>
+        </div>
+    </div>
+    
+    <div class="ms-dropdown hidden">
+        <div class="ms-search">
+            <input type="text" class="ms-search-input" placeholder="Search" id="searchInput" autocomplete="off">
+        </div>
+        
+        <div class="ms-content">
+            <div class="ms-main-header">
+                <div class="ms-header-item">
+                    <input type="checkbox" 
+                           id="select_all_{{ container_id }}" 
+                           class="ms-checkbox"
+                           {% if all_selected %}checked{% endif %}>
+                    <label for="select_all_{{ container_id }}" class="ms-label" id="main_header_label">
+                        {{ main_header.title }}
+                    </label>
+                </div>
+            </div>
+            
+            <div class="ms-dropdown-content">
+                {% for group in groups %}
+                    <div class="ms-group">
+                        {% if group.name %}
+                            <div class="ms-group-header">
+                                <span class="ms-group-title">{{ group.name|upper }}</span>
+                                <!-- <a href="#" class="ms-select-all" data-group="{{ group.name }}">Select all</a> -->
+                            </div>
+                        {% endif %}
+                        
+                        <div class="ms-items">
+                            {% for item in group.items %}
+                                <div class="ms-item">
+                                    <input type="checkbox" 
+                                           id="item_{{ container_id }}_{{ item.id }}" 
+                                           name="selected_items" 
+                                           value="{{ item.id }}"
+                                           class="ms-checkbox"
+                                           {% if item.selected %}checked{% endif %}>
+                                    <label for="item_{{ container_id }}_{{ item.id }}" class="ms-label">
+                                        {% if item.icon %}
+                                            <span class="ms-icon">{{ item.icon|safe }}</span>
+                                        {% endif %}
+                                        {{ item.name }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
