@@ -1,0 +1,146 @@
+.ms-container {
+    position: relative;
+    width: 300px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.ms-header {
+    cursor: pointer;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+
+.ms-header-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ms-selected-display {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 8px;
+}
+
+.ms-selected-text {
+    flex: 1;
+    font-size: 14px;
+    color: #333;
+}
+
+.ms-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+
+.ms-dropdown.hidden {
+    display: none;
+}
+
+
+.ms-search {
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.ms-search-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.ms-main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #f8f9fa;
+    font-weight: 500;
+}
+
+.ms-expand-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    padding: 0 5px;
+}
+
+.ms-group {
+    padding: 5px 0;
+}
+
+.ms-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    color: #666;
+    font-size: 12px;
+}
+
+.ms-select-all {
+    color: #0066cc;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.ms-items {
+    padding: 2px 0;
+}
+
+.ms-item {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    gap: 8px;
+}
+
+.ms-checkbox {
+    margin-right: 10px;
+}
+
+.ms-label {
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ms-icon {
+    display: inline-flex;
+    align-items: center;
+}
+
+.ms-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+.ms-expand-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #666;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.ms-expand-btn[aria-expanded="true"] {
+    transform: rotate(180deg);
+}

@@ -1,5 +1,15 @@
 {% load static %}
 
+<div class="filters-container">
+    <div class="filter-item">
+        {% include 'components/multi_select.html' with container_id='clinician-filter' main_header=clinician_header groups=clinician_groups all_selected=clinician_all_selected %}
+    </div>
+    <div class="filter-item">
+        {% include 'components/multi_select.html' with container_id='location-filter' main_header=location_header groups=location_groups all_selected=location_all_selected %}
+    </div>
+</div>
+
+
 <div id="spinner-container" class="spinner-container">
     <div class="spinner"></div>
 </div>
@@ -49,8 +59,14 @@ class SchedulerManager {
         this.isClinician = isClinician;
         this.currentResourceId = null;
         this.scheduler = null;
+
+        this.allResourceData = resourceData; 
+        this.filteredResourceData = resourceData;
+        this.selectedLocations = [];
+
         this.initializeScheduler();
         this.setupEventListeners();
+        this.initializeFilters();
     }
 
     // Region: Initialization
@@ -59,6 +75,39 @@ class SchedulerManager {
         this.createScheduler();
         this.fetchAndUpdateEvents(); // Initial load of events
     }
+
+    initializeFilters() {
+        // Initialize clinician filter
+        this.clinicianSelect = new MultiSelect(document.querySelector('#clinician-filter'));
+        this.clinicianSelect.container.addEventListener('change', () => this.handleFilterChange());
+
+        // Initialize location filter
+        this.locationSelect = new MultiSelect(document.querySelector('#location-filter'));
+        this.locationSelect.container.addEventListener('change', () => this.handleFilterChange());
+    }
+
+    async handleFilterChange() {
+        const selectedClinicians = this.clinicianSelect.getSelectedValues();
+        this.selectedLocations = this.locationSelect.getSelectedValues();
+
+        // Filter resources based on selected clinicians
+        this.filteredResourceData = this.allResourceData.filter(resource => 
+            selectedClinicians.includes(resource.id.toString())
+        );
+
+        // Update scheduler resources
+        this.updateSchedulerResources();
+
+        // Fetch and update events with new filters
+        await this.fetchAndUpdateEvents();
+    }
+
+    updateSchedulerResources() {
+        this.scheduler.resources[0].dataSource = this.filteredResourceData;
+        this.scheduler.dataBind();
+        this.scheduler.closeEditor();
+    }
+
 
     setClinicianValue() {
         const isClinicianInput = document.getElementById('is-clinician');
