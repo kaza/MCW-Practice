@@ -10,6 +10,9 @@ class MultiSelect {
         this.allCheckboxes = container.querySelectorAll('.ms-item .ms-checkbox');
         this.selectAllButtons = container.querySelectorAll('.ms-select-all');
         this.expandBtn = container.querySelector('.ms-expand-btn');
+        this.mainHeaderTitle = container.querySelector('.ms-header-item .ms-label');
+        this.isAllSelected = false;
+
         
         this.init();
     }
@@ -110,10 +113,16 @@ class MultiSelect {
     }
 
     updateSelectedDisplay() {
+        this.isAllSelected = false;
         const checkedBoxes = Array.from(this.allCheckboxes).filter(cb => cb.checked);
         if (checkedBoxes.length === 0) {
             this.selectedDisplay.textContent = 'None selected';
-        } else {
+        } 
+        else if (checkedBoxes.length === this.allCheckboxes.length) {
+            this.selectedDisplay.textContent = this.mainHeaderTitle.textContent;
+            this.isAllSelected = true;
+        }    
+        else {
             const firstSelected = checkedBoxes[0].closest('.ms-item').querySelector('label').textContent.trim();
             this.selectedDisplay.textContent = checkedBoxes.length === 1 ? 
                 firstSelected : 

@@ -2,6 +2,7 @@ from django.views import View
 from django.http import JsonResponse
 from apps.shared.services.scheduler_service import SchedulerDataService
 from django.core.exceptions import ObjectDoesNotExist
+import json
 
 class GetClientCliniciansView(View):
     def get(self, request, client_id):
@@ -82,3 +83,21 @@ class GetClinicianLocationsView(View):
     def get(self, request, clinician_id):
         locations = SchedulerDataService.get_clinician_locations(clinician_id)
         return JsonResponse(locations, safe=False)
+
+class GetEventsView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        clinician_ids = data.get('clinician_ids', [])
+        location_ids = data.get('location_ids', [])
+
+        events = SchedulerDataService.get_events(
+            request.user.user_type, 
+            getattr(request.user, 'id', None), 
+            start_date, 
+            end_date, 
+            clinician_ids, 
+            location_ids
+        )
+        return JsonResponse(events, safe=False)

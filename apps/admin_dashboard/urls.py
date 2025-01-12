@@ -5,6 +5,7 @@ app_name = 'admin_dashboard'
 
 urlpatterns = [
     path('', views.DashboardView.as_view(), name='dashboard'),
+    path('api/get_events/', views.GetEventsView.as_view(), name='get_events'),
     path('api/clients/search/', views.ClientSearchView.as_view(), name='client_search'),
     path('api/locations/search/', views.LocationSearchView.as_view(), name='location_search'),
     path('api/get_client_clinicians/<int:client_id>/', views.GetClientCliniciansView.as_view(), name='get_client_clinicians'),

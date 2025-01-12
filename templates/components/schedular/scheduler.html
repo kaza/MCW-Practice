@@ -66,13 +66,13 @@ class SchedulerManager {
 
         this.initializeScheduler();
         this.setupEventListeners();
-        this.initializeFilters();
     }
 
     // Region: Initialization
     initializeScheduler() {
         this.setClinicianValue();
         this.createScheduler();
+        this.initializeFilters();
         this.fetchAndUpdateEvents(); // Initial load of events
     }
 
@@ -245,16 +245,43 @@ class SchedulerManager {
     async fetchAndUpdateEvents(selectedDate = this.scheduler.selectedDate, selectedView = this.scheduler.currentView) {
         try {
             const { startDate, endDate } = getStartAndEndDates(selectedDate, selectedView);
+            const clinicianIds = this.clinicianSelect.getSelectedValues();
+            const locationIds = this.locationSelect.getSelectedValues();
+
+            showSpinner();
+
             const response = await fetch(
-                `${window.location.href}?start_date=${startDate}&end_date=${endDate}`,
-                { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+                `api/get_events/`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCsrfToken(),
+                    },
+                    body: JSON.stringify({
+                        start_date: startDate,
+                        end_date: endDate,
+                        clinician_ids: this.clinicianSelect.isAllSelected ?
+                            null : clinicianIds,
+                        location_ids: this.locationSelect.isAllSelected ?
+                            null : locationIds
+                    })
+                }
             );
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
             const data = await response.json();
             this.scheduler.eventSettings.dataSource = data;
             this.scheduler.dataBind();
             this.scheduler.closeEditor();
         } catch (error) {
             console.error('Error loading events:', error);
+        } finally {
+            hideSpinner();
         }
     }
 

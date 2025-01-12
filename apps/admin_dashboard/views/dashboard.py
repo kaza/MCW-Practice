@@ -79,12 +79,16 @@ class DashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             start_date = request.GET.get('start_date')
             end_date = request.GET.get('end_date')
+            clinician_ids = request.GET.get('clinician_ids')
+            location_ids = request.GET.get('location_ids')
             return JsonResponse(
                 SchedulerDataService.get_events(
                     request.user.user_type,
                     getattr(request.user, 'id', None),
                     start_date,
-                    end_date
+                    end_date,
+                    clinician_ids,
+                    location_ids
                 ), 
                 safe=False
             )
