@@ -81,11 +81,11 @@ class SchedulerDataService:
         )
 
         # Filter by clinician IDs if provided
-        if clinician_ids:
+        if clinician_ids is not None:
             base_query = base_query.filter(clinician_id__in=clinician_ids)
 
         # Filter by location IDs if provided
-        if location_ids:
+        if location_ids is not None:
             base_query = base_query.filter(location_id__in=location_ids)
 
         # Continue with user role checks

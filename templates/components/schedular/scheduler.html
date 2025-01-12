@@ -1,7 +1,7 @@
 {% load static %}
 
 <div class="filters-container">
-    <div class="filter-item">
+    <div class="filter-item" id="clinician-filter-container">
         {% include 'components/multi_select.html' with container_id='clinician-filter' main_header=clinician_header groups=clinician_groups all_selected=clinician_all_selected %}
     </div>
     <div class="filter-item">
@@ -84,6 +84,12 @@ class SchedulerManager {
         // Initialize location filter
         this.locationSelect = new MultiSelect(document.querySelector('#location-filter'));
         this.locationSelect.container.addEventListener('change', () => this.handleFilterChange());
+
+        const clinicianFilterContainer = document.querySelector('#clinician-filter-container');
+        const isClinician = document.querySelector('#is-clinician');
+        if (clinicianFilterContainer && isClinician.value.toLowerCase() === 'true') {
+            clinicianFilterContainer.style.display = 'none';
+        }
     }
 
     async handleFilterChange() {
